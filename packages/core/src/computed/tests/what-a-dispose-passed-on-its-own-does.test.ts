@@ -1,7 +1,7 @@
 import type { TOIMDisposer } from '../../schedule/types/TOIMDisposer';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -25,6 +25,6 @@ describe('an effect dispose handed on without its effect', () => {
         db.flush();
 
         expect(runs).toBe(0);
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 });

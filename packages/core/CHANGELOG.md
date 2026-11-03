@@ -3,6 +3,45 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.9.0
+
+### Added
+
+- `slot.watch(body, columnNames?)` on entity, computed and bucket slots; returns a disposer.
+- Column doors on computed slots: `getColumnSlot`, `holdColumnSlot`, `getAnyColumnSlot`, `holdAnyColumnSlot`, `getColumnGroupSlot`, `holdColumnGroupSlot`; `TOIMComputedCarrierSlot`.
+- `columnSlot.value` on every column slot (entity, bucket and computed).
+- `IOIMSlotContentService.peekColumnValue` / `peekColumnGroupValue` / `peekAnyColumnValue`.
+- `db.addSlotReleaseListener(listener)` → `TOIMDisposer`; `IOIMSlotReleaseListener`.
+- `db.claimSlotDataCell()`: a `slot.data` cell index per consumer.
+- `OIMBucketCommandsCursor` (`takeBucketCommands()`), `TOIMBucketCommandsCursorOptions`.
+- `OIM_NOOP_DISPOSER`.
+- `bucketCommands` on `OIMSortedArrayBucketContentService` and `createOIMSlotCollectionSortedArrayIndexService` (records the whole list).
+- `columnNames` / `columnGroups` on `createOIMSortedComputedService` and `createOIMBucketMemoComputedService`; `slotSubscriptionListener` on every computed factory.
+
+### Renamed
+
+- Functions: `oim` + verb + object → verb + `OIM` + object (`oimIsSlotReleased` → `isOIMSlotReleased`, `oimSameValueZeroGuard` → `isOIMSameValueZero`, `oimGetBucketMemberSlotEntities` → `getOIMBucketMemberSlotEntities`, `oimPatchEntityColumn` → `patchOIMEntityColumn`, …).
+- `TOIMEntityColumnName` → `TOIMColumnName`.
+- `computedSlotStoreService` → `slotStoreService` on computed factories.
+- Column doors: `getColumn` → `getColumnSlot`, `holdColumn` → `holdColumnSlot`, `unholdColumn` → `unholdColumnSlot`, `getAnyColumn` → `getAnyColumnSlot`, `holdAnyColumn` → `holdAnyColumnSlot`, `holdColumnGroup` → `holdColumnGroupSlot`; `getBucketColumnByKey` / `holdBucketColumnByKey` / `getAnyBucketColumnByKey` / `holdAnyBucketColumnByKey` → `…ColumnSlotByKey`; `getBucketColumn` / `holdBucketColumn` / `getAnyBucketColumn` / `holdAnyBucketColumn` → `…ColumnSlot`.
+- `allRootSlots` → `rootSlots` (computed slots and effects).
+- `readEntity(columnGroup)` → `getEntity(columnGroup)`.
+- `findSlotByKey` → `peekSlotByKey`, `findSingleSlot` → `peekSingleSlot`, `findEntitySlotsByKeys` → `peekEntitySlotsByKeys`.
+- `getOIMChannelSlot` → `peekOIMChannelSlot`, `getOIMBucketSlotsSetStore` → `peekOIMBucketSlotsSetStore`, `getOIMReleaseDueAfter{Idle,Unhold,Write}Ms` → `peekOIMReleaseDueAfter{Idle,Unhold,Write}Ms`.
+
+### Changed
+
+- A computed column slot is an `OIMColumnSlot`, like an entity column; `TOIMComputedColumnSlot<TSourceTracker>` carries its carrier's tracker type.
+- `OIMEffectService`'s source-tracking list takes any computed.
+- A bucket column slot wakes when a member joins or leaves, not only when a member's column is written.
+- `OIMSlotRefetchWheel` hands over every due slot that is not released, including one nobody subscribes to.
+- `db.createEffect(body, sourceSlots)` refuses a slot with `sourceComputeds` (a computed) instead of a slot with `value`.
+
+### Fixed
+
+- A column of a source-tracking computed follows the carrier's new sources.
+- `db.createEffect(body, sourceSlots)` called inside a tracked body no longer tracks the slots its first run reads.
+
 ## 4.8.0
 
 ### Added

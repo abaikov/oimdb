@@ -1,10 +1,10 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
@@ -15,7 +15,7 @@ type Card = { id: string; title: string; rank: number };
 
 const effectService = OIMEffectService.INSTANCE;
 
-const createRankService = () => createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
+const createRankService = () => createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
 
 type TRankService = ReturnType<typeof createRankService>;
 
@@ -74,7 +74,7 @@ describe('a removed slot is let go of by the last thing that referred to it', ()
         const { db, cardsService, cards } = createFixture();
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards, 'a')!;
-        const columnEffect = effectService.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'rank')]);
+        const columnEffect = effectService.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'rank')]);
         db.flush();
 
         cardsService.slotContentService.clearSlotContent(slot);
@@ -82,14 +82,14 @@ describe('a removed slot is let go of by the last thing that referred to it', ()
 
         // No value, no hold, nothing subscribed to the slot itself — and still
         // filed, because the column is watched.
-        expect(oimIsSlotEmpty(slot)).toBe(true);
+        expect(isOIMSlotEmpty(slot)).toBe(true);
         expect(slot.holdCount).toBe(0);
         expect(slot.effects?.length ?? 0).toBe(0);
         expect(cardsService.getSlotByKey(cards, 'a')).toBe(slot);
         expect(cardsService.getSlotCount(cards)).toBe(1);
 
         effectService.disposeEffect(columnEffect);
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 
@@ -97,7 +97,7 @@ describe('a removed slot is let go of by the last thing that referred to it', ()
         const { db, cardsService, cards } = createFixture();
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const first = cardsService.getSlotByKey(cards, 'a')!;
-        const columnEffect = effectService.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(first, 'rank')]);
+        const columnEffect = effectService.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(first, 'rank')]);
         db.flush();
         cardsService.slotContentService.clearSlotContent(first);
         db.flush();

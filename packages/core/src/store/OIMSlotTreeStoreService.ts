@@ -2,7 +2,7 @@ import type { IOIMSlotStoreService } from './interfaces/IOIMSlotStoreService';
 import type { IOIMKeyTreeWalk } from '../key/interfaces/IOIMKeyTreeWalk';
 import type { TOIMKeyedSlot } from '../slot/types/TOIMKeyedSlot';
 import type { TOIMSlotStoreTree } from './types/TOIMSlotStoreTree';
-import { oimSameKeySequence } from '../key/utils/oimSameKeySequence';
+import { isOIMSameKeySequence } from '../key/utils/isOIMSameKeySequence';
 
 export class OIMSlotTreeStoreService<
     TCompositeKeyPart, TSlot extends TOIMKeyedSlot<readonly TCompositeKeyPart[]>,
@@ -19,7 +19,7 @@ implements IOIMSlotStoreService<readonly TCompositeKeyPart[], TSlot, TOIMSlotSto
     }
 
     public isSameKey(compositeKey: readonly TCompositeKeyPart[], otherCompositeKey: readonly TCompositeKeyPart[]): boolean {
-        return oimSameKeySequence(compositeKey, otherCompositeKey);
+        return isOIMSameKeySequence(compositeKey, otherCompositeKey);
     }
 
     public get(

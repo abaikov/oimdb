@@ -3,7 +3,7 @@ import { OIMScalarKeyTreeWalk } from '../../key/OIMScalarKeyTreeWalk';
 import { OIMSlotTreeStoreService } from '../OIMSlotTreeStoreService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../types/TOIMStoreKey';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -48,12 +48,12 @@ describe('a key taken twice, on a store keyed by a chain', () => {
         rowsService.writeInBatch(rows, () => ([{ userId: 'u1', day: 'mon', note: 'first' }]).map(entity => rowsService.writeSlotContentByKey(rows, ((row: TRow) => [row.userId, row.day])(entity), entity)));
         const stale = rowsService.getSlotByKey(rows, ['u1', 'mon']);
         rowsService.slotContentService.clearSlotContent(stale);
-        expect(oimIsSlotReleased(stale)).toBe(true);
+        expect(isOIMSlotReleased(stale)).toBe(true);
 
         const live = rowsService.holdSlotByKey(rows, ['u1', 'mon']);
         stale.owner.releaseSlotIfUnheld(stale);
 
-        expect(oimIsSlotReleased(live)).toBe(false);
+        expect(isOIMSlotReleased(live)).toBe(false);
         expect(rowsService.getSlotByKey(rows, ['u1', 'mon'])).toBe(live);
         live.owner.unholdSlot(live);
     });

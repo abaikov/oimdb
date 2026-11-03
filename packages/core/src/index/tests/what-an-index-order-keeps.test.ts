@@ -28,11 +28,11 @@ const createFixture = (sorter: TSorter) => {
     const order = ordersService.holdSlotByKey(orders, 'spades');
     const idsInOrder = (): string[] => readValueWithoutTracking(order).map(slot => slot.entity?.id ?? '');
     const updateEntityByKey = (key: string, patch: Partial<TCard>): void => {
-        const slot = cardsService.findSlotByKey(cards, key);
+        const slot = cardsService.peekSlotByKey(cards, key);
         if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
     };
     const deleteEntityByKey = (key: string): void => {
-        const slot = cardsService.findSlotByKey(cards, key);
+        const slot = cardsService.peekSlotByKey(cards, key);
         if (slot !== undefined) cardsService.slotContentService.clearSlotContent(slot);
     };
     return {

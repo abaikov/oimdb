@@ -51,7 +51,7 @@ export type { TOIMPersistVersionedCodecOptions } from './codec/types/TOIMPersist
 export type { TOIMPersistVersionedShape } from './codec/types/TOIMPersistVersionedShape';
 
 export type { TOIMPersistHydrateReconcile } from './reconcile/types/TOIMPersistHydrateReconcile';
-export { oimReconcileByKey } from './reconcile/oimReconcileByKey';
+export { reconcileOIMByKey } from './reconcile/reconcileOIMByKey';
 
 export type { IOIMPersistKeyValueStorage } from './keyvalue/interfaces/IOIMPersistKeyValueStorage';
 export { OIMPersistItemKeyValueStorage } from './keyvalue/OIMPersistItemKeyValueStorage';
@@ -63,7 +63,7 @@ export type { TOIMPersistKeyValueSerializer } from './keyvalue/types/TOIMPersist
 export { OIM_PERSIST_KEY_VALUE_JSON_SERIALIZER } from './keyvalue/constants/OIM_PERSIST_KEY_VALUE_JSON_SERIALIZER';
 export { OIMPersistKeyValueWriteBatch } from './keyvalue/OIMPersistKeyValueWriteBatch';
 export { OIMPersistWriteBatchChanges } from './persistor/OIMPersistWriteBatchChanges';
-export { oimWritePersistRecordsDelta } from './strategy/utils/oimWritePersistRecordsDelta';
+export { writeOIMPersistRecordsDelta } from './strategy/utils/writeOIMPersistRecordsDelta';
 export { OIMPersistKeyValueEntrySnapshotService } from './keyvalue/OIMPersistKeyValueEntrySnapshotService';
 export type { TOIMPersistKeyValueEntrySnapshotServiceOptions } from './keyvalue/types/TOIMPersistKeyValueEntrySnapshotServiceOptions';
 export { OIMPersistKeyValuePathSnapshotService } from './keyvalue/OIMPersistKeyValuePathSnapshotService';

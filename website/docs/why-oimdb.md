@@ -569,11 +569,11 @@ tree-shaken:
 {/* bundle-size:begin */}
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 118566 B | 27603 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 51418 B | 12753 B |
-| The same, plus one effect and `db.flush()` | 51451 B | 12769 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 73921 B | 17800 B |
-| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 65326 B | 15845 B |
+| Everything `@oimdb/core` exports | 123324 B | 28375 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 53732 B | 13394 B |
+| The same, plus one effect and `db.flush()` | 53762 B | 13407 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 76947 B | 18599 B |
+| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 68295 B | 16604 B |
 {/* bundle-size:end */}
 
 ## Next steps

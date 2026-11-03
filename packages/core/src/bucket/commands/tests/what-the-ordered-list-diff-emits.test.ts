@@ -1,4 +1,4 @@
-import { oimOrderedListCommandsOfTransition } from '../utils/oimOrderedListCommandsOfTransition';
+import { getOIMOrderedListCommands } from '../utils/getOIMOrderedListCommands';
 import type { TOIMEntitySlot } from '../../../index';
 import { applyOrderedListCommands, sameEntitySlotSequence } from '../../../../tests/support/orderedListConsumer';
 
@@ -47,7 +47,7 @@ describe('what the ordered-list diff emits', () => {
         const prev = [a, b, c];
         const next = [c, a, b];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         expect(commands.every(c => c.type === 'move')).toBe(true);
         expect(commands.length).toBeGreaterThan(0);
@@ -56,14 +56,14 @@ describe('what the ordered-list diff emits', () => {
     });
 
     it('diffs two empty lists into no commands', () => {
-        expect(oimOrderedListCommandsOfTransition([], [])).toEqual([]);
+        expect(getOIMOrderedListCommands([], [])).toEqual([]);
     });
 
     it('diffs an empty prev against a populated next into pure inserts', () => {
         const [a, b] = [makeSlot(1), makeSlot(2)];
         const next = [a, b];
 
-        const commands = oimOrderedListCommandsOfTransition([], next);
+        const commands = getOIMOrderedListCommands([], next);
 
         expect(commands.every(c => c.type === 'insert')).toBe(true);
         expect(commands).toHaveLength(2);
@@ -75,7 +75,7 @@ describe('what the ordered-list diff emits', () => {
         const [a, b] = [makeSlot(1), makeSlot(2)];
         const prev = [a, b];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, []);
+        const commands = getOIMOrderedListCommands(prev, []);
 
         expect(commands.every(c => c.type === 'remove')).toBe(true);
         expect(commands).toHaveLength(2);
@@ -88,7 +88,7 @@ describe('what the ordered-list diff emits', () => {
         const prev = [a, b];
         const next = [a, b, c];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         expect(commands).toEqual([{ type: 'insert', index: 2, slot: c }]);
         const applied = applyOrderedListCommands(prev.slice(), commands);
@@ -100,7 +100,7 @@ describe('what the ordered-list diff emits', () => {
         const prev = [a, b, c];
         const next = [a, c];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         expect(commands).toEqual([{ type: 'remove', index: 1 }]);
         const applied = applyOrderedListCommands(prev.slice(), commands);
@@ -112,7 +112,7 @@ describe('what the ordered-list diff emits', () => {
         const prev = [a, b, c, d];
         const next = [d, b, a, c];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         expect(commands.every(c => c.type === 'move')).toBe(true);
         expect(commands.length).toBeGreaterThan(0);
@@ -125,7 +125,7 @@ describe('what the ordered-list diff emits', () => {
         const prev = [a, b, c, d];
         const next = [d, e, b, a];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         const types = new Set(commands.map(c => c.type));
         expect(types.has('insert')).toBe(true);
@@ -138,7 +138,7 @@ describe('what the ordered-list diff emits', () => {
         const a = makeSlot(1);
         const next = [a, a];
 
-        const commands = oimOrderedListCommandsOfTransition([], next);
+        const commands = getOIMOrderedListCommands([], next);
 
         expect(commands).toEqual([
             { type: 'insert', index: 0, slot: a },
@@ -151,7 +151,7 @@ describe('what the ordered-list diff emits', () => {
         const a = makeSlot(1);
         const prev = [a, a];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, [a]);
+        const commands = getOIMOrderedListCommands(prev, [a]);
 
         expect(commands).toEqual([{ type: 'remove', index: 1 }]);
         expect(sameEntitySlotSequence(applyOrderedListCommands(prev.slice(), commands), [a])).toBe(true);
@@ -161,7 +161,7 @@ describe('what the ordered-list diff emits', () => {
         const a = makeSlot(1);
         const next = [a, a];
 
-        const commands = oimOrderedListCommandsOfTransition([a], next);
+        const commands = getOIMOrderedListCommands([a], next);
 
         expect(commands).toEqual([{ type: 'insert', index: 1, slot: a }]);
         expect(sameEntitySlotSequence(applyOrderedListCommands([a], commands), next)).toBe(true);
@@ -171,7 +171,7 @@ describe('what the ordered-list diff emits', () => {
         const [a, b] = [makeSlot(1), makeSlot(2)];
         const next = [a, b, a];
 
-        const commands = oimOrderedListCommandsOfTransition([], next);
+        const commands = getOIMOrderedListCommands([], next);
 
         expect(commands).toHaveLength(3);
         expect(sameEntitySlotSequence(applyOrderedListCommands([], commands), next)).toBe(true);
@@ -182,7 +182,7 @@ describe('what the ordered-list diff emits', () => {
         const prev = [a, b, a];
         const next = [b, a];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         expect(commands).toEqual([
             { type: 'remove', index: 2 },
@@ -208,7 +208,7 @@ describe('what the ordered-list diff emits', () => {
             const next = draw();
             if (new Set(prev).size !== prev.length || new Set(next).size !== next.length) carriedARepeat++;
 
-            const commands = oimOrderedListCommandsOfTransition(prev, next);
+            const commands = getOIMOrderedListCommands(prev, next);
 
             const applied = applyOrderedListCommands(prev.slice(), commands);
             if (!sameEntitySlotSequence(applied, next)) {
@@ -234,7 +234,7 @@ describe('what the ordered-list diff emits', () => {
         const prev = [a, b, c];
         const next = [c, a, b, d];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         expect(commands).toEqual([
             { type: 'insert', index: 3, slot: d },
@@ -249,7 +249,7 @@ describe('what the ordered-list diff emits', () => {
         const prev = slots.slice(0, 6);
         const next = slots.slice(4, 10).reverse();
 
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         expect(commands.some(c => c.type === 'reset')).toBe(false);
     });
@@ -266,7 +266,7 @@ describe('what the ordered-list diff emits', () => {
             const prev = shuffle(pool.slice(0, prevSize), random);
             const next = shuffle(pool.slice(0, nextSize), random);
 
-            const commands = oimOrderedListCommandsOfTransition(prev, next);
+            const commands = getOIMOrderedListCommands(prev, next);
 
             // (1) Applying the commands to prev reproduces next exactly, by identity.
             const applied = applyOrderedListCommands(prev.slice(), commands);

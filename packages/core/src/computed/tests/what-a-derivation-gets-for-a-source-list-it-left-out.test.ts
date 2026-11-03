@@ -43,7 +43,7 @@ describe('what a derivation gets for a source list it left out', () => {
         const doubled = doubledService.createStoreSlot(db, () => (card.entity?.n ?? 0) * 2, () => ({ sourceSlots: [card] }));
 
         expect(doubledService.getSingleValue(doubled)).toBe(2);
-        cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { n: 5 });
+        cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 'a')!, { n: 5 });
         expect(doubledService.getSingleValue(doubled)).toBe(10);
         expect(doubledService.getSingleSlot(doubled).sourceComputeds).toHaveLength(0);
     });
@@ -63,7 +63,7 @@ describe('what a derivation gets for a source list it left out', () => {
         );
 
         expect(plusOneService.getSingleValue(plusOne)).toBe(3);
-        cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { n: 2 });
+        cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 'a')!, { n: 2 });
         expect(plusOneService.getSingleValue(plusOne)).toBe(5);
         expect(plusOneService.getSingleSlot(plusOne).sourceSlots).toHaveLength(0);
     });

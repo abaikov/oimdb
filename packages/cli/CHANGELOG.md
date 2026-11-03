@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+### Changed
+
+- A model module exports `OIM_DEV_REGISTRY` (was `oimDevRegistry`); messages name `OIM_DEV_REGISTRY`.
+
 ## 1.1.1
 
 ### Changed

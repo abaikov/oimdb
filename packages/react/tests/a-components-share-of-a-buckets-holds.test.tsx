@@ -19,7 +19,7 @@
 import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, OIMUnusedSlotCollectorService, oimIsSlotReleased } from '@oimdb/core';
+import { OIMDB, OIMUnusedSlotCollectorService, isOIMSlotReleased } from '@oimdb/core';
 import { OIMPositionalArrayBucketContentService } from '@oimdb/core';
 import { OIMDBProvider, useOIMBucketSlotsByKey } from '../src/index';
 import { createOIMEntityContentService } from '@oimdb/core';
@@ -164,7 +164,7 @@ describe('binding a group by key', () => {
         expect(searched.holdCount).toBe(1);
 
         view.unmount();
-        expect(oimIsSlotReleased(searched)).toBe(true);
+        expect(isOIMSlotReleased(searched)).toBe(true);
         expect(byDeckService.getSlotCount(byDeck)).toBe(2);
     });
 
@@ -299,14 +299,14 @@ describe('a key that moves between renders', () => {
         view.rerender(<List deck="typed-o" />);
 
         // The keystroke before this one is not a bucket any more.
-        expect(oimIsSlotReleased(typed)).toBe(true);
+        expect(isOIMSlotReleased(typed)).toBe(true);
         const typedO = byDeckService.getSlotByKey(byDeck, 'typed-o');
         flushUnusedSlots(db);
         expect(typedO.holdCount).toBe(1);
         expect(screen.getByTestId('n').textContent).toBe('0');
 
         view.unmount();
-        expect(oimIsSlotReleased(typedO)).toBe(true);
+        expect(isOIMSlotReleased(typedO)).toBe(true);
         expect(byDeckService.getSlotCount(byDeck)).toBe(2);
     });
 });

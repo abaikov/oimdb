@@ -1,4 +1,4 @@
-import { oimHoldSlots, oimUnholdSlotsIfAlive, type TOIMDisposer, type TOIMSlot } from '@oimdb/core';
+import { holdOIMSlots, unholdOIMSlotsIfAlive, type TOIMDisposer, type TOIMSlot } from '@oimdb/core';
 
 /**
  * Subscribe with those identities held, giving the holds back AFTER the subscription is
@@ -9,8 +9,8 @@ export function holdWhileSubscribed(
     slots: readonly TOIMSlot[],
     subscribe: () => TOIMDisposer,
 ): TOIMDisposer {
-    oimHoldSlots(slots);
-    const giveEveryHoldBack = (): void => { oimUnholdSlotsIfAlive(slots); };
+    holdOIMSlots(slots);
+    const giveEveryHoldBack = (): void => { unholdOIMSlotsIfAlive(slots); };
     let disposer: TOIMDisposer;
     try {
         disposer = subscribe();

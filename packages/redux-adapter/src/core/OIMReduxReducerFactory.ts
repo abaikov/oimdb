@@ -13,8 +13,8 @@ import type { TOIMReduxDefaultGlobalIndexState } from '../types/TOIMReduxDefault
 import type { TOIMReduxKeyedIndex } from '../types/TOIMReduxKeyedIndex';
 import { OIMReduxChildAwareReducer } from './OIMReduxChildAwareReducer';
 import { collectEntitiesByName } from '../utils/collectEntitiesByName';
-import { oimDiffEntityKeys } from '../utils/oimDiffEntityKeys';
-import { oimHasReduxStateField } from '../utils/oimHasReduxStateField';
+import { diffOIMEntityKeys } from '../utils/diffOIMEntityKeys';
+import { hasOIMReduxStateField } from '../utils/hasOIMReduxStateField';
 import type { TOIMReduxDefaultCollectionState } from '../types/TOIMReduxDefaultCollectionState';
 import type { TOIMReduxDefaultIndexState } from '../types/TOIMReduxDefaultIndexState';
 import { OIMReduxLinkedIndexesUpdater } from './OIMReduxLinkedIndexesUpdater';
@@ -129,11 +129,11 @@ export class OIMReduxReducerFactory {
                     if (
                         oldReduxDefaultCollectionState &&
                         newReduxDefaultCollectionState &&
-                        oimHasReduxStateField(oldReduxDefaultCollectionState, 'entities') &&
-                        oimHasReduxStateField(newReduxDefaultCollectionState, 'entities')
+                        hasOIMReduxStateField(oldReduxDefaultCollectionState, 'entities') &&
+                        hasOIMReduxStateField(newReduxDefaultCollectionState, 'entities')
                     ) {
                         // The diff's keys are spent HERE; entities travel on.
-                        const reduxEntityKeysDiff = oimDiffEntityKeys(
+                        const reduxEntityKeysDiff = diffOIMEntityKeys(
                             oldReduxDefaultCollectionState.entities,
                             newReduxDefaultCollectionState.entities
                         );
@@ -185,8 +185,8 @@ export class OIMReduxReducerFactory {
                         | undefined;
                     if (
                         !defaultState ||
-                        !oimHasReduxStateField(defaultState, 'entities') ||
-                        !oimHasReduxStateField(defaultState, 'ids')
+                        !hasOIMReduxStateField(defaultState, 'entities') ||
+                        !hasOIMReduxStateField(defaultState, 'ids')
                     ) {
                         return;
                     }
@@ -200,7 +200,7 @@ export class OIMReduxReducerFactory {
                         oldEntities[String(entitySlot.key)] = entity;
                     }
 
-                    const reduxEntityKeysDiff = oimDiffEntityKeys(oldEntities, defaultState.entities);
+                    const reduxEntityKeysDiff = diffOIMEntityKeys(oldEntities, defaultState.entities);
 
                     const entitiesToUpsert = collectEntitiesByName<TEntity>(
                         defaultState.entities,
@@ -277,7 +277,7 @@ export class OIMReduxReducerFactory {
         const defaultState = state as unknown as
             | TOIMReduxDefaultCollectionState<TEntity, TPk>
             | undefined;
-        if (!defaultState || !oimHasReduxStateField(defaultState, 'entities')) {
+        if (!defaultState || !hasOIMReduxStateField(defaultState, 'entities')) {
             return;
         }
 
@@ -341,7 +341,7 @@ export class OIMReduxReducerFactory {
                     const defaultState = childState as unknown as
                         | TOIMReduxDefaultIndexState<TIndexKey, TPk>
                         | undefined;
-                    if (defaultState && oimHasReduxStateField(defaultState, 'entities')) {
+                    if (defaultState && hasOIMReduxStateField(defaultState, 'entities')) {
                         this.syncIndexEntities(keyedIndex, defaultState.entities);
                     }
                 },
@@ -418,7 +418,7 @@ export class OIMReduxReducerFactory {
 
                     const defaultState =
                         childState as unknown as TOIMReduxDefaultGlobalIndexState<TPk>;
-                    if (!defaultState || !oimHasReduxStateField(defaultState, 'ids')) {
+                    if (!defaultState || !hasOIMReduxStateField(defaultState, 'ids')) {
                         return;
                     }
 

@@ -1,5 +1,5 @@
 // Prose: ./README.md#alternativepairsclock
-import { OIMSlotMapStoreService, createOIMComputedService, oimSameValueZeroGuard } from '../../../core/src/index';
+import { OIMSlotMapStoreService, createOIMComputedService, isOIMSameValueZero } from '../../../core/src/index';
 import type { OIMComputedService, OIMDB, TOIMComputedColumnSlot, TOIMComputedSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
@@ -64,8 +64,8 @@ const ourDerivations = (
     const sourcesByDerivation: TRowSlot[][] = [];
     for (let k = 0; k < DERIVATIONS; k++) sourcesByDerivation.push(sourcesOf(slots, k, fanIn));
     const sumComputedService = createOIMComputedService<number, number>({
-        computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
-        sameValueGuard: oimSameValueZeroGuard,
+        slotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
+        sameValueGuard: isOIMSameValueZero,
         initialValue: 0,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
@@ -155,14 +155,14 @@ const buildRead = (fanIn: number, writesUnrelatedRow: boolean) => {
 const SHARED_RESIDUALS =
     'RESIDUALS. Both arms derive the same sum over the same entity slots of two fixtures built ' +
     'alike, and the build throws unless every derivation answers the same on both. AGAINST US: ' +
-    'our comparison is a CALL to `oimIsRevisionAfter` and walks an EMPTY `sourceComputeds` array ' +
+    'our comparison is a CALL to `isOIMRevisionAfter` and walks an EMPTY `sourceComputeds` array ' +
     'first, where the rejected arm compares inline with `!==` — a per-slot counter cannot wrap ' +
     'inside a process and needs no epoch, which is the one structural advantage that design has ' +
     'and it is granted in full. AGAINST THE REJECTED ARM: its readings are an array object per ' +
     'derivation, so every settle chases one more pointer than our two inline fields. OURS IS ' +
     'READ THROUGH ITS OWNER: the 1024 derivations are the held slots of one ' +
     '`OIMComputedService` store slot keyed by derivation, and each read is `getValueForSlot`, which pays ' +
-    '`assertNotReleased` and a call into `oimRefreshComputedSlot` before the clock compare — charged ' +
+    '`assertNotReleased` and a call into `refreshOIMComputedSlot` before the clock compare — charged ' +
     'to us. A derive looks its source list up by the slot\'s key, which only a write that lands ' +
     'in a source list would reach, and no row here makes one. ' +
     'NO ROW MEASURES BYTES; `src/retained/retainedPairsDerivations.ts` is where that half lives.';
@@ -177,7 +177,7 @@ export const alternativePairsClock: readonly TPricePair[] = [
         floor: 'settle it against one reading per source, held in an array beside the source list',
         caveat: withResiduals(
             'THE QUIET READ, AND ON THE SHIPPED ENGINE IT DOES NOT WALK THE SOURCES AT ALL. ' +
-            '`oimRefreshComputedSlot` returns on the slot\'s `checkedAt` pair matching the channel clock, ' +
+            '`refreshOIMComputedSlot` returns on the slot\'s `checkedAt` pair matching the channel clock, ' +
             'which is only possible because the clock is ONE scale: nothing was written anywhere, so ' +
             'nothing a derivation reads can have moved. The per-slot arm has no such question to ask ' +
             'and must compare every source reading. At one source that walk is one element, so this ' +
@@ -224,7 +224,7 @@ export const alternativePairsClock: readonly TPricePair[] = [
         caveat: withResiduals(
             'THE QUIET ROWS\' OTHER HALF, AND THE ONE TO READ BESIDE THEM. Any write anywhere moves ' +
             'the channel clock, so the `checkedAt` short-circuit misses and ours walks its three ' +
-            'sources through `oimIsRevisionAfter` exactly as the rejected arm walks its readings — ' +
+            'sources through `isOIMRevisionAfter` exactly as the rejected arm walks its readings — ' +
             'neither re-derives, because the written row is outside every source list. The write is ' +
             'the shipped `entityService.slotContentService.updateEntity` on BOTH arms and moves `title` on every call, so it is ' +
             'in both numbers alike. Without this row the quiet rows would price the short-circuit ' +

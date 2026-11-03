@@ -34,7 +34,7 @@ const SRC = join(__dirname, '..', 'src');
  * containing one stray sentence; that sentence gets fixed instead.
  */
 const THE_WORD_MEANS_A_POSITION: readonly string[] = [
-    'bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
+    'bucket/commands/utils/getOIMOrderedListCommands.ts',
     // `engine/bucket/array/OIMBucketArrayMembershipUnique.ts` is NOT on this list
     // and does not need to be: it keeps no order, so it has no occasion to use
     // the word at all.

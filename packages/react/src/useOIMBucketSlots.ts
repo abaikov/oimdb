@@ -5,7 +5,7 @@ import type {
 import type { TOIMBinding } from './types/TOIMBinding';
 import { useOIMValue } from './useOIMValue';
 import { useOIMDB } from './useOIMDB';
-import { oimAssertOneChannel } from './oimAssertOneChannel';
+import { assertOIMOneChannel } from './assertOIMOneChannel';
 
 /** A bucket's slots, copied out of the service's LIVE container, in the collection's order. */
 export function useOIMBucketSlots<TEntity extends object, TSlots = unknown>(
@@ -16,7 +16,7 @@ export function useOIMBucketSlots<TEntity extends object, TSlots = unknown>(
 ): readonly TOIMEntitySlot<TEntity>[] {
     const db = useOIMDB();
     const binding = useMemo((): TOIMBinding<TOIMBucketContentSlot<TSlots>> => {
-        oimAssertOneChannel(db, bucketSlot, 'useOIMBucketSlots');
+        assertOIMOneChannel(db, bucketSlot, 'useOIMBucketSlots');
         return { sourceSlots: [bucketSlot], derive: () => bucketSlot };
     }, [db, bucketSlot]);
     const { changedAtRevision, changedAtEpoch } = useOIMValue(binding);

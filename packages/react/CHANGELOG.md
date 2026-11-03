@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.5.0
+
+### Changed
+
+- Requires `@oimdb/core` 4.9.0; `useOIMField` reads the column through `getColumnSlot`.
+
 ## 3.4.0
 
 ### Added

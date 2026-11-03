@@ -27,9 +27,9 @@ describe('what a store aggregate does', () => {
         expect(cardStoreAggregate.storeSlot).toBe(cardStoreSlot);
         expect(cardStoreAggregate.slotService).toBe(cardSlotService);
         expect(cardStoreAggregate.slotContentService).toBe(cardSlotService.slotContentService);
-        expect(cardSlotService.findSlotByKey(cardStoreSlot, 'c1')).toBe(slot);
+        expect(cardSlotService.peekSlotByKey(cardStoreSlot, 'c1')).toBe(slot);
         expect(cardStoreAggregate.getSlotByKey('c1')).toBe(slot);
-        expect(cardStoreAggregate.findSlotByKey('c2')).toBeUndefined();
+        expect(cardStoreAggregate.peekSlotByKey('c2')).toBeUndefined();
         expect(cardStoreAggregate.hasSlotContentByKey('c1')).toBe(true);
         expect(cardStoreAggregate.getSlotCount()).toBe(1);
         expect(Array.from(cardStoreAggregate.getSlots())).toEqual([slot]);
@@ -63,9 +63,9 @@ describe('what a store aggregate does', () => {
 
         expect(sessionStoreAggregate).toBeInstanceOf(OIMWritableSingleSlotStoreAggregate);
         expect(sessionStoreAggregate.getSingleSlot()).toBe(slot);
-        expect(sessionStoreAggregate.findSingleSlot()).toBe(slot);
+        expect(sessionStoreAggregate.peekSingleSlot()).toBe(slot);
         expect(sessionStoreAggregate.hasSingleSlotContent()).toBe(true);
-        expect(sessionStoreAggregate.slotService.findSingleSlot(sessionStoreAggregate.storeSlot)).toBe(slot);
+        expect(sessionStoreAggregate.slotService.peekSingleSlot(sessionStoreAggregate.storeSlot)).toBe(slot);
 
         sessionStoreAggregate.clearSingleSlotContent();
 

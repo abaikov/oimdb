@@ -7,7 +7,7 @@ import { OIMFlushSchedulerService } from '../schedule/OIMFlushSchedulerService';
 import type { IOIMFlushSchedulerListener } from '../schedule/interfaces/IOIMFlushSchedulerListener';
 import { OIMUnusedSlotCollectorService } from '../collector/OIMUnusedSlotCollectorService';
 import { OIM_REVISIONS_PER_EPOCH } from './constants/OIM_REVISIONS_PER_EPOCH';
-import { oimIsRevisionAfter } from './utils/oimIsRevisionAfter';
+import { isOIMRevisionAfter } from './utils/isOIMRevisionAfter';
 
 export class OIMChannelService implements IOIMFlushSchedulerListener<TOIMChannelSlot> {
     public static readonly INSTANCE = new OIMChannelService();
@@ -56,7 +56,7 @@ export class OIMChannelService implements IOIMFlushSchedulerListener<TOIMChannel
 
     public isChangedInCurrentFrame(channelSlot: TOIMChannelSlot, slot: TOIMSlot): boolean {
         const frame = channelSlot.frame;
-        return oimIsRevisionAfter(slot.changedAtRevision, slot.changedAtEpoch, frame.openedAtRevision, frame.openedAtEpoch);
+        return isOIMRevisionAfter(slot.changedAtRevision, slot.changedAtEpoch, frame.openedAtRevision, frame.openedAtEpoch);
     }
 
     public write(channelSlot: TOIMChannelSlot, slot: TOIMSlot): void {

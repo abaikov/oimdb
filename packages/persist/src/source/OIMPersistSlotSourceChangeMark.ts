@@ -1,5 +1,5 @@
 import type { TOIMSlot } from '@oimdb/core';
-import { oimHoldSlots, oimIsAnySlotChangedAfter, oimUnholdSlotsIfAlive } from '@oimdb/core';
+import { holdOIMSlots, isOIMAnySlotChangedAfter, unholdOIMSlotsIfAlive } from '@oimdb/core';
 import type { IOIMPersistSourceChangeMark } from './interfaces/IOIMPersistSourceChangeMark';
 import type { TOIMPersistSourceChangeMarkSlotDrivenOptions } from './types/TOIMPersistSourceChangeMarkSlotDrivenOptions';
 
@@ -13,16 +13,16 @@ export class OIMPersistSlotSourceChangeMark implements IOIMPersistSourceChangeMa
         this.markedAtRevision = channelClock.revision;
         this.markedAtEpoch = channelClock.epoch;
         this.slots = Array.from(persistSourceChangeMarkSlotDrivenOptions.slots);
-        oimHoldSlots(this.slots);
+        holdOIMSlots(this.slots);
     }
 
     public isSourceChangedSinceMark(): boolean {
-        return oimIsAnySlotChangedAfter(this.slots, this.markedAtRevision, this.markedAtEpoch);
+        return isOIMAnySlotChangedAfter(this.slots, this.markedAtRevision, this.markedAtEpoch);
     }
 
     public dispose(): void {
         const slots = this.slots;
-        oimUnholdSlotsIfAlive(slots);
+        unholdOIMSlotsIfAlive(slots);
         slots.length = 0;
     }
 }

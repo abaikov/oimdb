@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -18,7 +18,7 @@ const releasedCard = () => {
     const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
     db.flush();
     cardsService.slotContentService.clearSlotContent(card);
-    expect(oimIsSlotReleased(card)).toBe(true);
+    expect(isOIMSlotReleased(card)).toBe(true);
     expect(cardsService.getSlotCount(cards)).toBe(0);
     return { db, cards, cardsService, byDeck, byDeckService, card };
 };
@@ -58,7 +58,7 @@ describe('a write into an identity the engine has already released', () => {
         const card = cardsService.writeSlotContentByKey(cards, 'c2', { id: 'c2', title: 'two' });
         const deck = byDeckService.holdSlotByKey(byDeck, 'd1');
         deck.owner.unholdSlot(deck);
-        expect(oimIsSlotReleased(deck)).toBe(true);
+        expect(isOIMSlotReleased(deck)).toBe(true);
 
         expect(() => byDeckService.slotContentService.writeSlotContent(deck, [card])).toThrow(/This identity was released/);
 

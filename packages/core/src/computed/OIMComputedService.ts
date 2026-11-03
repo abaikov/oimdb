@@ -12,7 +12,7 @@ import type { OIMPullColumnSlotOwner } from '../column/OIMPullColumnSlotOwner';
 import type { TOIMComputedColumnSlot } from '../column/types/TOIMComputedColumnSlot';
 import type { OIMComputedContentService } from './OIMComputedContentService';
 import { OIMExplicitSourceComputedContentService } from './OIMExplicitSourceComputedContentService';
-import { oimAttachComputedDerivation } from './utils/oimAttachComputedDerivation';
+import { attachOIMComputedDerivation } from './utils/attachOIMComputedDerivation';
 
 export class OIMComputedService<TKey extends NonNullable<unknown>, TValue, TComputedStore> extends OIMSlotCollectionService<
     TKey, TOIMComputedSlot<TValue, TKey>, TComputedStore, OIMComputedContentService<TValue, TOIMComputedSlot<TValue, TKey>>, Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
@@ -33,10 +33,11 @@ export class OIMComputedService<TKey extends NonNullable<unknown>, TValue, TComp
                 initialValue: options.initialValue,
             }),
             slotReleasePolicy: options.slotReleasePolicy,
-            slotStoreService: options.computedSlotStoreService,
+            slotStoreService: options.slotStoreService,
             createColumnSlotOwner: createOIMPullColumnSlotOwner,
             columnSlotOwnerOptions: options.columnSlotOwnerOptions,
             storeSlotListener: options.storeSlotListener,
+            slotSubscriptionListener: options.slotSubscriptionListener,
         });
         this.hasDerive = options.derive !== undefined;
         this.hasCreateSources = options.createSources !== undefined;
@@ -47,7 +48,7 @@ export class OIMComputedService<TKey extends NonNullable<unknown>, TValue, TComp
         derive?: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue) | undefined,
         createSources?: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => Partial<TOIMComputedSources>) | undefined,
     ): TOIMComputedStoreSlot<TComputedStore, TValue, TOIMComputedSlot<TValue, TKey>, this> {
-        return oimAttachComputedDerivation(
+        return attachOIMComputedDerivation(
             this.createStoreSlotOnChannel(channelMap.defaultChannelSlot) as
                 TOIMComputedStoreSlot<TComputedStore, TValue, TOIMComputedSlot<TValue, TKey>, this>,
             this.hasDerive, this.hasCreateSources, derive, createSources,

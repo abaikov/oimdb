@@ -11,16 +11,16 @@ import type { TOIMDisposer } from '../schedule/types/TOIMDisposer';
 import { OIMSourceTracker } from '../computed/OIMSourceTracker';
 import { OIM_FROZEN_EMPTY_COMPUTED_SLOTS } from '../computed/constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS';
 import { OIMChannelService } from '../channel/OIMChannelService';
-import { oimRefreshSourceComputeds } from '../computed/utils/oimRefreshSourceComputeds';
-import { oimHasSourceChangedSinceLastRun } from '../computed/utils/oimHasSourceChangedSinceLastRun';
-import { oimIsRevisionAfter } from '../channel/utils/oimIsRevisionAfter';
-import { oimMergeRootSlots } from '../computed/utils/oimMergeRootSlots';
-import { oimIsEffectDisposed } from './utils/oimIsEffectDisposed';
-import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
+import { refreshOIMSourceComputeds } from '../computed/utils/refreshOIMSourceComputeds';
+import { hasOIMSourceChangedSinceLastRun } from '../computed/utils/hasOIMSourceChangedSinceLastRun';
+import { isOIMRevisionAfter } from '../channel/utils/isOIMRevisionAfter';
+import { mergeOIMRootSlots } from '../computed/utils/mergeOIMRootSlots';
+import { isOIMEffectDisposed } from './utils/isOIMEffectDisposed';
+import { isOIMSlotReleased } from '../slot/utils/isOIMSlotReleased';
 import { OIM_EFFECT_FLAG_DISPOSED } from './constants/OIM_EFFECT_FLAG_DISPOSED';
 import { OIM_EFFECT_FLAG_RUN_SCHEDULED } from './constants/OIM_EFFECT_FLAG_RUN_SCHEDULED';
 import { OIM_EFFECT_FLAG_SOURCE_CHECK_OWED } from './constants/OIM_EFFECT_FLAG_SOURCE_CHECK_OWED';
-import { oimSwapActiveSourceTracker } from '../computed/utils/oimSwapActiveSourceTracker';
+import { swapOIMActiveSourceTracker } from '../computed/utils/swapOIMActiveSourceTracker';
 
 export class OIMEffectService implements IOIMEffectService {
     public static readonly INSTANCE = new OIMEffectService();
@@ -30,7 +30,7 @@ export class OIMEffectService implements IOIMEffectService {
         body: TOIMEffectBody,
         sourceSlots: readonly TOIMSlot[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
         sourceComputeds: readonly TOIMComputedContentSlot[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
-        sourceTrackingComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker>[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
+        sourceTrackingComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
     ): TOIMEffect {
         if (sourceTrackingComputeds.length !== 0) {
             return this.createEffectOverSourceTrackingComputeds(channelMap, body, sourceSlots, sourceComputeds, sourceTrackingComputeds);
@@ -40,7 +40,7 @@ export class OIMEffectService implements IOIMEffectService {
             const distinctSourceComputedSet = new Set(sourceComputeds);
             if (distinctSourceComputedSet.size !== sourceComputeds.length) distinctSourceComputeds = [...distinctSourceComputedSet];
         }
-        const allRootSlots = oimMergeRootSlots(sourceSlots, distinctSourceComputeds);
+        const rootSlots = mergeOIMRootSlots(sourceSlots, distinctSourceComputeds);
         const channelSlot = channelMap.defaultChannelSlot;
         const clock = channelSlot.clock;
         const effect: TOIMEffect = {
@@ -48,7 +48,7 @@ export class OIMEffectService implements IOIMEffectService {
             channelSlot,
             sourceSlots,
             sourceComputeds: distinctSourceComputeds,
-            allRootSlots,
+            rootSlots,
             positionInFirstSubscribedSlot: -1,
             positionsInOtherSubscribedSlots: undefined,
             columnGroupsByEdge: undefined,
@@ -60,13 +60,13 @@ export class OIMEffectService implements IOIMEffectService {
             sourceTracker: undefined,
         };
         try {
-            for (let i = 0; i < allRootSlots.length; i++) {
-                const rootSlot = allRootSlots[i];
+            for (let i = 0; i < rootSlots.length; i++) {
+                const rootSlot = rootSlots[i];
                 this.setPositionInSubscribedSlot(effect, i, rootSlot.owner.subscribeToSlot(rootSlot, effect, i));
             }
             for (let i = 0; i < distinctSourceComputeds.length; i++) {
                 const sourceComputedSlot = distinctSourceComputeds[i];
-                const edge = allRootSlots.length + i;
+                const edge = rootSlots.length + i;
                 this.setPositionInSubscribedSlot(effect, edge, sourceComputedSlot.owner.subscribeToSlot(sourceComputedSlot, effect, edge));
             }
         } catch (failure) {
@@ -82,7 +82,7 @@ export class OIMEffectService implements IOIMEffectService {
         body: TOIMEffectBody,
         sourceSlots: readonly TOIMSlot[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
         sourceComputeds: readonly TOIMComputedContentSlot[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
-        sourceTrackingComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker>[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
+        sourceTrackingComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
     ): TOIMDisposer {
         const effect = this.createEffect(channelMap, body, sourceSlots, sourceComputeds, sourceTrackingComputeds);
         return () => { this.disposeEffect(effect); };
@@ -93,7 +93,7 @@ export class OIMEffectService implements IOIMEffectService {
         body: TOIMEffectBody,
         sourceSlots: readonly TOIMSlot[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
         sourceComputeds: readonly TOIMComputedContentSlot[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
-        sourceTrackingComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker>[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
+        sourceTrackingComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>[] = OIM_FROZEN_EMPTY_COMPUTED_SLOTS,
     ): TOIMEffect {
         const effect = this.createEffect(channelMap, body, sourceSlots, sourceComputeds, sourceTrackingComputeds);
         try {
@@ -126,19 +126,19 @@ export class OIMEffectService implements IOIMEffectService {
         body: TOIMEffectBody,
         sourceSlots: readonly TOIMSlot[],
         sourceComputeds: readonly TOIMComputedContentSlot[],
-        sourceTrackingComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker>[],
+        sourceTrackingComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>[],
     ): TOIMEffect {
         const sourceTracker = new OIMSourceTracker();
         const effect = this.createEffectOverSourceTracker(channelMap, sourceTracker, body);
         try {
             sourceTracker.openSourceTracking();
             for (let i = 0; i < sourceSlots.length; i++) sourceTracker.trackSourceSlot(sourceSlots[i]);
-            const outerSourceTracker = oimSwapActiveSourceTracker(sourceTracker);
+            const outerSourceTracker = swapOIMActiveSourceTracker(sourceTracker);
             try {
                 for (let i = 0; i < sourceComputeds.length; i++) void sourceComputeds[i].value;
                 for (let i = 0; i < sourceTrackingComputeds.length; i++) void sourceTrackingComputeds[i].value;
             } finally {
-                oimSwapActiveSourceTracker(outerSourceTracker);
+                swapOIMActiveSourceTracker(outerSourceTracker);
             }
             if (sourceTracker.closeSourceTracking()) this.resubscribeToTrackedSources(effect, sourceTracker);
         } catch (failure) {
@@ -159,7 +159,7 @@ export class OIMEffectService implements IOIMEffectService {
             channelSlot,
             sourceSlots: sourceTracker.getTrackedSourceSlots(),
             sourceComputeds: sourceTracker.getTrackedSourceComputeds(),
-            allRootSlots: sourceTracker.getTrackedAllRootSlots(),
+            rootSlots: sourceTracker.getTrackedRootSlots(),
             positionInFirstSubscribedSlot: -1,
             positionsInOtherSubscribedSlots: undefined,
             columnGroupsByEdge: undefined,
@@ -177,7 +177,7 @@ export class OIMEffectService implements IOIMEffectService {
         const clock = channelSlot.clock;
         const frame = channelSlot.frame;
         if (
-            !frame.isRunning && oimIsRevisionAfter(clock.revision, clock.epoch, frame.openedAtRevision, frame.openedAtEpoch)
+            !frame.isRunning && isOIMRevisionAfter(clock.revision, clock.epoch, frame.openedAtRevision, frame.openedAtEpoch)
             && this.markEffectRunScheduled(effect, true)
         ) {
             OIMChannelService.INSTANCE.scheduleEffectRun(channelSlot, effect);
@@ -203,7 +203,7 @@ export class OIMEffectService implements IOIMEffectService {
         const frame = effect.channelSlot.frame;
         if (
             (effectFlags & OIM_EFFECT_FLAG_SOURCE_CHECK_OWED) === 0 && effect.sourceComputeds.length === 0
-            && !oimIsRevisionAfter(effect.ranAtRevision, effect.ranAtEpoch, frame.openedAtRevision, frame.openedAtEpoch)
+            && !isOIMRevisionAfter(effect.ranAtRevision, effect.ranAtEpoch, frame.openedAtRevision, frame.openedAtEpoch)
         ) {
             this.runEffect(effect);
         } else {
@@ -212,10 +212,10 @@ export class OIMEffectService implements IOIMEffectService {
     }
 
     public runEffectIfSourcesChanged(effect: TOIMEffect): void {
-        oimRefreshSourceComputeds(effect.sourceComputeds);
-        if (oimHasSourceChangedSinceLastRun(effect)) this.runEffect(effect);
+        refreshOIMSourceComputeds(effect.sourceComputeds);
+        if (hasOIMSourceChangedSinceLastRun(effect)) this.runEffect(effect);
         const sourceTracker = effect.sourceTracker;
-        if (sourceTracker !== undefined && !oimIsEffectDisposed(effect) && sourceTracker.trackReplacedRootSlots()) {
+        if (sourceTracker !== undefined && !isOIMEffectDisposed(effect) && sourceTracker.trackReplacedRootSlots()) {
             this.resubscribeToTrackedSources(effect, sourceTracker);
         }
     }
@@ -225,30 +225,30 @@ export class OIMEffectService implements IOIMEffectService {
         const ranAtRevision = channelClock.revision;
         const ranAtEpoch = channelClock.epoch;
         this.runCleanup(effect);
-        if (oimIsEffectDisposed(effect)) return;
+        if (isOIMEffectDisposed(effect)) return;
         const body = effect.body;
         const undo = body();
         effect.ranAtRevision = ranAtRevision;
         effect.ranAtEpoch = ranAtEpoch;
         if (typeof undo !== 'function') return;
-        if (oimIsEffectDisposed(effect)) undo();
+        if (isOIMEffectDisposed(effect)) undo();
         else effect.cleanup = undo;
     }
 
     public disposeEffect(effect: TOIMEffect): void {
         effect.effectFlags = (effect.effectFlags | OIM_EFFECT_FLAG_DISPOSED)
             & ~(OIM_EFFECT_FLAG_RUN_SCHEDULED | OIM_EFFECT_FLAG_SOURCE_CHECK_OWED);
-        const allRootSlots = effect.allRootSlots;
-        for (let i = 0; i < allRootSlots.length; i++) {
-            const rootSlot = allRootSlots[i];
-            if (oimIsSlotReleased(rootSlot)) { this.setPositionInSubscribedSlot(effect, i, -1); continue; }
+        const rootSlots = effect.rootSlots;
+        for (let i = 0; i < rootSlots.length; i++) {
+            const rootSlot = rootSlots[i];
+            if (isOIMSlotReleased(rootSlot)) { this.setPositionInSubscribedSlot(effect, i, -1); continue; }
             this.unsubscribeFrom(effect, rootSlot, i);
         }
         const sourceComputeds = effect.sourceComputeds;
-        const edgesIntoRoots = allRootSlots.length;
+        const edgesIntoRoots = rootSlots.length;
         for (let i = 0; i < sourceComputeds.length; i++) {
             const sourceComputedSlot = sourceComputeds[i];
-            if (!oimIsSlotReleased(sourceComputedSlot)) this.unsubscribeFrom(effect, sourceComputedSlot, edgesIntoRoots + i);
+            if (!isOIMSlotReleased(sourceComputedSlot)) this.unsubscribeFrom(effect, sourceComputedSlot, edgesIntoRoots + i);
         }
         this.runCleanup(effect);
     }
@@ -267,12 +267,12 @@ export class OIMEffectService implements IOIMEffectService {
         sourceTrackingEffectBody: TOIMSourceTrackingEffectBody,
     ): (() => void) | void {
         sourceTracker.openSourceTracking();
-        const outerSourceTracker = oimSwapActiveSourceTracker(sourceTracker);
+        const outerSourceTracker = swapOIMActiveSourceTracker(sourceTracker);
         try {
             const undo = sourceTrackingEffectBody();
-            oimSwapActiveSourceTracker(outerSourceTracker);
+            swapOIMActiveSourceTracker(outerSourceTracker);
             try {
-                if (sourceTracker.closeSourceTracking() && !oimIsEffectDisposed(effect)) this.resubscribeToTrackedSources(effect, sourceTracker);
+                if (sourceTracker.closeSourceTracking() && !isOIMEffectDisposed(effect)) this.resubscribeToTrackedSources(effect, sourceTracker);
             } catch (failure) {
                 this.disposeEffect(effect);
                 if (typeof undo === 'function') undo();
@@ -280,33 +280,33 @@ export class OIMEffectService implements IOIMEffectService {
             }
             return undo;
         } finally {
-            oimSwapActiveSourceTracker(outerSourceTracker);
+            swapOIMActiveSourceTracker(outerSourceTracker);
         }
     }
 
     private resubscribeToTrackedSources(effect: TOIMEffect, sourceTracker: OIMSourceTracker): void {
-        const committedAllRootSlots = effect.allRootSlots;
+        const committedRootSlots = effect.rootSlots;
         const committedSourceComputeds = effect.sourceComputeds;
-        const trackedAllRootSlots = sourceTracker.getTrackedAllRootSlots();
+        const trackedRootSlots = sourceTracker.getTrackedRootSlots();
         const trackedSourceComputeds = sourceTracker.getTrackedSourceComputeds();
         const committedColumnGroups = effect.columnGroupsByEdge;
-        const trackedColumnGroups = sourceTracker.getTrackedAllRootColumnGroups();
-        const rootSlotCount = trackedAllRootSlots.length;
+        const trackedColumnGroups = sourceTracker.getTrackedRootColumnGroups();
+        const rootSlotCount = trackedRootSlots.length;
         if (
-            rootSlotCount === committedAllRootSlots.length && rootSlotCount !== 0
+            rootSlotCount === committedRootSlots.length && rootSlotCount !== 0
             && this.isSameSourceComputedSequence(committedSourceComputeds, trackedSourceComputeds)
         ) {
-            this.resubscribeToReplacedRootSlots(effect, sourceTracker, trackedAllRootSlots, trackedColumnGroups, trackedSourceComputeds);
+            this.resubscribeToReplacedRootSlots(effect, sourceTracker, trackedRootSlots, trackedColumnGroups, trackedSourceComputeds);
             return;
         }
-        const committedEdgeCount = committedAllRootSlots.length + committedSourceComputeds.length;
-        const trackedEdgeCount = trackedAllRootSlots.length + trackedSourceComputeds.length;
+        const committedEdgeCount = committedRootSlots.length + committedSourceComputeds.length;
+        const trackedEdgeCount = trackedRootSlots.length + trackedSourceComputeds.length;
         const sharedEdgeCount = committedEdgeCount < trackedEdgeCount ? committedEdgeCount : trackedEdgeCount;
         let firstChangedEdge = 0;
         while (
             firstChangedEdge < sharedEdgeCount
-            && this.getSubscribedSlotAtEdge(committedAllRootSlots, committedSourceComputeds, firstChangedEdge)
-                === this.getSubscribedSlotAtEdge(trackedAllRootSlots, trackedSourceComputeds, firstChangedEdge)
+            && this.getSubscribedSlotAtEdge(committedRootSlots, committedSourceComputeds, firstChangedEdge)
+                === this.getSubscribedSlotAtEdge(trackedRootSlots, trackedSourceComputeds, firstChangedEdge)
             && committedColumnGroups?.[firstChangedEdge] === trackedColumnGroups[firstChangedEdge]
         ) firstChangedEdge++;
         const heldEdgeEnd = firstChangedEdge < committedEdgeCount ? trackedEdgeCount : firstChangedEdge;
@@ -314,12 +314,12 @@ export class OIMEffectService implements IOIMEffectService {
         let isRunOwed = false;
         try {
             for (; heldEdge < heldEdgeEnd; heldEdge++) {
-                const trackedSlot = this.getSubscribedSlotAtEdge(trackedAllRootSlots, trackedSourceComputeds, heldEdge);
+                const trackedSlot = this.getSubscribedSlotAtEdge(trackedRootSlots, trackedSourceComputeds, heldEdge);
                 trackedSlot.owner.holdSlot(trackedSlot);
             }
             for (let edge = firstChangedEdge; edge < committedEdgeCount; edge++) {
-                const committedSlot = this.getSubscribedSlotAtEdge(committedAllRootSlots, committedSourceComputeds, edge);
-                if (oimIsSlotReleased(committedSlot)) this.setPositionInSubscribedSlot(effect, edge, -1);
+                const committedSlot = this.getSubscribedSlotAtEdge(committedRootSlots, committedSourceComputeds, edge);
+                if (isOIMSlotReleased(committedSlot)) this.setPositionInSubscribedSlot(effect, edge, -1);
                 else this.unsubscribeFrom(effect, committedSlot, edge);
             }
             for (let edge = committedEdgeCount; edge < trackedEdgeCount; edge++) this.setPositionInSubscribedSlot(effect, edge, -1);
@@ -331,19 +331,19 @@ export class OIMEffectService implements IOIMEffectService {
             const editableEffect = effect as TOIMEditable<TOIMEffect>;
             editableEffect.sourceSlots = sourceTracker.getTrackedSourceSlots();
             editableEffect.sourceComputeds = trackedSourceComputeds;
-            editableEffect.allRootSlots = trackedAllRootSlots;
+            editableEffect.rootSlots = trackedRootSlots;
             effect.columnGroupsByEdge = this.createColumnGroupsByEdge(trackedColumnGroups);
             sourceTracker.commitTrackedSources();
             const channelSlot = effect.channelSlot;
             const isFrameRunning = channelSlot.frame.isRunning;
             for (let edge = firstChangedEdge; edge < trackedEdgeCount; edge++) {
-                const trackedSlot = this.getSubscribedSlotAtEdge(trackedAllRootSlots, trackedSourceComputeds, edge);
+                const trackedSlot = this.getSubscribedSlotAtEdge(trackedRootSlots, trackedSourceComputeds, edge);
                 this.setPositionInSubscribedSlot(effect, edge, trackedSlot.owner.subscribeToSlot(trackedSlot, effect, edge, trackedColumnGroups[edge]));
                 if (!isFrameRunning && OIMChannelService.INSTANCE.isChangedInCurrentFrame(channelSlot, trackedSlot)) isRunOwed = true;
             }
         } finally {
             for (let edge = firstChangedEdge; edge < heldEdge; edge++) {
-                const trackedSlot = this.getSubscribedSlotAtEdge(trackedAllRootSlots, trackedSourceComputeds, edge);
+                const trackedSlot = this.getSubscribedSlotAtEdge(trackedRootSlots, trackedSourceComputeds, edge);
                 trackedSlot.owner.unholdSlot(trackedSlot);
             }
         }
@@ -353,28 +353,28 @@ export class OIMEffectService implements IOIMEffectService {
     private resubscribeToReplacedRootSlots(
         effect: TOIMEffect,
         sourceTracker: OIMSourceTracker,
-        trackedAllRootSlots: readonly TOIMSlot[],
+        trackedRootSlots: readonly TOIMSlot[],
         trackedColumnGroups: readonly (TOIMColumnGroup | undefined)[],
         trackedSourceComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>[],
     ): void {
-        const committedAllRootSlots = effect.allRootSlots;
+        const committedRootSlots = effect.rootSlots;
         const committedColumnGroups = effect.columnGroupsByEdge;
-        const rootSlotCount = committedAllRootSlots.length;
-        const nextAllRootSlots: (TOIMSlot | undefined)[] = new Array(rootSlotCount);
+        const rootSlotCount = committedRootSlots.length;
+        const nextRootSlots: (TOIMSlot | undefined)[] = new Array(rootSlotCount);
         const nextColumnGroups: (TOIMColumnGroup | undefined)[] = new Array(rootSlotCount);
         const addedColumnGroups: (TOIMColumnGroup | undefined)[] = [];
         const addedSlots: TOIMSlot[] = [];
         let edgeShift = 0;
         for (let i = 0; i < rootSlotCount; i++) {
-            const trackedSlot = trackedAllRootSlots[i];
+            const trackedSlot = trackedRootSlots[i];
             const trackedColumnGroup = trackedColumnGroups[i];
             const shiftedEdge = i + edgeShift;
             if (
                 shiftedEdge >= 0 && shiftedEdge < rootSlotCount
-                && committedAllRootSlots[shiftedEdge] === trackedSlot && nextAllRootSlots[shiftedEdge] === undefined
+                && committedRootSlots[shiftedEdge] === trackedSlot && nextRootSlots[shiftedEdge] === undefined
                 && committedColumnGroups?.[shiftedEdge] === trackedColumnGroup
             ) {
-                nextAllRootSlots[shiftedEdge] = trackedSlot;
+                nextRootSlots[shiftedEdge] = trackedSlot;
                 nextColumnGroups[shiftedEdge] = trackedColumnGroup;
                 continue;
             }
@@ -386,7 +386,7 @@ export class OIMEffectService implements IOIMEffectService {
                     if (subscribers[at] !== effect) continue;
                     const edge = effectEdges[at];
                     if (
-                        edge < rootSlotCount && nextAllRootSlots[edge] === undefined && committedAllRootSlots[edge] === trackedSlot
+                        edge < rootSlotCount && nextRootSlots[edge] === undefined && committedRootSlots[edge] === trackedSlot
                         && committedColumnGroups?.[edge] === trackedColumnGroup
                     ) {
                         keptEdge = edge;
@@ -398,7 +398,7 @@ export class OIMEffectService implements IOIMEffectService {
                 addedSlots.push(trackedSlot);
                 addedColumnGroups.push(trackedColumnGroup);
             } else {
-                nextAllRootSlots[keptEdge] = trackedSlot;
+                nextRootSlots[keptEdge] = trackedSlot;
                 nextColumnGroups[keptEdge] = trackedColumnGroup;
                 edgeShift = keptEdge - i;
             }
@@ -413,18 +413,18 @@ export class OIMEffectService implements IOIMEffectService {
             const addedEdges: number[] = new Array(addedSlots.length);
             let added = 0;
             for (let edge = 0; edge < rootSlotCount && added < addedSlots.length; edge++) {
-                if (nextAllRootSlots[edge] !== undefined) continue;
-                const committedSlot = committedAllRootSlots[edge];
-                if (oimIsSlotReleased(committedSlot)) this.setPositionInSubscribedSlot(effect, edge, -1);
+                if (nextRootSlots[edge] !== undefined) continue;
+                const committedSlot = committedRootSlots[edge];
+                if (isOIMSlotReleased(committedSlot)) this.setPositionInSubscribedSlot(effect, edge, -1);
                 else this.unsubscribeFrom(effect, committedSlot, edge);
-                nextAllRootSlots[edge] = addedSlots[added];
+                nextRootSlots[edge] = addedSlots[added];
                 nextColumnGroups[edge] = addedColumnGroups[added];
                 addedEdges[added++] = edge;
             }
             const editableEffect = effect as TOIMEditable<TOIMEffect>;
             editableEffect.sourceSlots = sourceTracker.getTrackedSourceSlots();
             editableEffect.sourceComputeds = trackedSourceComputeds;
-            editableEffect.allRootSlots = nextAllRootSlots as TOIMSlot[];
+            editableEffect.rootSlots = nextRootSlots as TOIMSlot[];
             effect.columnGroupsByEdge = this.createColumnGroupsByEdge(nextColumnGroups);
             sourceTracker.commitTrackedSources();
             const channelSlot = effect.channelSlot;
@@ -465,11 +465,11 @@ export class OIMEffectService implements IOIMEffectService {
     }
 
     private getSubscribedSlotAtEdge(
-        allRootSlots: readonly TOIMSlot[],
+        rootSlots: readonly TOIMSlot[],
         sourceComputeds: readonly TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>[],
         edge: number,
     ): TOIMSlot {
-        return edge < allRootSlots.length ? allRootSlots[edge] : sourceComputeds[edge - allRootSlots.length];
+        return edge < rootSlots.length ? rootSlots[edge] : sourceComputeds[edge - rootSlots.length];
     }
 
     private runCleanup(effect: TOIMEffect): void {

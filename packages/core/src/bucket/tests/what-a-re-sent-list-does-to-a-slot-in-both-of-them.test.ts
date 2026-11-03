@@ -1,6 +1,6 @@
 import { OIMDB, OIMSetBucketContentService } from '../../index';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -59,7 +59,7 @@ describe('a whole-bucket write by hand never lets a slot reach zero', () => {
 
         // Nothing holds a valueless slot no list names, so it goes — this is the
         // release the order above must not make EARLY, not one it must not make.
-        expect(oimIsSlotReleased(held)).toBe(true);
+        expect(isOIMSlotReleased(held)).toBe(true);
         expect(held.holdCount).toBe(0);
     });
 });

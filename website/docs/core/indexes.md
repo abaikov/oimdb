@@ -7,7 +7,7 @@ description: How to build a bucket collection whose slots the caller states, wri
 # Buckets
 
 ```ts setup
-import { OIMBucketCommands, OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, OIMBucketUniqueMemberSlotsArrayService, OIMSetBucketContentService, oimOrderedListCommandsOfTransition, type TOIMBucketSlotsArrayStore, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMBucketCommands, OIMBucketCommandsCursor, OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, OIMBucketUniqueMemberSlotsArrayService, OIMSetBucketContentService, getOIMOrderedListCommands, type TOIMBucketSlotsArrayStore, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 
 type Card = { id: string; deck: string; rank: number };
 
@@ -46,7 +46,7 @@ store of each bucket store slot. Together they answer "which entities belong to 
 | A list whose order the user decides (drag, reorder) | `createOIMSlotCollectionService()` — array-driven by default | [Positions the caller decides](#positions-the-caller-decides) |
 | ...and a renderer that patches instead of rebuilding | the same: its default content service records `OIMBucketCommands` | [The commands, on the bucket slot](#the-commands-on-the-bucket-slot) |
 | One list under no key | `createOIMSingleSlotService()` | [A single bucket](#a-single-bucket) |
-| A diff between two lists you hold yourself | `oimOrderedListCommandsOfTransition` | [Rendering an ordered bucket](#rendering-an-ordered-bucket) |
+| A diff between two lists you hold yourself | `getOIMOrderedListCommands` | [Rendering an ordered bucket](#rendering-an-ordered-bucket) |
 
 ## A bucket's slots are the caller's
 
@@ -115,7 +115,7 @@ declare const key: TOIMStoreKey;
 byDeckService.holdSlotByKey(byDeck, key);       // the bucket; holdCount up by one
 byDeckService.getSlotByKey(byDeck, key);        // TOIMBucketSlot, never undefined; mints on a miss and the
                                                 // unused-slot collector holds it for this turn
-byDeckService.findSlotByKey(byDeck, key);       // the bucket or undefined; never mints
+byDeckService.peekSlotByKey(byDeck, key);       // the bucket or undefined; never mints
 byDeckService.hasSlotContentByKey(byDeck, key); // a bucket is filed there and holds at least one slot
 byDeckService.getSlots(byDeck);
 byDeckService.getSlotCount(byDeck);
@@ -141,8 +141,8 @@ red.unholdSlot();
 ```
 
 `addBucketMemberSlot` / `removeBucketMemberSlot` are the one-slot forms. Apart from the whole-list `writeSlotContentByKey`, a
-write by key resolves the bucket first (`getSlotByKey` mints it, `findSlotByKey` does not). A change that
-matters only to a bucket somebody already asked for goes through `findSlotByKey` and does nothing on
+write by key resolves the bucket first (`getSlotByKey` mints it, `peekSlotByKey` does not). A change that
+matters only to a bucket somebody already asked for goes through `peekSlotByKey` and does nothing on
 `undefined`.
 
 ### Which door: you hold the answer, or you hold the delta
@@ -383,6 +383,17 @@ they exist only in an effect body or a `subscribeAfterEachFrame` handler; after 
 `isWholeListRecorded` is `false`. There is no "commands since frame N": a consumer
 that did not read this frame's script reads the list instead.
 
+`OIMBucketCommandsCursor` does that bookkeeping for one view of one bucket. `takeBucketCommands()` returns what the
+view has not applied yet: one `reset` with every member on the first take, after a whole-list record and on every
+wake of a bucket that records no commands; otherwise this frame's commands, and only their tail when the view
+already took part of the same script earlier in the frame.
+
+```ts
+const resultsBucket = pageService.holdSlotByKey(page, 'results');
+const bucketCommandsCursor = new OIMBucketCommandsCursor({ bucketSlot: resultsBucket });
+const watchDisposer = resultsBucket.watch(() => { applyToTheRenderedList(bucketCommandsCursor.takeBucketCommands()); });
+```
+
 A positional write is always recorded as a position, and `addBucketMemberSlots`
 as an `insert` at the end. `isWholeListRecorded` is set by a write of the whole bucket — `writeSlotContent`,
 `clearSlotContent`, `moveBucketMemberSlotRangeToPosition` — by a removal from a bucket whose
@@ -395,9 +406,6 @@ consumer animating moves cannot use a whole-list answer at all, since every move
 was going to animate is gone with it. So it passes `Infinity` and is handed every
 command, however long the script runs.
 
-The Exodra adapter consumes exactly this script:
-[`exoPositionalList`](/docs/packages/exodra#lists-are-a-fork-and-both-arms-ship).
-
 ## A single bucket
 
 One bucket under no address: the current search result, the visible window, a
@@ -409,7 +417,7 @@ a bucket content service with `OIMSingleSlotStoreService.INSTANCE` as its store.
 those of `createOIMSlotCollectionService` without a store. `createStoreSlot(db)` mints nothing; its one bucket slot is
 read through the single doors: `getSingleSlot(storeSlot)` hands it out (minting it on the first read, or a
 fresh one if the last was released, and the unused-slot collector holds that mint until the next flush),
-`holdSingleSlot(storeSlot)` hands it out held, and `findSingleSlot(storeSlot)` answers it without minting.
+`holdSingleSlot(storeSlot)` hands it out held, and `peekSingleSlot(storeSlot)` answers it without minting.
 
 ```ts
 const searchResultService = createOIMSingleSlotService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
@@ -423,8 +431,8 @@ effectService.createEffect(db, () => {
 ```
 
 Every door of the content service takes the single bucket slot as it takes a keyed one, and so does the util
-`oimMarkBucketColumnsChanged(bucketSlot, patch, changedColumns)`. Nothing marks a single bucket's columns
-for you: whoever changes its members calls `oimMarkBucketColumnsChanged`, as the index does
+`markOIMBucketColumnsChanged(bucketSlot, patch, changedColumns)`. Nothing marks a single bucket's columns
+for you: whoever changes its members calls `markOIMBucketColumnsChanged`, as the index does
 for its buckets.
 
 The single bucket slot is what an effect subscribes to. It lives under the release policy like any bucket:
@@ -435,7 +443,7 @@ released.
 
 ## Rendering an ordered bucket
 
-`oimOrderedListCommandsOfTransition(prev, next, maxCommandsPerSlot?)` turns "what I
+`getOIMOrderedListCommands(prev, next, maxCommandsPerSlot?)` turns "what I
 last rendered" into "what the bucket holds now" as a command list, so a consumer
 patches instead of rebuilding. Take it when the list was not written through a
 content service with a recorder — a sorted computed, an index bucket, a list you
@@ -448,7 +456,7 @@ declare const whatIRendered: readonly TOIMEntitySlot<Card>[];
 const bucket = orderedDeckService.holdSlotByKey(orderedDecks, 'red');
 const now = Array.from(bucket.getBucketMemberSlots());
 
-for (const command of oimOrderedListCommandsOfTransition(whatIRendered, now)) {
+for (const command of getOIMOrderedListCommands(whatIRendered, now)) {
     switch (command.type) {
         case 'insert': /* command.index, command.slot */ break;
         case 'remove': /* command.index */               break;

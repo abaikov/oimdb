@@ -103,18 +103,18 @@ const DEFAULT_VALUE = 'one OIMDefaultValue: a name, a factory, a lazily built pr
     + 'handed-out boolean; every class behind a default declares no instance field, which is the case below';
 
 const PINNED: readonly (readonly [string, string])[] = [
-    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:anchors', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/getOIMOrderedListCommands.ts:anchors', DIFF_SCRATCH],
     [
-        'core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:indexInNext',
+        'core/bucket/commands/utils/getOIMOrderedListCommands.ts:indexInNext',
         'THE ONLY SCRATCH IN THIS FILE KEYED BY A SLOT. One diff leaves next.length slot references '
         + 'reachable until the next call, which replaces the Map above OIM_MAX_DIFF_SCRATCH_SLOTS '
         + 'and clears it at or under — so the count is bounded by the next caller and never by this one',
     ],
-    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:occurrenceAfter', DIFF_SCRATCH],
-    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:predecessor', DIFF_SCRATCH],
-    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:removedPrevIndices', DIFF_SCRATCH],
-    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:tails', DIFF_SCRATCH],
-    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:futureBucketIndices', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/getOIMOrderedListCommands.ts:occurrenceAfter', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/getOIMOrderedListCommands.ts:predecessor', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/getOIMOrderedListCommands.ts:removedPrevIndices', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/getOIMOrderedListCommands.ts:tails', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/getOIMOrderedListCommands.ts:futureBucketIndices', DIFF_SCRATCH],
     [
         'core/computed/constants/OIM_ACTIVE_SOURCE_TRACKER.ts:OIM_ACTIVE_SOURCE_TRACKER',
         'one reference to the tracker of the tracked body or derive running now; set before it runs and put back in a '
@@ -135,9 +135,9 @@ const PINNED: readonly (readonly [string, string])[] = [
         'core/db/constants/OIM_DEFAULT_INDEX_KEYS_SERVICE.ts:OIM_DEFAULT_INDEX_KEYS_SERVICE',
         'one OIMDefaultValue whose value is the appending index-keys service, which holds no state and closes over nothing',
     ],
-    ['devtools/oimDevDefaults.ts:oimDevDefaults', 'an OIMDefaults whose only field is the dev registry as store slot listener; it holds the registry and nothing it hears'],
+    ['devtools/OIM_DEV_DEFAULTS.ts:OIM_DEV_DEFAULTS', 'an OIMDefaults whose only field is the dev registry as store slot listener; it holds the registry and nothing it hears'],
     [
-        'devtools/oimDevRegistry.ts:oimDevRegistry',
+        'devtools/OIM_DEV_REGISTRY.ts:OIM_DEV_REGISTRY',
         'THE ONE UNBOUNDED HOLDER OF A SLOT GRAPH IN THIS REPOSITORY, and the only one on this list that '
         + 'nothing bounds. Every entries and computedEntries value is a closure over a whole collection or '
         + 'a whole derivation, keyed by a name the caller chooses, and the class offers no way to take one '
@@ -303,7 +303,7 @@ describe('what a module keeps between calls', () => {
     });
 
     it('the diff keeps one slot-keyed scratch and drops the slots on both of its branches', () => {
-        const lines = fileAt('core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts').lines;
+        const lines = fileAt('core/bucket/commands/utils/getOIMOrderedListCommands.ts').lines;
         expect(lines.filter(line => /^let .*Map<TOIMSlot/.test(line))).toHaveLength(1);
         expect(lines.filter(line => /^let .*Int32Array/.test(line))).toHaveLength(6);
 

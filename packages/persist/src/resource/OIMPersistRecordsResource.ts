@@ -8,7 +8,7 @@ import type { IOIMPersistResource } from './interfaces/IOIMPersistResource';
 import { OIMPersistSourceSilencer } from './OIMPersistSourceSilencer';
 import { OIMPersistSourceSubscription } from './OIMPersistSourceSubscription';
 import type { TOIMPersistResourceRecordsOptions } from './types/TOIMPersistResourceRecordsOptions';
-import { oimHydratePersistResource } from './utils/oimHydratePersistResource';
+import { hydrateOIMPersistResource } from './utils/hydrateOIMPersistResource';
 
 export class OIMPersistRecordsResource<TPersistBackend, TWriteBatch, TKey extends NonNullable<unknown>, TEntity extends object>
 implements IOIMPersistResource<TPersistBackend, TWriteBatch> {
@@ -75,7 +75,7 @@ implements IOIMPersistResource<TPersistBackend, TWriteBatch> {
         const writtenKeysChangeMark = this.writtenKeysChangeMark;
         if (writtenKeysChangeMark !== undefined && writtenKeysChangeMark.isSourceChangedSinceMark()) return true;
         const writtenEntitySlots = this.writtenEntitySlots;
-        const currentEntitySlots = this.persistRecordSource.findEntitySlotsByKeys(keys);
+        const currentEntitySlots = this.persistRecordSource.peekEntitySlotsByKeys(keys);
         if (currentEntitySlots.size !== writtenEntitySlots.size) return true;
         for (const entitySlot of currentEntitySlots) {
             if (!writtenEntitySlots.has(entitySlot)) return true;
@@ -89,7 +89,7 @@ implements IOIMPersistResource<TPersistBackend, TWriteBatch> {
         const persistRecordSource = this.persistRecordSource;
         persistRecordsService.writeRecordsDelta(writeBatch, persistRecordSource.readRecordsDelta(this.inFlightEntitySlots));
         this.disposeWrittenKeysChangeMark();
-        const writtenEntitySlots = persistRecordSource.findEntitySlotsByKeys(keys);
+        const writtenEntitySlots = persistRecordSource.peekEntitySlotsByKeys(keys);
         this.writtenEntitySlots = writtenEntitySlots;
         this.writtenKeysChangeMark = persistRecordSource.markEntitySlotChanges(writtenEntitySlots);
         persistRecordsService.writeRecordsDelta(writeBatch, persistRecordSource.readRecordsDelta(writtenEntitySlots));
@@ -145,7 +145,7 @@ implements IOIMPersistResource<TPersistBackend, TWriteBatch> {
         const persistRecordSource = this.persistRecordSource;
         const storedPersistRecords = await this.persistRecordsService.readRecordsOfKeys(persistBackend, keys);
         const keysChangedInMemory = new Set<TKey>();
-        for (const entitySlot of persistRecordSource.findEntitySlotsByKeys(keys)) {
+        for (const entitySlot of persistRecordSource.peekEntitySlotsByKeys(keys)) {
             if (entitySlot.entity !== undefined) keysChangedInMemory.add(entitySlot.key);
         }
         for (const entitySlot of this.pendingEntitySlots) keysChangedInMemory.add(entitySlot.key);
@@ -156,7 +156,7 @@ implements IOIMPersistResource<TPersistBackend, TWriteBatch> {
     }
 
     public async hydrate(persistBackend: TPersistBackend): Promise<void> {
-        await oimHydratePersistResource({
+        await hydrateOIMPersistResource({
             persistSnapshotSource: this.persistRecordSource,
             persistSourceSilencer: this.persistSourceSilencer,
             persistHydrateReconcile: this.persistHydrateReconcile,

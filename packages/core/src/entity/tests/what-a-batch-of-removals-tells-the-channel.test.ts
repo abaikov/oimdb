@@ -5,7 +5,7 @@ import type { TOIMChannelSlot } from '../../channel/types/TOIMChannelSlot';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import type { OIMEntityContentService } from '../OIMEntityContentService';
@@ -55,7 +55,7 @@ const createFixture = (): TCounted => {
         deleteEntitiesByKeys: (keys) => {
             const slots: TCardSlot[] = [];
             for (const key of keys) {
-                const slot = cardsService.findSlotByKey(cards, key);
+                const slot = cardsService.peekSlotByKey(cards, key);
                 if (slot !== undefined) slots.push(slot);
             }
             cardsService.writeInBatch(cards, () => { for (const entitySlot of slots) cardsService.slotContentService.clearSlotContent(entitySlot); });
@@ -107,7 +107,7 @@ describe('what a batch of removals tells the channel', () => {
 
         expect(fixture.written()).toBe(100);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
-        expect(slots.every(slot => oimIsSlotReleased(slot))).toBe(true);
+        expect(slots.every(slot => isOIMSlotReleased(slot))).toBe(true);
     });
     it('names each held row of a batch removed by key once, and nothing else', () => {
         const fixture = filled();
@@ -153,6 +153,6 @@ describe('what a batch of removals tells the channel', () => {
         fixture.db.flush();
 
         expect(slot.entity).toBeUndefined();
-        expect(fixture.cardsService.findSlotByKey(fixture.cards, 'c7')?.entity).toBeUndefined();
+        expect(fixture.cardsService.peekSlotByKey(fixture.cards, 'c7')?.entity).toBeUndefined();
     });
 });

@@ -1,4 +1,4 @@
-import { OIMDB, OIMSetBucketContentService, createOIMInPlaceEntityWriter, createOIMSlotCollectionIndexService, oimInsertEntityWithoutCopy } from '../../../core/src/index';
+import { OIMDB, OIMSetBucketContentService, createOIMInPlaceEntityWriter, createOIMSlotCollectionIndexService, insertOIMEntityWithoutCopy } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
     TOIMEntitySlot,
@@ -226,7 +226,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'upsert.insert-by-reference-vs-map-set',
         path: EPricePath.PerRowPerWrite,
-        ours: 'entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) with the entity stored without a copy (oimInsertEntityWithoutCopy) — a key this population has never seen',
+        ours: 'entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) with the entity stored without a copy (insertOIMEntityWithoutCopy) — a key this population has never seen',
         floor: 'if (map.get(row.id) === undefined) map.set(row.id, row)',
         caveat:
             'Neither side copies the row: both store the object they were handed, and both probe the key before '
@@ -236,7 +236,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
-            const entityWriter = createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithoutCopy });
+            const entityWriter = createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithoutCopy });
             const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>({ entityWriter }) });
             let entityStoreSlot = entityService.createStoreSlot(db);
             let map = new Map<string, TPriceDataRow>();
@@ -563,7 +563,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         caveat:
             'THE ONE ITEM OF THE WRITE PATH THAT IS IN NO RECORDED NUMBER, BECAUSE IT POSTDATES ' +
             'THEM ALL. Every write row in `2026-08-20-price/write` was measured against a ' +
-            'default equality that was an inline `a === b`. The default is `oimSameValueZeroGuard` now — ' +
+            'default equality that was an inline `a === b`. The default is `isOIMSameValueZero` now — ' +
             '`a === b || (a !== a && b !== b)` — and what that costs is not a call, since the ' +
             'predicate was already reached through the strategy\'s captured parameter on both ' +
             'designs. IT IS ONE COMPARISON, AND ONLY ON A COLUMN THAT MOVED: an equal column ' +
@@ -572,7 +572,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             'BOTH ARMS ARE `entityService.updateEntity` ON THE SAME FIXTURE, one column moving per write, ' +
             'so the difference is that one comparison per write and the state of one inline ' +
             'cache. The floor\'s predicate is a different function object of the same shape as ' +
-            'the shipped `oimSameValueZeroGuard` — module-level, monomorphic, one expression, no ' +
+            'the shipped `isOIMSameValueZero` — module-level, monomorphic, one expression, no ' +
             'closure. ' +
             'THIS PAIR DECLARES `isolate` AND IT MUST. `changedColumns` is ONE compiled body ' +
             'however many writers the factory builds, so `sameValueGuard(entity[name], source[name])` ' +
@@ -589,7 +589,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             'ONE COMPARISON PER WRITE IS BELOW WHAT THIS INSTRUMENT RESOLVED ON ITS OWN SCALE ' +
             'CONTROL, and that is the expected reading, stated in advance so a run can refute it: ' +
             'this pair should come back inside the noise floor. If it does, the argument in ' +
-            '`oimSameValueZeroGuard.ts` — that the new answer is free on the hot path and spends only ' +
+            '`isOIMSameValueZero.ts` — that the new answer is free on the hot path and spends only ' +
             'where it saves a report, a reindex and a wake-up — holds at the write. If it does ' +
             'NOT, there is a real cost on the hottest path in the engine and the `NaN` ' +
             'defect was bought with something.',
@@ -1134,7 +1134,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         floor: 'map.delete(id)',
         caveat:
             'THE HASH IS ON THE FLOOR\'S SIDE ONLY: ours is handed the identity and the floor ' +
-            'hashes a string, which flatters us — a by-key clear (findSlotByKey, then clearSlotContent) is not priced here and ' +
+            'hashes a string, which flatters us — a by-key clear (peekSlotByKey, then clearSlotContent) is not priced here and ' +
             'would cost us that lookup too. Against that, ours clears the value through the ' +
             'writer, reports it on the channel, recomputes emptiness and asks whether anything ' +
             'holds or references the identity before it unfiles it from the store — an unheld, ' +

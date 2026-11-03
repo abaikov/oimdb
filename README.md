@@ -87,7 +87,6 @@ stop();
 | [@oimdb/react](packages/react/README.md) | React hooks |
 | [@oimdb/redux-adapter](packages/redux-adapter/README.md) | Redux side by side |
 | [@oimdb/persist](packages/persist/README.md) | Persistence, with memory, localStorage, IndexedDB, async KV and JSON backends |
-| [@oimdb/exodra](packages/exodra/README.md) | Exodra bridge |
 | [@oimdb/browser](packages/browser/README.md) | Browser state as single slots: online, focus, visibility, location |
 | [@oimdb/devtools](packages/devtools/README.md) | Debug registry |
 | [@oimdb/cli](packages/cli/README.md) | Command line: inspect a live page, a model module or Chrome over CDP; the DevTools UI |

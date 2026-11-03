@@ -4,7 +4,7 @@ import { OIMUnusedSlotCollectorService } from '../OIMUnusedSlotCollectorService'
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -50,8 +50,8 @@ describe('a slot nobody took', () => {
 
         expect(cardsService.getSlotCount(cards)).toBe(0);
         expect(decksService.getSlotCount(decks)).toBe(0);
-        expect(oimIsSlotReleased(card)).toBe(true);
-        expect(oimIsSlotReleased(deck)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(deck)).toBe(true);
     });
 
     it('is left alone once an effect names it, and goes when that effect does', () => {
@@ -66,7 +66,7 @@ describe('a slot nobody took', () => {
         OIMEffectService.INSTANCE.disposeEffect(effect);
 
         expect(cardsService.getSlotCount(cards)).toBe(0);
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 
     it('is entered once however many times the key is read', () => {
@@ -93,7 +93,7 @@ describe('a slot nobody took', () => {
 
         db.flush();
 
-        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
+        expect(cardsService.peekSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
     });
 
     it('is not entered twice when a value lands on it after the read that minted it', () => {
@@ -108,7 +108,7 @@ describe('a slot nobody took', () => {
         db.flush();
 
         expect(card.holdCount).toBe(0);
-        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
+        expect(cardsService.peekSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
     });
 
     it('survives a frame that runs inside an open scope, and goes at its close', () => {

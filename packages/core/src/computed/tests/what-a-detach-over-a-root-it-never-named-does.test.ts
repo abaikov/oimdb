@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
@@ -16,7 +16,7 @@ const createFixture =() => {
     cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 1 });
     db.flush();
     const slot = cardsService.getSlotByKey(cards, 'c1');
-    const rankComputedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+    const rankComputedService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
     const rank = rankComputedService.createStoreSlot(db, () => slot.entity?.rank ?? -1, () => ({ sourceSlots: [slot] }));
     const rankSlot = rankComputedService.getSingleSlot(rank);
     return { db, effectService, cardsService, cards, slot, rankSlot };
@@ -31,11 +31,11 @@ describe('an effect reaching a root through a derivation', () => {
         expect(slot.effects?.length).toBe(1);
 
         cardsService.slotContentService.clearSlotContent(slot);
-        expect(oimIsSlotReleased(slot)).toBe(false);
+        expect(isOIMSlotReleased(slot)).toBe(false);
 
         effectService.disposeEffect(effect);
         db.flush();
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
     });
 
     it('detaches without throwing, and gives back every hold it took', () => {
@@ -47,7 +47,7 @@ describe('an effect reaching a root through a derivation', () => {
 
         held.owner.unholdSlot(held);
         cardsService.slotContentService.clearSlotContent(slot);
-        expect(oimIsSlotReleased(slot)).toBe(false);
+        expect(isOIMSlotReleased(slot)).toBe(false);
 
         expect(() => { effectService.disposeEffect(effect); }).not.toThrow();
         db.flush();

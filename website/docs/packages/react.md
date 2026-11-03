@@ -132,7 +132,7 @@ The examples below share these definitions.
 ```tsx setup
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { OIMDB, OIMSingleSlotStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, createOIMSingleComputedService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMSingleSlotStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, isOIMSameValueZero, createOIMSingleComputedService, createOIMSingleSlotService } from '@oimdb/core';
 import type {
   TOIMBucketSlotsArrayStore, TOIMBucketSlot, TOIMComputedSlot, TOIMEntitySlot, TOIMSingleSlotStore,
 } from '@oimdb/core';
@@ -271,7 +271,7 @@ several columns. One `useOIMEntity` is one subscription, and several `useOIMFiel
 calls are several.
 
 The first argument is the collection service, which owns the column slots; anything with
-`getColumn(slot, columnName)` fits. `name` is a column of that slot's entity, so a typo is a
+`getColumnSlot(slot, columnName)` fits. `name` is a column of that slot's entity, so a typo is a
 compile error and the value comes back with that column's type, or `undefined`. The hook holds
 the entity slot while subscribed.
 
@@ -517,7 +517,7 @@ For one computed slot, hand it to `useOIMComputedValue`, which does exactly that
 
 ```tsx
 const spadesCountService = createOIMSingleComputedService<number>({
-  sameValueGuard: oimSameValueZeroGuard,
+  sameValueGuard: isOIMSameValueZero,
 });
 const spadesCount = spadesCountService.createStoreSlot(
   db,

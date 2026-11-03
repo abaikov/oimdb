@@ -1,4 +1,4 @@
-import { OIMSlotContentChangeListenerService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, oimIsSlotReleased } from '../../../core/src/index';
+import { OIMSlotContentChangeListenerService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, isOIMSlotReleased } from '../../../core/src/index';
 import type {
     IOIMSlotContentChangeListener,
     OIMDB,
@@ -109,7 +109,7 @@ const oursSide = (
         let filedBucketMemberSlotCount = 0;
         for (let b = 0; b < bucketCount; b++) {
             const bucketSlot = bucketSlots[b];
-            if (oimIsSlotReleased(bucketSlot) || bucketService.findSlotByKey(bucketStoreSlot, bucketKeys[b]) !== bucketSlot) {
+            if (isOIMSlotReleased(bucketSlot) || bucketService.peekSlotByKey(bucketStoreSlot, bucketKeys[b]) !== bucketSlot) {
                 throw new Error(`price: ${bucketAddsScenario.name} lost the bucket ${bucketKeys[b]}.`);
             }
             filedBucketMemberSlotCount += slotContentService.getBucketMemberSlotCount(bucketSlot);

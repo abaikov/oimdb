@@ -1,3 +1,4 @@
+import type { TOIMDisposer } from '../../schedule/types/TOIMDisposer';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMOrderedListCommand } from '../commands/types/TOIMOrderedListCommand';
 import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
@@ -27,4 +28,5 @@ export type TOIMBucketContentSlot<
     markContentChanged(): void;
     holdSlot(): void;
     unholdSlot(): void;
+    watch(body: (bucketSlot: TOIMBucketContentSlot<TSlots, TBucketMemberSlot>) => void): TOIMDisposer;
 };

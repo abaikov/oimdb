@@ -35,7 +35,7 @@ type TCard = { id: string; deck: string; title: string; rank: number };
 |---|---|---|
 | an application (the common case) | the store aggregates inside `createSchemas`, then slot methods and `db.createEffect` | `new OIMDB({ createSchemas })`, one per application; call `db.flush()` after a batch of writes |
 | a library, SSR (a database per request), tests that need isolated databases | the same: call the function that builds the database once per request or test | one per request or test; two databases never share a flush |
-| what the aggregates do not cover: set, sorted-at-write or custom bucket stores, composite or tree keys, positional bucket writes, column slots and column-group reads (`readEntity(group)`), custom writers, persist or devtools wiring | `@oimdb/core` services (`createOIMSlotCollectionService` and the rest) | the same `OIMDB` |
+| what the aggregates do not cover: set, sorted-at-write or custom bucket stores, composite or tree keys, positional bucket writes, column slots and column-group reads (`getEntity(group)`), custom writers, persist or devtools wiring | `@oimdb/core` services (`createOIMSlotCollectionService` and the rest) | the same `OIMDB` |
 
 ## Schemas
 
@@ -108,10 +108,11 @@ other act is a method of the slot.
 | `cards.writeSlotContentByKey(key, entity)` | Writes the whole entity under the key and returns its slot. |
 | `cards.getSlotByKey(key)` | The slot, minted if there is none; the db holds a minted slot until the next flush. |
 | `cards.holdSlotByKey(key)` | The same slot, held by you until `slot.unholdSlot()`. |
-| `cards.findSlotByKey(key)` | The filed slot or `undefined`; mints nothing. |
+| `cards.peekSlotByKey(key)` | The filed slot or `undefined`; mints nothing. |
 | `cards.hasSlotContentByKey(key)` | Whether the key has an entity. |
 | `slot.entity` | The entity or `undefined`. Read inside `db.createEffect` or a computed, it makes the slot a source, so a later write to it, a first write included, wakes the reader. |
 | `slot.updateEntity(patch)`, `slot.updateEntityColumn(name, value)`, `slot.writeSlotContent(entity)` | Write the entity in place. |
+| `slot.watch(body, columnNames?)` | Runs `body(slot.entity)` at once and after every frame that wrote the entity, until the disposer it returns is called. With one column name, or the names of a group declared in `columnGroups`, only a write to those columns runs it. |
 | `slot.clearSlotContent()` | Takes the entity away. A slot nothing holds goes with it, so a later `getSlotByKey` returns a new one. |
 | `cards.getEntities()` | Every entity. The order is not strict: roughly the order the entities got data, but a key read before its first write, or an entity cleared and refilled, can sit elsewhere; for a strict order, sort (see [A sorted list](#a-sorted-list)). No index needed. Read inside an effect or a computed, it wakes the reader when an entity is added, edited or deleted. |
 | `cards.getEntityCount()` | How many entities there are; wakes the reader when one is added or deleted. |
@@ -135,7 +136,7 @@ settings.hasSingleSlotContent();              // false
 ```
 
 `createOIMSingleSlotStoreAggregate(db, { slotContentService })` holds one entity with no key:
-`writeSingleSlotContent`, `getSingleSlot`, `holdSingleSlot`, `findSingleSlot`, `hasSingleSlotContent` and
+`writeSingleSlotContent`, `getSingleSlot`, `holdSingleSlot`, `peekSingleSlot`, `hasSingleSlotContent` and
 `clearSingleSlotContent`; the slot has the same methods as a collection's.
 
 ## An index
@@ -273,8 +274,9 @@ stopWatching();                       // -> cleanup
 | `db.createEffect(body, [])` | none | at once, and never again |
 
 `lazy` applies only with a list of slots. A body may return a cleanup; it runs before the next run and on the
-disposer `createEffect` returns. Computed slots cannot be passed in the list (excluded by type); read them through
-`.value` in a body without a list. `OIMEffectService.INSTANCE` is the layer underneath, for what this door does not
+disposer `createEffect` returns. A computed — a slot with `sourceComputeds` — cannot be passed in the list (excluded by
+type); read it through `.value` in a body without a list. An entity's column slot has a `value` too, is not a
+computed, and goes in the list. `OIMEffectService.INSTANCE` is the layer underneath, for what this door does not
 pick.
 
 ## The database
@@ -329,7 +331,7 @@ export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /></ul></OIMDB
 | `cards.getEntities()` | reads `OIMSlotCollectionBucketService.INSTANCE.getBucketSlot(cards.storeSlot)` |
 | `createOIMSingleSlotStoreAggregate(db, options)` | `createOIMSingleSlotService(options)` and its `createStoreAggregate(service.createStoreSlot(db))` |
 | `createOIMSlotCollectionIndexStoreAggregate(cards, options)` | `createOIMSlotCollectionIndexService({ entityService: cards.slotService, … })` and its `createIndexStoreSlot(cards.storeSlot)` |
-| `createOIMSortedCollectionSingleSlotStoreAggregate(cards, options)` | a `createOIMSingleComputedService` over `OIMSlotCollectionBucketService.INSTANCE.getBucketSlot(cards.storeSlot)` and its `getBucketColumn` per sort column |
+| `createOIMSortedCollectionSingleSlotStoreAggregate(cards, options)` | a `createOIMSingleComputedService` over `OIMSlotCollectionBucketService.INSTANCE.getBucketSlot(cards.storeSlot)` and its `getBucketColumnSlot` per sort column |
 | `db.createEffect(body)` | `OIMEffectService.INSTANCE.createSourceTrackingEffect(db, body)` |
 | `db.createEffect(body, slots)` | `OIMEffectService.INSTANCE.createAndRunEffect(db, body, slots)`, or `createEffect` when `lazy` |
 

@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
@@ -24,7 +24,7 @@ describe('hold adds a hold and nothing else', () => {
         const asked = byDeckService.getSlotByKey(byDeck, 'spades');
         expect(byDeckService.getSlotCount(byDeck)).toBe(1);
         db.flush();
-        expect(oimIsSlotReleased(asked)).toBe(true);
+        expect(isOIMSlotReleased(asked)).toBe(true);
         expect(byDeckService.getSlotCount(byDeck)).toBe(0);
 
         const heldSlot = byDeckService.holdSlotByKey(byDeck, 'spades');
@@ -106,7 +106,7 @@ describe('hold adds a hold and nothing else', () => {
         expect(byDeckService.getSlotByKey(byDeck, 'spades')).toBe(firstSlot);
 
         secondSlot.owner.unholdSlot(secondSlot);
-        expect(oimIsSlotReleased(secondSlot)).toBe(true);
+        expect(isOIMSlotReleased(secondSlot)).toBe(true);
         expect(byDeckService.getSlotCount(byDeck)).toBe(0);
     });
 });

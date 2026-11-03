@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/persist-memory",
-  "version": "4.1.1",
+  "version": "4.2.0",
   "description": "In-memory persistence backend for @oimdb/persist (SSR, tests, server-side fill)",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -43,8 +43,8 @@
     "dist"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^4.1.0",
-    "@oimdb/persist": "^4.1.0"
+    "@oimdb/core": "^4.9.0",
+    "@oimdb/persist": "^4.3.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",

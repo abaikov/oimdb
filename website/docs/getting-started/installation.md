@@ -17,7 +17,6 @@ Add the packages you use next to it:
 | Redux adapter | `npm install @oimdb/redux-adapter @oimdb/core redux` |
 | Persistence to IndexedDB | `npm install @oimdb/persist @oimdb/persist-idb @oimdb/core` |
 | Persistence to localStorage | `npm install @oimdb/persist @oimdb/persist-localstorage @oimdb/core` |
-| Exodra bridge | `npm install @oimdb/exodra @oimdb/core` |
 | Devtools | `npm install @oimdb/devtools --save-dev` |
 
 These pages describe `@oimdb/core` 4.x. The 3.x line is the previous engine with a

@@ -37,12 +37,12 @@ type TRowsService = ReturnType<typeof makeCollection>;
 type TRowsStoreSlot = ReturnType<TRowsService['createStoreSlot']>;
 
 const updateEntityByKey = (rowsService: TRowsService, rows: TRowsStoreSlot, key: string, patch: Partial<TRow>): void => {
-    const slot = rowsService.findSlotByKey(rows, key);
+    const slot = rowsService.peekSlotByKey(rows, key);
     if (slot !== undefined) rowsService.slotContentService.updateEntity(slot, patch);
 };
 
 const deleteEntityByKey = (rowsService: TRowsService, rows: TRowsStoreSlot, key: string): void => {
-    const slot = rowsService.findSlotByKey(rows, key);
+    const slot = rowsService.peekSlotByKey(rows, key);
     if (slot !== undefined) rowsService.slotContentService.clearSlotContent(slot);
 };
 

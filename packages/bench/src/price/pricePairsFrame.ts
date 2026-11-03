@@ -1,5 +1,5 @@
 import type { OIMComputedSlot } from '../../../core/src/computed/OIMComputedSlot';
-import { OIMEffectService, createOIMComputedService, oimSameValueZeroGuard } from '../../../core/src/index';
+import { OIMEffectService, createOIMComputedService, isOIMSameValueZero } from '../../../core/src/index';
 import type { TOIMComputedSlot, TOIMEffect } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
@@ -452,7 +452,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
         caveat:
             'The one column that moved is the one subscribed to, on both sides, and both deliver ' +
             'once per flush after every write of the frame has landed. A column of an entity is ' +
-            'its own identity in ours, minted by `holdColumn`, and a write marks only the column ' +
+            'its own identity in ours, minted by `holdColumnSlot`, and a write marks only the column ' +
             'slots that exist, so a `note` write does not reach a `title` subscriber at all. The ' +
             'mint is outside the clock (one per entity, at build); inside it ours pays the write ' +
             'path, the column mark, the enlist and the frame, against the floor\'s store, string ' +
@@ -466,7 +466,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             const effects: TOIMEffect[] = [];
             for (let i = 0; i < fixture.slots.length; i++) {
                 effects.push(effectService.createEffect(
-                    fixture.db, handler, [fixture.entityService.columnSlotService.holdColumn(fixture.slots[i], 'title')],
+                    fixture.db, handler, [fixture.entityService.columnSlotService.holdColumnSlot(fixture.slots[i], 'title')],
                 ));
             }
             priceSink.flag = effects.length > 0;
@@ -544,7 +544,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             'RATIO is the settle itself: ours compares the clock stamp of every source against ' +
             'the stamp it last derived at and only then runs the body, where the floor reads one ' +
             'boolean. WHAT OURS STILL BUYS AND THE FLOOR CANNOT: the graph. A memo over another ' +
-            'memo has to be invalidated by hand and in the right order; `oimRefreshComputedSlot` ' +
+            'memo has to be invalidated by hand and in the right order; `refreshOIMComputedSlot` ' +
             'refreshes its source computeds first. The 1024 derivations are the slots of ONE ' +
             '`OIMComputedService` store slot keyed by position, each held, so the read is ' +
             '`getValueForSlot` on an identity resolved before the clock and no key is looked up. That is not exercised by the one-level derivation ' +
@@ -556,7 +556,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             const fixture = priceFixture(DELIVERED_PER_FRAME);
             const entitySlots = fixture.slots;
             const titleLengthComputedService = createOIMComputedService<number, number>({
-                sameValueGuard: oimSameValueZeroGuard,
+                sameValueGuard: isOIMSameValueZero,
             });
             const titleLengthComputedStoreSlot = titleLengthComputedService.createStoreSlot(
                 fixture.db,

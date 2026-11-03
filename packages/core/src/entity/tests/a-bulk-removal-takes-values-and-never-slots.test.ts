@@ -3,9 +3,9 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
@@ -45,7 +45,7 @@ function createFixture() {
     const deleteEntitiesByKeys = (keys: readonly string[]): void => {
         cardsService.writeInBatch(cards, () => {
             for (const key of keys) {
-                const slot = cardsService.findSlotByKey(cards, key);
+                const slot = cardsService.peekSlotByKey(cards, key);
                 if (slot !== undefined) cardsService.slotContentService.clearSlotContent(slot);
             }
         });
@@ -78,7 +78,7 @@ describe('a bulk removal takes the values it names', () => {
         deleteEntities([c1, cardsService.getSlotByKey(cards,'c2')!]);
         db.flush();
 
-        expect(oimIsSlotEmpty(c1)).toBe(true);
+        expect(isOIMSlotEmpty(c1)).toBe(true);
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(deck('d1'))).toBe(2);
         expect(cardsService.getSlotByKey(cards,'c3')!.entity).toBeDefined();
 
@@ -86,9 +86,9 @@ describe('a bulk removal takes the values it names', () => {
         // of the bucket, nothing points at the identity and the bucket is empty.
         const d1 = deck('d1');
         byDeckService.slotContentService.clearSlotContent(d1);
-        expect(oimIsSlotReleased(d1)).toBe(true);
+        expect(isOIMSlotReleased(d1)).toBe(true);
         expect(byDeckService.getSlotCount(byDeck)).toBe(2);
-        expect(oimIsSlotReleased(c1)).toBe(true);
+        expect(isOIMSlotReleased(c1)).toBe(true);
     });
 
     it('removes by key, and a key that is not there is not an error', () => {
@@ -96,7 +96,7 @@ describe('a bulk removal takes the values it names', () => {
         expect(() => deleteEntitiesByKeys(['c1', 'nope'])).not.toThrow();
         db.flush();
         // Still filed, because its deck still names it — the value is what went.
-        expect(oimIsSlotEmpty(cardsService.getSlotByKey(cards,'c1')!)).toBe(true);
+        expect(isOIMSlotEmpty(cardsService.getSlotByKey(cards,'c1')!)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(4);
     });
 });
@@ -114,7 +114,7 @@ describe('clearing takes every value and leaves every slot', () => {
         cardsService.writeInBatch(cards, () => { for (const entitySlot of [...cardsService.getSlots(cards)]) cardsService.slotContentService.clearSlotContent(entitySlot); });
         db.flush();
 
-        expect(oimIsSlotEmpty(cardsService.getSlotByKey(cards,'c1')!)).toBe(true);
+        expect(isOIMSlotEmpty(cardsService.getSlotByKey(cards,'c1')!)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(4);
         expect(byDeckService.getSlotCount(byDeck)).toBe(3);
 
@@ -132,7 +132,7 @@ describe('clearing takes every value and leaves every slot', () => {
         db.flush();
         for (const bucket of Array.from(byDeckService.getSlots(byDeck))) byDeckService.slotContentService.clearSlotContent(bucket);
 
-        expect(oimIsSlotEmpty(kept)).toBe(true);
+        expect(isOIMSlotEmpty(kept)).toBe(true);
         expect(cardsService.getSlotByKey(cards,'c1')).toBe(kept);
         expect(cardsService.getSlotCount(cards)).toBe(1);
     });
@@ -161,7 +161,7 @@ describe('what a bulk removal leaves for the watchers to count', () => {
 
         // A derivation over the same slot, read by nobody: it is asked, never
         // woken, so it is in no root's list.
-        const computedService = createOIMSingleComputedService<number>({ columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(), sameValueGuard: oimSameValueZeroGuard });
+        const computedService = createOIMSingleComputedService<number>({ columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(), sameValueGuard: isOIMSameValueZero });
         const computed = computedService.createStoreSlot(db, () => 1, () => ({ sourceSlots: [slot] }));
         const computedSlot = computedService.holdSingleSlot(computed);
         expect(slot.effects?.length).toBe(1);

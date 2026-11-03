@@ -1,6 +1,6 @@
 import type { TOIMEntitySlot } from '../entity/types/TOIMEntitySlot';
 import { OIMKeyTreeWalk } from './OIMKeyTreeWalk';
-import { oimUnholdSlotIfAlive } from '../slot/utils/oimUnholdSlotIfAlive';
+import { unholdOIMSlotIfAlive } from '../slot/utils/unholdOIMSlotIfAlive';
 
 export class OIMCompositeKeyTreeWalk extends OIMKeyTreeWalk<TOIMEntitySlot> {
     public static readonly INSTANCE = new OIMCompositeKeyTreeWalk();
@@ -10,6 +10,6 @@ export class OIMCompositeKeyTreeWalk extends OIMKeyTreeWalk<TOIMEntitySlot> {
     }
 
     protected unholdCompositeKeyPart(entitySlot: TOIMEntitySlot): void {
-        oimUnholdSlotIfAlive(entitySlot);
+        unholdOIMSlotIfAlive(entitySlot);
     }
 }

@@ -52,7 +52,7 @@ const fileCards = (
         const filedEntitySlots: TCardSlot[] = [];
         for (const card of presentCardById.values()) {
             if (!isFiled(card)) continue;
-            const entitySlot = entityCollectionService.findSlotByKey(entityStoreSlot, card.id);
+            const entitySlot = entityCollectionService.peekSlotByKey(entityStoreSlot, card.id);
             if (entitySlot !== undefined) filedEntitySlots.push(entitySlot);
         }
         bucketCollectionService.slotContentService.writeSlotContent(bucketSlot, filedEntitySlots);
@@ -67,7 +67,7 @@ const fileCards = (
         },
         dropCard: id => {
             presentCardById.delete(id);
-            const entitySlot = entityCollectionService.findSlotByKey(entityStoreSlot, id);
+            const entitySlot = entityCollectionService.peekSlotByKey(entityStoreSlot, id);
             if (entitySlot !== undefined) entityCollectionService.slotContentService.clearSlotContent(entitySlot);
             refile();
         },
@@ -212,7 +212,7 @@ describe('OIMPersistBucketRecordSource', () => {
         );
         secondCards.entityCollectionService.writeInBatch(secondCards.entityStoreSlot, () => (persistRecordsDelta.upserts.map(record => record.entity)).map(entity => secondCards.entityCollectionService.writeSlotContentByKey(secondCards.entityStoreSlot, entity.id, entity)));
         for (const deletedKey of persistRecordsDelta.deletedKeys) {
-            const deletedEntitySlot = secondCards.entityCollectionService.findSlotByKey(secondCards.entityStoreSlot, deletedKey);
+            const deletedEntitySlot = secondCards.entityCollectionService.peekSlotByKey(secondCards.entityStoreSlot, deletedKey);
             if (deletedEntitySlot !== undefined) secondCards.entityCollectionService.slotContentService.clearSlotContent(deletedEntitySlot);
         }
         expect(readMemberKeys(secondFiling)).toEqual([]);
@@ -236,7 +236,7 @@ describe('OIMPersistBucketRecordSource', () => {
 
         const persistRecordSource = sourceOf(db, entityCollectionService, entityStoreSlot, filing);
         const persistRecordsDelta = persistRecordSource.readRecordsDelta(
-            persistRecordSource.findEntitySlotsByKeys(['c1', 'c2', 'missing']),
+            persistRecordSource.peekEntitySlotsByKeys(['c1', 'c2', 'missing']),
         );
 
         expect(persistRecordsDelta.upserts).toEqual([{ key: 'c1', entity: { id: 'c1', deckId: 'd1', title: 'alpha', draft: false } }]);
@@ -322,10 +322,10 @@ describe('OIMPersistSingleEntitySnapshotSource', () => {
         let themeWakeCount = 0;
         let impersonatingWakeCount = 0;
         const effectService = OIMEffectService.INSTANCE;
-        effectService.createEffect(db, () => { userWakeCount++; }, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'userId')]);
-        effectService.createEffect(db, () => { themeWakeCount++; }, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'theme')]);
+        effectService.createEffect(db, () => { userWakeCount++; }, [singleEntityService.columnSlotService.getColumnSlot(singleEntitySlot, 'userId')]);
+        effectService.createEffect(db, () => { themeWakeCount++; }, [singleEntityService.columnSlotService.getColumnSlot(singleEntitySlot, 'theme')]);
         effectService.createEffect(
-            db, () => { impersonatingWakeCount++; }, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'impersonating')],
+            db, () => { impersonatingWakeCount++; }, [singleEntityService.columnSlotService.getColumnSlot(singleEntitySlot, 'impersonating')],
         );
 
         persistSingleEntitySnapshotSource.writeSnapshot({ userId: 'u1', theme: 'light' });
@@ -341,7 +341,7 @@ describe('OIMPersistSingleEntitySnapshotSource', () => {
         const { db, singleEntityService, singleEntitySlot } = buildSession({ userId: 'u1', theme: 'dark' });
         let runCount = 0;
         OIMEffectService.INSTANCE.createEffect(
-            db, () => { runCount++; }, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'theme')],
+            db, () => { runCount++; }, [singleEntityService.columnSlotService.getColumnSlot(singleEntitySlot, 'theme')],
         );
 
         singleEntityService.slotContentService.deleteEntityColumns(singleEntitySlot, ['theme']);
@@ -376,7 +376,7 @@ describe('hydrating a bucket', () => {
 
         expect(readMemberKeys(restoredFiling)).toEqual(['c1', 'c3']);
         expect(
-            restoredCards.entityCollectionService.findSlotByKey(restoredCards.entityStoreSlot, 'c1')?.entity?.title,
+            restoredCards.entityCollectionService.peekSlotByKey(restoredCards.entityStoreSlot, 'c1')?.entity?.title,
         ).toBe('alpha');
     });
 
@@ -416,9 +416,9 @@ describe('hydrating a bucket', () => {
         });
         db.flush();
 
-        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'c1')?.entity?.title).toBe('ALPHA');
+        expect(entityCollectionService.peekSlotByKey(entityStoreSlot, 'c1')?.entity?.title).toBe('ALPHA');
         expect(readMemberKeys(filing)).toEqual(['c1']);
-        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'c2')?.entity?.title).toBe('beta');
+        expect(entityCollectionService.peekSlotByKey(entityStoreSlot, 'c2')?.entity?.title).toBe('beta');
     });
 });
 
@@ -437,9 +437,9 @@ describe('hydrating a bucket that holds the whole collection', () => {
         });
         db.flush();
 
-        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'c1')?.entity?.title).toBe('ALPHA');
+        expect(entityCollectionService.peekSlotByKey(entityStoreSlot, 'c1')?.entity?.title).toBe('ALPHA');
         expect(readMemberKeys(filing)).toEqual(['c1']);
-        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'c2')?.entity?.title).toBe('beta');
+        expect(entityCollectionService.peekSlotByKey(entityStoreSlot, 'c2')?.entity?.title).toBe('beta');
     });
 });
 
@@ -489,7 +489,7 @@ describe('hydrating a list of members nothing but the snapshot knows', () => {
                 .map(entitySlot => String(entitySlot.key)),
         ).toEqual(['c3', 'c1']);
         expect(
-            restoredSearch.entityCollectionService.findSlotByKey(restoredSearch.entityStoreSlot, 'c1')?.entity?.title,
+            restoredSearch.entityCollectionService.peekSlotByKey(restoredSearch.entityStoreSlot, 'c1')?.entity?.title,
         ).toBe('alpha');
     });
 });

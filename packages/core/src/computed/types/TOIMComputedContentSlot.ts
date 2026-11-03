@@ -9,7 +9,7 @@ export type TOIMComputedContentSlot<TValue = unknown, TSourceTracker extends OIM
     readonly checkedAtRevision: number;
     readonly checkedAtEpoch: number;
     readonly isDeriving: boolean;
-    readonly allRootSlots: readonly TOIMSlot[] | undefined;
+    readonly rootSlots: readonly TOIMSlot[] | undefined;
     readonly sourceTracker: TSourceTracker;
     holdSlot(): void;
     unholdSlot(): void;

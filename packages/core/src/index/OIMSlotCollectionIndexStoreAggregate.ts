@@ -29,20 +29,20 @@ export class OIMSlotCollectionIndexStoreAggregate<
         return this.slotService.holdSlotsByKeys(this.storeSlot, keys);
     }
 
-    public getAnyBucketColumnByKey(key: TKey): TOIMColumnSlot {
-        return this.slotService.getAnyBucketColumnByKey(this.storeSlot, key);
+    public getAnyBucketColumnSlotByKey(key: TKey): TOIMColumnSlot {
+        return this.slotService.getAnyBucketColumnSlotByKey(this.storeSlot, key);
     }
 
-    public holdAnyBucketColumnByKey(key: TKey): TOIMColumnSlot {
-        return this.slotService.holdAnyBucketColumnByKey(this.storeSlot, key);
+    public holdAnyBucketColumnSlotByKey(key: TKey): TOIMColumnSlot {
+        return this.slotService.holdAnyBucketColumnSlotByKey(this.storeSlot, key);
     }
 
-    public getBucketColumnByKey(key: TKey, columnName: string): TOIMColumnSlot {
-        return this.slotService.getBucketColumnByKey(this.storeSlot, key, columnName);
+    public getBucketColumnSlotByKey(key: TKey, columnName: string): TOIMColumnSlot {
+        return this.slotService.getBucketColumnSlotByKey(this.storeSlot, key, columnName);
     }
 
-    public holdBucketColumnByKey(key: TKey, columnName: string): TOIMColumnSlot {
-        return this.slotService.holdBucketColumnByKey(this.storeSlot, key, columnName);
+    public holdBucketColumnSlotByKey(key: TKey, columnName: string): TOIMColumnSlot {
+        return this.slotService.holdBucketColumnSlotByKey(this.storeSlot, key, columnName);
     }
 
     public disposeIndexStoreSlot(): void {

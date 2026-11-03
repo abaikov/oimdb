@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../../column/types/TOIMColumnName';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -16,7 +16,7 @@ const createFixture = () => {
     const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService<
-        TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
+        TCard, TOIMStoreKey, readonly TOIMColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
         OIMSetBucketContentService<TCardSlot, string>
     >({
@@ -33,14 +33,14 @@ describe('what a disposed index still takes back', () => {
     it('takes back every hold given out before the dispose, so a cleanup that runs after it does not throw', () => {
         const { byDeckService, byDeck } = createFixture();
         const bucket = byDeckService.holdSlotByKey(byDeck, 'x');
-        const anyColumn = byDeckService.holdAnyBucketColumnByKey(byDeck, 'x');
-        const column = byDeckService.holdBucketColumnByKey(byDeck, 'x', 'title');
+        const anyColumn = byDeckService.holdAnyBucketColumnSlotByKey(byDeck, 'x');
+        const column = byDeckService.holdBucketColumnSlotByKey(byDeck, 'x', 'title');
 
         byDeckService.disposeIndexStoreSlot(byDeck);
 
         expect(() => {
-            byDeckService.columnSlotService.unholdColumn(column);
-            byDeckService.columnSlotService.unholdColumn(anyColumn);
+            byDeckService.columnSlotService.unholdColumnSlot(column);
+            byDeckService.columnSlotService.unholdColumnSlot(anyColumn);
             bucket.owner.unholdSlot(bucket);
         }).not.toThrow();
     });
@@ -52,7 +52,7 @@ describe('what a disposed index still takes back', () => {
         expect(() => byDeckService.getSlotByKey(byDeck, 'x')).toThrow(/disposed/);
         expect(() => byDeckService.holdSlotByKey(byDeck, 'x')).toThrow(/disposed/);
         expect(() => byDeckService.getEntitiesByKey(byDeck, 'x')).toThrow(/disposed/);
-        expect(() => byDeckService.holdAnyBucketColumnByKey(byDeck, 'x')).toThrow(/disposed/);
-        expect(() => byDeckService.holdBucketColumnByKey(byDeck, 'x', 'title')).toThrow(/disposed/);
+        expect(() => byDeckService.holdAnyBucketColumnSlotByKey(byDeck, 'x')).toThrow(/disposed/);
+        expect(() => byDeckService.holdBucketColumnSlotByKey(byDeck, 'x', 'title')).toThrow(/disposed/);
     });
 });

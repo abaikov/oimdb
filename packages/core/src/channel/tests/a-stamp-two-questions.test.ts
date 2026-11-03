@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
@@ -25,7 +25,7 @@ const createFixture =() => {
     return { db, rowsService, rows, byGroupService, byGroup };
 };
 
-const createDoubledService = () => createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
+const createDoubledService = () => createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
 
 describe('an effect hears nothing of a change that preceded it', () => {
     it('says nothing to an effect that arrived after the write, in the batch that made it', () => {
@@ -66,7 +66,7 @@ describe('an effect hears nothing of a change that preceded it', () => {
         const { db, rowsService, rows } = createFixture();
         rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
-        const column = rowsService.columnSlotService.holdColumn(slot, 'n');
+        const column = rowsService.columnSlotService.holdColumnSlot(slot, 'n');
 
         let early = 0;
         const watching = effectService.createEffect(db, () => { early++; }, [column]);
@@ -151,7 +151,7 @@ describe('effectImmediate is the door onto a value the batch has already written
         const { db, rowsService, rows } = createFixture();
         rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
-        const column = rowsService.columnSlotService.holdColumn(slot, 'n');
+        const column = rowsService.columnSlotService.holdColumnSlot(slot, 'n');
         db.flush();
 
         rowsService.slotContentService.updateEntity(slot,{ n: 2 });

@@ -1,7 +1,7 @@
 import type { TOIMTimer } from '../types/TOIMTimer';
 import type { TOIMFlushSchedulerSlot } from '../types/TOIMFlushSchedulerSlot';
 import { OIMFlushSchedulerService } from '../OIMFlushSchedulerService';
-import { OIM_NOTHING_TO_DISPOSE } from '../constants/OIM_NOTHING_TO_DISPOSE';
+import { OIM_NOOP_DISPOSER } from '../constants/OIM_NOOP_DISPOSER';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -10,7 +10,7 @@ import type { IOIMFlushSchedulerListener } from '../interfaces/IOIMFlushSchedule
 
 const runAtOnce: TOIMTimer = (run) => {
     run();
-    return OIM_NOTHING_TO_DISPOSE;
+    return OIM_NOOP_DISPOSER;
 };
 
 class CountingFlushSchedulerService implements IOIMFlushSchedulerListener<TOIMFlushSchedulerSlot> {

@@ -1,5 +1,5 @@
 import { OIMDefaults } from '../../index';
-import { OIMDB, OIMEffectService, oimMintAfterIdleSlotReleaseWheel, oimMintAfterUnholdSlotReleaseWheel, oimMintAfterWriteSlotReleaseWheel, OIMSetBucketContentService, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAtEmptyReleasePolicy, OIMSlotAtUnholdReleasePolicy, OIMSlotEarliestReleasePolicy, OIMSlotNeverReleasePolicy, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, mintOIMAfterIdleSlotReleaseWheel, mintOIMAfterUnholdSlotReleaseWheel, mintOIMAfterWriteSlotReleaseWheel, OIMSetBucketContentService, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAtEmptyReleasePolicy, OIMSlotAtUnholdReleasePolicy, OIMSlotEarliestReleasePolicy, OIMSlotNeverReleasePolicy, isOIMSlotReleased } from '../../index';
 import type { IOIMSlotReleasePolicy, TOIMEntitySlot } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -28,7 +28,7 @@ describe('one release policy decides when a slot goes', () => {
         fixture.db.flush();
         fixture.at(START + 10 ** 9);
         fixture.db.flush();
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
     });
 
     it('with no policy, no write asks OIMSlotAtEmptyReleasePolicy anything, because it schedules no release on write', () => {
@@ -36,7 +36,7 @@ describe('one release policy decides when a slot goes', () => {
         try {
             const fixture = createFixture(undefined);
             fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
-            const card = fixture.cardsService.findSlotByKey(fixture.cards, 'c1');
+            const card = fixture.cardsService.peekSlotByKey(fixture.cards, 'c1');
             if (card !== undefined) fixture.cardsService.slotContentService.updateEntity(card, { title: 'two' });
             expect(onSlotWritten).toHaveBeenCalledTimes(0);
         } finally {
@@ -53,12 +53,12 @@ describe('one release policy decides when a slot goes', () => {
         const cardSlot = cardsService.holdSlotByKey(cards, 'c1');
         cardSlot.owner.unholdSlot(cardSlot);
         db.flush();
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
 
-        const deletedSlot = cardsService.findSlotByKey(cards, 'c1');
+        const deletedSlot = cardsService.peekSlotByKey(cards, 'c1');
         if (deletedSlot !== undefined) cardsService.slotContentService.clearSlotContent(deletedSlot);
         db.flush();
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 
     it('never: a collection keeps a slot through holds and a delete under a database that releases at unhold', () => {
@@ -69,11 +69,11 @@ describe('one release policy decides when a slot goes', () => {
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         const cardSlot = cardsService.holdSlotByKey(cards, 'c1');
         cardSlot.owner.unholdSlot(cardSlot);
-        const deletedSlot = cardsService.findSlotByKey(cards, 'c1');
+        const deletedSlot = cardsService.peekSlotByKey(cards, 'c1');
         if (deletedSlot !== undefined) cardsService.slotContentService.clearSlotContent(deletedSlot);
         db.flush();
 
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(card);
         expect(cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'two' })).toBe(card);
     });
@@ -83,17 +83,17 @@ describe('one release policy decides when a slot goes', () => {
         const slotReleasePolicy = new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 30_000 });
         const defaults = new OIMDefaults({ slotReleasePolicy });
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER });
-        const slotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
+        const slotReleaseWheel = mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot);
         const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         ms = START + 29_000;
         slotReleaseWheel.flush();
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
         ms = START + 31_000;
         slotReleaseWheel.flush();
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 
     it('after idle: a row goes once nothing has watched it for the window', () => {
@@ -101,7 +101,7 @@ describe('one release policy decides when a slot goes', () => {
         const slotReleasePolicy = new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 5_000 });
         const defaults = new OIMDefaults({ slotReleasePolicy });
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER });
-        const slotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
+        const slotReleaseWheel = mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot);
         const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
@@ -109,14 +109,14 @@ describe('one release policy decides when a slot goes', () => {
         db.flush();
         ms = START + 60_000;
         slotReleaseWheel.flush();
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
         OIMEffectService.INSTANCE.disposeEffect(effect);
         ms = START + 64_000;
         slotReleaseWheel.flush();
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
         ms = START + 66_000;
         slotReleaseWheel.flush();
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 
     it('at unhold: a bucket with slots goes at its last unhold', () => {
@@ -131,13 +131,13 @@ describe('one release policy decides when a slot goes', () => {
         );
         db.flush();
         deck.owner.unholdSlot(deck);
-        expect(oimIsSlotReleased(deck)).toBe(true);
+        expect(isOIMSlotReleased(deck)).toBe(true);
     });
 
     it('after unhold: a bucket with slots stays for the window after its last unhold, and a hold in between keeps it', () => {
         let ms = START;
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER });
-        const slotReleaseWheel = oimMintAfterUnholdSlotReleaseWheel(db.collectorSlot);
+        const slotReleaseWheel = mintOIMAfterUnholdSlotReleaseWheel(db.collectorSlot);
         const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const decksService = createDecksService(new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs: 10_000 }));
@@ -148,30 +148,30 @@ describe('one release policy decides when a slot goes', () => {
         );
         db.flush();
         deck.owner.unholdSlot(deck);
-        expect(oimIsSlotReleased(deck)).toBe(false);
+        expect(isOIMSlotReleased(deck)).toBe(false);
         ms = START + 9_000;
         slotReleaseWheel.flush();
-        expect(oimIsSlotReleased(deck)).toBe(false);
+        expect(isOIMSlotReleased(deck)).toBe(false);
         deck.owner.holdSlot(deck);
         ms = START + 11_000;
         slotReleaseWheel.flush();
-        expect(oimIsSlotReleased(deck)).toBe(false);
+        expect(isOIMSlotReleased(deck)).toBe(false);
         deck.owner.unholdSlot(deck);
         ms = START + 22_000;
         slotReleaseWheel.flush();
-        expect(oimIsSlotReleased(deck)).toBe(true);
+        expect(isOIMSlotReleased(deck)).toBe(true);
     });
 
     it('a zero window never touches the release queue: the slot goes at the end of the frame', () => {
         const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 0 }) });
         const db = new OIMDB({ getNowMs: () => START, releaseTimer: NO_TIMER });
-        const slotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
+        const slotReleaseWheel = mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot);
         const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         expect(slotReleaseWheel.getNextSliceNumber()).toBeUndefined();
         db.flush();
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
         expect(slotReleaseWheel.getNextSliceNumber()).toBeUndefined();
     });
 
@@ -188,7 +188,7 @@ describe('one release policy decides when a slot goes', () => {
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         ms = START + 6_000;
-        oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
-        expect(oimIsSlotReleased(card)).toBe(true);
+        mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 });

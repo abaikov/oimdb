@@ -59,11 +59,10 @@ describe('what a refetch wheel hands its listener', () => {
         expect(fixture.batches).toEqual([[slot]]);
     });
 
-    it('drops a slot nobody subscribes to, and a released one, without calling the listener for them', () => {
+    it('drops a released slot without calling the listener for it', () => {
         const fixture = createFixture();
         const released = watchedSlot();
         (released as { slotFlags: number }).slotFlags = OIM_SLOT_FLAG_RELEASED;
-        fixture.refetchWheel.scheduleSlotRefetchAt(unwatchedSlot(), START);
         fixture.refetchWheel.scheduleSlotRefetchAt(released, START);
 
         fixture.at(START + 2 * OIM_SLICE_LENGTH_MS);
@@ -71,6 +70,17 @@ describe('what a refetch wheel hands its listener', () => {
 
         expect(fixture.batches).toEqual([]);
         expect(fixture.refetchWheel.getNextSliceNumber()).toBeUndefined();
+    });
+
+    it('hands over a held slot nobody subscribes to when it came due, so its refetch is not lost', () => {
+        const fixture = createFixture();
+        const unwatched = unwatchedSlot();
+        fixture.refetchWheel.scheduleSlotRefetchAt(unwatched, START);
+
+        fixture.at(START + 2 * OIM_SLICE_LENGTH_MS);
+        fixture.refetchWheel.flush();
+
+        expect(fixture.batches).toEqual([[unwatched]]);
     });
 
     it('moves a refetch earlier by filing it again, and the earlier entry comes first', () => {

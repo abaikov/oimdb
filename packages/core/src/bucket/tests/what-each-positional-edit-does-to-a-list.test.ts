@@ -4,7 +4,7 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
@@ -118,7 +118,7 @@ describe('what each positional edit does to a list', () => {
         listContentService.clearSlotContent(bucket);
         db.flush();
         expect(row('a').holdCount).toBe(0);
-        expect(oimIsSlotReleased(bucket)).toBe(true);
+        expect(isOIMSlotReleased(bucket)).toBe(true);
         expect(listService.getSlotCount(list)).toBe(0);
     });
 
@@ -193,7 +193,7 @@ describe('emptying is not a positional act', () => {
 
         searchContentService.clearSlotContent(heldSlot);
         expect(cardsService.getSlotByKey(cards, 'a')!.holdCount).toBe(0);
-        expect(oimIsSlotReleased(heldSlot)).toBe(true);
+        expect(isOIMSlotReleased(heldSlot)).toBe(true);
         expect(searchService.getSlotCount(search)).toBe(0);
     });
 });
@@ -232,7 +232,7 @@ describe('a list whose slots and order are both the caller\'s answers every posi
         db.flush();
         expect(task('t1').holdCount).toBe(0);
         bucket.owner.unholdSlot(bucket);
-        expect(oimIsSlotReleased(bucket)).toBe(true);
+        expect(isOIMSlotReleased(bucket)).toBe(true);
         expect(myDayService.getSlotCount(myDay)).toBe(0);
     });
 });

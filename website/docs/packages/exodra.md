@@ -1,324 +1,101 @@
 ---
-sidebar_position: 5
-description: How @oimdb/exodra binds engine slots to Exodra with exoBinding, exoFollowKey, exoCombine, exoRows and exoSource, and how its two list arms differ.
+sidebar_position: 2.5
+description: The Exodra plugin for OIMDB — one-line tracked effects, slot watches and bucket lists that keep their nodes.
 ---
 
 # Exodra
 
-`@oimdb/exodra` is the [Exodra](https://exodra.org) counterpart of
-[`@oimdb/react`](/docs/packages/react). The React package turns an OIMDB
-source into a hook plus a re-render. This one turns it into a read-only Exodra
-bindable (`TExoBindable`) or list (`TExoBindableList`), with no React, no hooks
-and no re-renders.
+`@oimdb/exodra` is the Exodra plugin for `@oimdb/core`. It only reads: views show slots, and writes go through the
+orchestrator ([OIMDB with cnstra](/docs/guides/with-cnstra)).
 
 <InShort>
 
-- `@oimdb/exodra` turns an OIMDB source into a read-only Exodra bindable or list.
-- `exoBinding` is the one door from the engine.
-- `exoFollowKey`, `exoCombine` and `exoRows` cover a moving key, fan-in and identity-stable children.
-- Lists are a fork, and both arms ship.
+- One `OIMExodraPlugin` per database, composed into the backend; a node may be given another one through context.
+- `withOIMEffects` takes one-line bodies, and each body is a tracked effect.
+- `withOIMBucketList` applies a bucket's commands to a child list and parks the nodes that leave it.
 
 </InShort>
 
 ```bash
-npm install @oimdb/exodra @oimdb/core
+npm install @oimdb/exodra @oimdb/core @exodra/core @exodra/dom @exodra/context
 ```
 
-The bridge depends only on the type-only `@exodra/reactivity-types`, never on the
-reactivity runtime. Your Exodra app already provides `@exodra/reactivity` for
-`bindable`, `derive` and `h`.
-
-## Which function for which task
-
-| You want to bind… | Take | What it hands back |
-|---|---|---|
-| one entity, one column, a bucket's slots, or a derived value | `exoBinding` | `TExoBindable` |
-| a value that follows a key which itself changes (the selected deck) | `exoFollowKey` | `TExoBindable` |
-| one value computed from several bindables, possibly from outside this engine | `exoCombine` | `TExoBindable` |
-| a list of children, one rendered object per key, kept across changes | `exoRows` | `TExoBindable` of an array |
-| a list whose order the engine derives (a sorted computed, a bucket memo) | `exoDerivedList` | `TOIMExoList` — a `TExoBindableList` with insert/remove/move ops |
-| a list whose positions your code sets (`OIMBucketCommands`) | `exoPositionalList` | `TOIMExoList` |
-| a source that is not this engine at all | `exoSource` | `TExoBindable` |
-
-**When to take this package and when not.** Take it when the view layer is
-Exodra: the view's own reactive graph reads a bindable, so a changed entity
-updates the nodes bound to it and nothing re-renders. In React, take
-[`@oimdb/react`](/docs/packages/react) instead; for a Redux reader,
-[`@oimdb/redux-adapter`](/docs/packages/redux-adapter). Among the list
-functions, `exoRows` re-reads a key array and reconciles by key, while the two
-`TOIMExoList` bridges forward position ops. Pick an op-stream bridge when the
-consumer can apply ops, and `exoRows` when it wants a fresh array.
+## The plugin
 
 ```ts setup
-import { OIMDB, createOIMBucketMemoComputedService, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
-import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import {
-    exoBinding, exoSource, exoCombine, exoFollowKey, exoRows, exoDerivedList, exoPositionalList,
-} from '@oimdb/exodra';
-import type { TExoBindable } from '@exodra/reactivity-types';
+import { EXO_PORT_CHILDREN, EXO_PORT_TEXT, composeExoPlugins, createExoMachine, createExoSchema, exoPorts } from '@exodra/core';
+import { ExoDomBackend, withExoChildList, withExoCompiler, type TExoChildList, type TExoDomNode } from '@exodra/dom';
+import { OIMBucketCommands, OIMDB, OIMPositionalArrayBucketContentService, createOIMEntityContentService, createOIMEntitySlotCollectionStoreAggregate, createOIMSingleSlotStoreAggregate, createOIMSlotCollectionIndexStoreAggregate, type TOIMEntitySlot } from '@oimdb/core';
+import { OIMExodraPlugin, withOIMBucketList, withOIMEffects } from '@oimdb/exodra';
 
-type Card = { id: string; title: string; deck: string };
-
+type TTodo = { id: string; title: string; done: boolean };
+type TTodoSlot = TOIMEntitySlot<TTodo, string>;
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
-const cards = cardService.createStoreSlot(db);
-const slot = cardService.getSlotByKey(cards, 'c1');
-const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
-const byDeck = byDeckService.createStoreSlot(db);
-const bucket = byDeckService.getSlotByKey(byDeck, 'spades');
-const orderService = createOIMBucketMemoComputedService({
-    bucketCollectionService: byDeckService,
-});
-const order = orderService.createBucketMemoStoreSlot(byDeck);
-const boardService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
-const boards = boardService.createStoreSlot(db);
-
-const renderCard = (cardSlot: TOIMEntitySlot): string => String(cardSlot.key);
-const entity = exoBinding(db, {
-    sourceSlots: [slot],
-    derive: () => slot.entity,
-});
-const selectedDeck: TExoBindable<string> = exoSource(() => 'spades', () => () => {});
-const highlighted: TExoBindable<boolean> = exoSource(() => false, () => () => {});
-const deckIds: TExoBindable<readonly string[]> = exoSource(() => ['spades'], () => () => {});
+const todos = createOIMEntitySlotCollectionStoreAggregate<TTodo>(db);
+const filter = createOIMSingleSlotStoreAggregate(db, { slotContentService: createOIMEntityContentService<{ shown: 'done' | 'active' }>() });
+const Ports = exoPorts({ TITLE: EXO_PORT_TEXT, ITEMS: EXO_PORT_CHILDREN });
+const todoMachine = createExoMachine<TExoDomNode, TTodoSlot, { todo: TTodoSlot }>(
+    createExoSchema(Ports, (b) => { b.el('li', null, (li) => { li.textPort(Ports.TITLE); }); }),
+    { createInitialState: (_c, todo) => ({ todo }) },
+);
+const listMachine = createExoMachine<TExoDomNode, unknown, { items: TExoChildList }>(
+    createExoSchema(Ports, (b) => { b.el('ul', null, (ul) => { ul.childrenPort(Ports.ITEMS); }); }),
+    { createInitialState: (c) => ({ items: c.childList(Ports.ITEMS) }) },
+);
 ```
 
-## One door from the engine: `exoBinding`
 
-A subscription in this core is **one call**, `OIMEffectService.INSTANCE.createEffect(db,
-body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`, and the value it produces is read off the slots afterwards
-instead of being carried by the subscription. The effect service is stateless: the `db` passed
-first is the channel map, and its `defaultChannelSlot` is the channel the effect runs on. So
-there is one adapter, it takes that same `db` first, and one entity, one column, a bucket's
-slots and a derived value all come through it.
-
-```typescript
-// One entity.
-const cardEntity = exoBinding(db, {
-    sourceSlots: [slot],
-    derive: () => slot.entity,
-});
-
-// A bucket's slots. `getBucketMemberSlots` hands back the LIVE container, so copy it.
-const deckCards = exoBinding(db, {
-    sourceSlots: [bucket],
-    derive: () => Array.from(bucket.getBucketMemberSlots()),
-});
-
-// A derivation — the order of a bucket, a filtered page, an auto index.
-const deck = orderService.holdSlotByKey(order, 'spades');
-const ordered = exoBinding(db, {
-    sourceComputeds: [deck],
-    derive: () => deck.value,
+```ts
+const exodraPlugin = new OIMExodraPlugin({ db });
+const backend = composeExoPlugins(withExoChildList(withExoCompiler(new ExoDomBackend())), {
+    exodraPlugin: () => exodraPlugin,
 });
 ```
 
-`TOIMExoBinding<TValue>` is that argument: `sourceSlots?` (roots a write can reach),
-`sourceComputeds?` (derivations this reads) and `derive`. Both source keys are
-optional and default to none.
+`OIMExodraPlugin` holds the database, one `slot.data` cell it claims on it with `db.claimSlotDataCell()`, and a
+listener on the slots the engine releases (`db.addSlotReleaseListener`); `dispose()` removes the listener.
+`resolveOIMExodraPlugin(c)` is how every helper finds it: the plugin provided above the node under
+`OIM_EXODRA_PLUGIN_CONTEXT_TOKEN` wins, and the backend's `exodraPlugin` is the default. A second database is a
+second plugin, built once next to that database and provided above the subtree that shows it.
 
-```typescript signature
-export type TOIMExoBinding<TValue> = {
-    readonly sourceSlots?: readonly TOIMSlot[] | undefined;
-    readonly sourceComputeds?: readonly TOIMComputedSlot[] | undefined;
-    readonly derive: () => TValue;
-};
+## One-line effects
+
+```ts
+const todoView = withOIMEffects(todoMachine, (effect) => {
+    effect((c) => { c.text(Ports.TITLE, c.state.todo.entity?.title ?? ''); });
+});
 ```
 
-`sourceComputeds` is `readonly TOIMComputedSlot[]`: slots taken from a computed service, e.g. `orderService.holdSlotByKey(order, 'spades')`.
+A body is a tracked `db.createEffect` that starts with the node and stops with it, and is handed the node's
+database as its second argument. What it reads is what wakes it; read a column slot's `value` to wake on that
+column alone.
 
-`exoBinding(db, binding)` takes the same arguments as `createEffect` and returns a `TExoBindable`.
-There is no intermediate observable type.
+## Bucket lists
 
-It takes over two things that would otherwise sit unchecked at every call site,
-and each of them fails **silently**:
+```ts
+const todoView = withOIMEffects(todoMachine, (effect) => {
+    effect((c) => { c.text(Ports.TITLE, c.state.todo.entity?.title ?? ''); });
+});
+const todosByDone = createOIMSlotCollectionIndexStoreAggregate(todos, {
+    keyOf: (todo: TTodo): 'done' | 'active' => (todo.done ? 'done' : 'active'),
+    slotContentService: new OIMPositionalArrayBucketContentService<TTodoSlot, string>({ bucketCommands: new OIMBucketCommands({}) }),
+});
+const listView = withOIMBucketList(listMachine, {
+    selectChildList: (c) => c.state.items,
+    memberMachine: todoView,
+    selectBucketSlot: () => todosByDone.getSlotByKey(filter.getSingleSlot().entity?.shown ?? 'active'),
+});
+```
 
-| | what goes wrong without it |
+| Option | What it is |
 |---|---|
-| **settles every derivation before the read** | a derivation is asked and never woken, so `computedSlot.value` alone is whatever the last settle left there — on a first read, the value it was born with |
-| **one effect per bindable** | ref-counted through `exoSource`: none while nobody listens, one however many subscribers there are |
+| `selectChildList` | the Exodra child list the members are shown in |
+| `memberMachine` | the machine each member slot is built with, the slot as its params |
+| `selectBucketSlot` | `(c, db)`: the bucket to show; run tracked, so a write to what it read switches buckets |
 
-### Lifetime is the caller's
-
-`exoBinding` **holds nothing**: a bindable is lazy, its effect exists only while somebody
-is subscribed, and it outlives its subscriptions. Whoever **resolved** the identity therefore holds it for as long as the bindable
-lives, and says so by handing back a `TOIMExoDisposable<TValue>`, which is
-`TExoBindable<TValue> & { readonly dispose: TOIMDisposer }`:
-
-```typescript
-const groupFor = (deckId: TOIMStoreKey) => {
-    const held = orderService.holdSlotByKey(order, deckId);     // a hold is what mints one
-    return Object.assign(
-        exoBinding(db, {
-            sourceComputeds: [held], derive: () => held.value,
-        }),
-        { dispose: () => held.unholdSlot() },
-    );
-};
-```
-
-Under the default policy of entity and bucket services,
-`OIMSlotAtEmptyReleasePolicy`, getting this wrong exposes only a **valueless**
-identity: an empty bucket, a key resolved before its entity arrived, or an
-entity since removed. A slot holding a value is kept by that value. A computed slot
-is different: `OIMComputedService` defaults to `OIMSlotAtUnholdReleasePolicy`
-and never counts as empty, so an unheld, unsubscribed derivation goes whatever it
-holds. That is why every example above holds the computed it binds.
-
-## `exoFollowKey` — a bindable driven by a moving key
-
-```typescript
-const selected = exoFollowKey(selectedDeck, (deckId) => {
-    const held = orderService.holdSlotByKey(order, deckId);
-    return Object.assign(
-        exoBinding(db, {
-            sourceComputeds: [held], derive: () => held.value,
-        }),
-        { dispose: () => held.unholdSlot() },
-    );
-});
-```
-
-`makeBindable` is re-run whenever the key bindable changes, so a view follows a
-selection without being rebuilt. No core primitive repoints a live subscription
-as a key moves on its own.
-
-The factory must hand back a `TOIMExoDisposable`, because repointing has to give
-the previous key's handle back. Unsubscribing does not cover it, since a
-subscription's disposer returns the subscription and nothing else. Unsubscribed
-reads are memoised on the key: one live handle at a time, given back the moment
-the key moves off it or the last subscriber leaves.
-
-## `exoCombine` — fan-in across anything
-
-```typescript
-const label = exoCombine(() =>
-    `${entity.getValue()?.title ?? ''}${highlighted.getValue() ? '*' : ''}`, [entity, highlighted]);
-```
-
-Exodra's `derive` is single-source. A computed combines too, but only for
-sources inside one channel's graph, and unlike `exoCombine` it is glitch-free. Use
-`exoCombine` where a view mixes an `exoBinding` with local UI state or with a
-second channel. Keep heavy fan-in inside one computed and forward it with
-`exoBinding`.
-
-The **first** emit after subscribing always propagates, on purpose. A binding is
-normally built from `getValue()` first and wired a moment later, and anything that
-changed in between is only recoverable through that first emit. Later emits are
-deduped by `Object.is`.
-
-## `exoRows` — identity-stable children from keys
-
-```typescript
-const rows = exoRows(deckIds, (deckId) => {
-    const held = orderService.holdSlotByKey(order, deckId);
-    const deckCards = exoBinding(db, {
-        sourceComputeds: [held], derive: () => held.value,
-    });
-    return { schema: { deckId, cards: deckCards }, dispose: () => held.unholdSlot() };
-});
-```
-
-Exodra reconciles children by object **identity**, and a raw entity reference is
-not a reliable "same entity?" test: an in-place write never replaces it, a replacing
-write always does. So a primary key identifies an entity, each key's schema is
-rendered once and cached, and a change to the bucket's slots rebuilds from that
-cache.
-
-`render` returns a `TOIMExoRenderedRow<TSchema>`, which is `{ schema, dispose }`. The
-`dispose` gives back whatever the row holds, and runs when the key leaves; a row that holds
-nothing writes `dispose: () => {}`.
-
-Keys must be unique. Uniqueness is decided over the **whole sequence before
-anything is rendered**, so a refused read has rendered nothing, cached nothing and
-moved nothing.
-
-## Lists are a fork, and both arms ship
-
-**Who decides the order** is the whole difference. The engine's order is a
-derivation of entity slots: `createOIMSortedComputedService` over an index, or
-`createOIMBucketMemoComputedService` over a bucket. The caller's order is a bucket under
-`OIMBucketCommands`, which keeps the positions it is given. Which arm applies
-depends on which of the two you hand the bridge.
-
-```typescript
-// The ENGINE orders it: the script is DERIVED, by oimOrderedListCommandsOfTransition.
-const deck = orderService.holdSlotByKey(order, 'spades');
-const list = exoDerivedList(db, deck, renderCard);
-
-// YOU order it: the script is the one OIMBucketCommands already RECORDED.
-const boardBucket = boardService.holdSlotByKey(boards, 'board');
-const board = exoPositionalList(db, boardService.slotContentService, boardBucket, renderCard);
-```
-
-`exoDerivedList(db, computedSlot, render, maxCommandsPerSlot?)` takes a `TOIMComputedSlot` of
-`readonly TOIMEntitySlot[]`, one held from `createOIMSortedComputedService`,
-`createOIMBucketMemoComputedService`, or a computed service of your own. It reads the list through
-`computedSlot.value`. A frame that
-moved the list costs one `oimOrderedListCommandsOfTransition`: a pass over both lists, a
-longest-increasing-subsequence pass, and `common − LIS` moves, which is the
-optimum. A quiet frame costs nothing, because the effect does not run.
-
-`exoPositionalList(db, bucketContentService, bucketSlot, render)` costs
-nothing at all. It takes the bucket collection's **content service**
-(`boardService.slotContentService`), which holds the bucket's slots and its reads. That
-content service must be built with an `OIMBucketCommands` as its `bucketCommands`, which is
-what `createOIMSlotCollectionService()` gives when you pass no `slotContentService`: its default
-is the array-driven content service with commands.
-`OIMBucketCommands` recorded `insertBucketMemberSlotAt`,
-`moveBucketMemberSlotToPosition`, `removeBucketMemberSlotRange` and the rest on the bucket slot
-(`bucket.commands`, `bucket.isWholeListRecorded`) as this frame's script, and the
-bridge forwards it from inside the frame. The script is cleared once the flush
-that delivered it has ended.
-
-Both hand back a `TOIMExoList<TSchema>`, which is a `TExoBindableList` plus a `dispose`.
-
-### One baseline, in one place
-
-Both bridges are **attached from construction**, not from their first subscriber, so
-`snapshot()` is always the list every later op applies to: a consumer that starts from the
-snapshot and applies every op stays in step.
-
-**One baseline, and only one.** If you read the bucket's slots directly *as well as*
-the command stream, you get two baselines over one bucket, and they agree only at
-frame boundaries. An entity slot written and not yet flushed is already in `snapshot()` and
-then arrives a second time as an `insert`, which puts every position-addressed
-command after it one place off.
-
-### Rows survive a `reset`
-
-Each entity slot's schema is memoised in a `WeakMap` inside the bridge. A `reset`, the
-one command carrying a whole list, therefore hands back the very objects the previous
-snapshot did, and an identity-reconciling renderer moves rows instead of remaking
-them. The entry goes when the slot does, so there is nothing to sweep.
-
-The core's commands are **narrower** than Exodra's `TExoListOp`. There is no `set`
-(a content change is not a position change, so bind an entity's content reactively
-inside `render`) and no `count` on `remove`/`move` (it is always exactly one slot).
-Both fields are simply left absent.
-
-## The base primitive: `exoSource`
-
-Every derived bindable above that shares work across several downstream
-subscribers is built on `exoSource(read, subscribe)`. It is lazy and ref-counted
-(the upstream `subscribe` runs only while at least one downstream subscriber
-exists), and SSR-safe (`getValue()` reads through with no subscription at all).
-There is no equality option, because `subscribe` is a callback you write. A caller
-that wants no-op emits dropped compares inside it and does not call `onChange`.
-
-It stays exported for what it is *for*: a source that is **not** this engine's,
-such as a DOM target, an event emitter or a second runtime.
-
-`TOIMExoReadable<TValue>`, which is `{ getValue(): TValue; subscribe(update: () => void): () => void }`,
-is the minimal input shape the bridge accepts. It is deliberately decoupled from
-Exodra's own event generic, so a writable bindable is still a valid input.
-
-## Export reference
-
-**Functions:** `exoBinding`, `exoSource`, `exoCombine`, `exoFollowKey`,
-`exoRows`, `exoDerivedList`, `exoPositionalList`.
-
-**Types:** `TOIMExoBinding`, `TOIMExoReadable`, `TOIMExoDisposable`,
-`TOIMExoRenderedRow`, `TOIMExoList`.
-
-That is the whole surface. The package exports nothing that is not on this list.
+The list takes the bucket's commands through `OIMBucketCommandsCursor`: an insert builds one node, a remove
+detaches one, a move moves one. Give the bucket's content service a `bucketCommands` recorder for that; without
+one, every change is a `reset`. A `reset` — the first take, a whole-list record, a bucket that records no
+commands, a switch to another bucket — detaches every node and puts the members back, reattaching each one's own
+node. A node that leaves is parked in its slot's cell with its own effects stopped (its child nodes keep theirs),
+reattached if the member comes back, and unmounted when the engine releases the slot or the list goes.

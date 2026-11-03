@@ -1,12 +1,13 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../../channel/OIMChannelService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
+import { getOIMRootSlots } from '../utils/getOIMRootSlots';
 
 type TRow = { id: string; n: number };
 
@@ -20,7 +21,7 @@ const createFixture = () => {
     const slots: TOIMSlot[] = [];
     for (let i = 0; i < 8; i++) slots.push(rowsService.getSlotByKey(rows, `r${i}`) as TOIMSlot);
     const computedOver = (sourceSlots: readonly TOIMSlot[], sourceComputeds: readonly TOIMComputedContentSlot[]): TOIMComputedContentSlot<number> => {
-        const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+        const computedService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
         return computedService.getSingleSlot(computedService.createStoreSlot(db, () => 0, () => ({ sourceSlots, sourceComputeds })));
     };
     return { db, effectService, slots, computedOver };
@@ -37,10 +38,10 @@ describe('what a computed keeps of its roots', () => {
 
         const effect = effectService.createEffect(db, () => { /* watched */ }, [], [head]);
 
-        expect(first.allRootSlots === slots).toBe(true);
-        expect(second.allRootSlots === slots).toBe(true);
-        expect(head.allRootSlots === slots).toBe(true);
-        expect(effect.allRootSlots === slots).toBe(true);
+        expect(first.rootSlots === slots).toBe(true);
+        expect(getOIMRootSlots(second) === slots).toBe(true);
+        expect(getOIMRootSlots(head) === slots).toBe(true);
+        expect(effect.rootSlots === slots).toBe(true);
         for (const slot of slots) expect(subscriberCount(slot)).toBe(1);
         effectService.disposeEffect(effect);
         for (const slot of slots) expect(subscriberCount(slot)).toBe(0);

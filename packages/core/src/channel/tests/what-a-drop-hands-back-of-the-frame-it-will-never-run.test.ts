@@ -5,7 +5,7 @@ import { createOIMChannelSlot } from '../utils/createOIMChannelSlot';
 import { createOIMCollectorSlot } from '../../collector/utils/createOIMCollectorSlot';
 import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
 import { OIM_TIMER_ON_TIMEOUT } from '../../schedule/constants/OIM_TIMER_ON_TIMEOUT';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -25,7 +25,7 @@ describe('what a drop hands back of the frame it will never run', () => {
         channelService.dropChannelSlot(db.defaultChannelSlot);
 
         expect(slot.holdCount).toBe(0);
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 

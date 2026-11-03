@@ -81,7 +81,7 @@ describe('hydrating stored records with no record in them', () => {
         db.flush();
 
         expect(readBucketKeys()).toEqual(['c2']);
-        expect(entityService.findSlotByKey(entityStoreSlot, 'c1')?.entity?.title).toBe('alpha');
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'c1')?.entity?.title).toBe('alpha');
     });
 
     it('through the persistor, empties the group on a stored empty list and leaves it on nothing stored', async () => {

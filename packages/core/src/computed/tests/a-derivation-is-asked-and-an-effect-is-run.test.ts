@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
@@ -19,7 +19,7 @@ const createFixture =() => {
     const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     const updateRow = (key: string, patch: Partial<TRow>): void => {
-        const rowSlot = rowsService.findSlotByKey(rows, key);
+        const rowSlot = rowsService.peekSlotByKey(rows, key);
         if (rowSlot !== undefined) rowsService.slotContentService.updateEntity(rowSlot, patch);
     };
     return { db, effectService, rowsService, rows, updateRow };
@@ -41,7 +41,7 @@ const createDerived = (
     sourceSlots: readonly TOIMSlot[],
     sourceComputeds: ReadonlyArray<() => TOIMComputedContentSlot>,
     derive: () => number,
-    sameValueGuard: (a: number, b: number) => boolean = oimSameValueZeroGuard,
+    sameValueGuard: (a: number, b: number) => boolean = isOIMSameValueZero,
 ) => {
     const computedService = createOIMSingleComputedService<number>({ sameValueGuard });
     const derived = computedService.createStoreSlot(
@@ -159,7 +159,7 @@ describe('a derivation is asked, never woken', () => {
     it('honours a `held` of the caller\'s, and reports only what it calls a move', () => {
         const { db, effectService, updateRow, slot } = settled();
         // Two lengths are "the same" so long as both are non-zero — artificial
-        // on purpose, because `oimSameValueZeroGuard` would NOT call 6 and 10 the same,
+        // on purpose, because `isOIMSameValueZero` would NOT call 6 and 10 the same,
         // so the silence below can only come from this function being consulted.
         const { derivedService: titleLengthService, derived: titleLength } = createDerived(
             db, [slot], [], () => titleLengthOf(slot), (a, b) => (a > 0) === (b > 0),
@@ -339,7 +339,7 @@ describe('what a write reaches, and what only the caller reaches', () => {
         let columnWoke = 0;
         let deckWoke = 0;
         effectService.createEffect(db, () => { slotWoke++; }, [slot]);
-        effectService.createEffect(db, () => { columnWoke++; }, [rowsService.columnSlotService.getColumn(slot, 'title')]);
+        effectService.createEffect(db, () => { columnWoke++; }, [rowsService.columnSlotService.getColumnSlot(slot, 'title')]);
         effectService.createEffect(db, () => { deckWoke++; }, [deckSlot]);
         db.flush();
 

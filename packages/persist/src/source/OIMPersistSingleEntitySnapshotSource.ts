@@ -6,7 +6,7 @@ import { OIMPersistRestoredEntities } from './OIMPersistRestoredEntities';
 import { OIMPersistSlotSourceChangeMark } from './OIMPersistSlotSourceChangeMark';
 import type { TOIMPersistSingleEntityService } from './types/TOIMPersistSingleEntityService';
 import type { TOIMPersistSnapshotSourceSingleEntityDrivenOptions } from './types/TOIMPersistSnapshotSourceSingleEntityDrivenOptions';
-import { oimAssertOneChannel } from './utils/oimAssertOneChannel';
+import { assertOIMOneChannel } from './utils/assertOIMOneChannel';
 
 export class OIMPersistSingleEntitySnapshotSource<TEntity extends object> implements IOIMPersistSnapshotSource<TEntity> {
     private readonly channelMap: IOIMChannelMap;
@@ -20,11 +20,11 @@ export class OIMPersistSingleEntitySnapshotSource<TEntity extends object> implem
         this.channelMap = persistSnapshotSourceSingleEntityDrivenOptions.channelMap;
         this.singleSlotService = persistSnapshotSourceSingleEntityDrivenOptions.singleSlotService;
         this.entityStoreSlot = persistSnapshotSourceSingleEntityDrivenOptions.entityStoreSlot;
-        oimAssertOneChannel(this.channelMap, this.entityStoreSlot, 'OIMPersistSingleEntitySnapshotSource');
+        assertOIMOneChannel(this.channelMap, this.entityStoreSlot, 'OIMPersistSingleEntitySnapshotSource');
     }
 
     public readSnapshot(): TEntity {
-        const entity = this.singleSlotService.findSingleSlot(this.entityStoreSlot)?.entity;
+        const entity = this.singleSlotService.peekSingleSlot(this.entityStoreSlot)?.entity;
         if (entity === undefined) {
             throw new Error(
                 'OIMPersistSingleEntitySnapshotSource.readSnapshot: the single entity holds no value. '

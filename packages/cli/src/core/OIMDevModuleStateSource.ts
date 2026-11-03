@@ -24,13 +24,13 @@ export class OIMDevModuleStateSource implements IOIMDevStateSource {
     private async importDevRegistry(): Promise<IOIMDevRegistry> {
         const url = pathToFileURL(resolvePath(this.modelModulePath)).href;
         const exported = (await import(url)) as Record<string, unknown>;
-        let candidate: unknown = exported.oimDevRegistry ?? exported.default ?? exported;
+        let candidate: unknown = exported.OIM_DEV_REGISTRY ?? exported.default ?? exported;
         if (typeof candidate === 'function') candidate = await (candidate as () => unknown)();
         const devRegistry = candidate as IOIMDevRegistry | undefined;
         if (devRegistry === undefined || typeof devRegistry.inspect !== 'function' || typeof devRegistry.dumpString !== 'function') {
             throw new Error(
                 `[OIMDB] Module "${this.modelModulePath}" must export a registry exposing inspect() and dumpString() `
-                + '(as an "oimDevRegistry" or default export, or a zero-arg factory returning one).',
+                + '(as an "OIM_DEV_REGISTRY" or default export, or a zero-arg factory returning one).',
             );
         }
         return devRegistry;

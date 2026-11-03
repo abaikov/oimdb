@@ -27,7 +27,7 @@ describe('closing a batch', () => {
         cardsService.openBatch(cards);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'Ace' });
 
-        expect(cardsService.findSlotByKey(cards, 'c1')?.entity?.title).toBe('Ace');
+        expect(cardsService.peekSlotByKey(cards, 'c1')?.entity?.title).toBe('Ace');
         cardsService.closeBatch(cards);
     });
 });
@@ -43,7 +43,7 @@ describe('a slot written inside a batch', () => {
         });
 
         expect(byDeckService.getEntitiesByKey(byDeck, 'spades').map(card => card?.title)).toEqual(['Ace of spades', 'King']);
-        expect(cardsService.findSlotByKey(cards, 'c1')?.entity?.title).toBe('Ace of spades');
+        expect(cardsService.peekSlotByKey(cards, 'c1')?.entity?.title).toBe('Ace of spades');
     });
 
     it('lands the same as the same writes outside a batch', () => {

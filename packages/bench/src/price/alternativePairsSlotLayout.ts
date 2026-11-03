@@ -48,7 +48,7 @@ const shippedComputedSlot = (key: string): TStampedSlot => ({
     releaseDueAfterWriteMs: -1, releaseDueAfterIdleMs: -1, releaseDueAfterUnholdMs: -1, slotFlags: 0,
     columnSlotStore: undefined, storeSlot: undefined, owner: OWNER, computedValueService: OWNER, key, indexKeys: undefined,
     sourceSlots: [], sourceComputeds: [], value: 0, ranAtRevision: -1, ranAtEpoch: -1, checkedAtRevision: -1,
-    checkedAtEpoch: -1, isDeriving: false, allRootSlots: undefined,
+    checkedAtEpoch: -1, isDeriving: false, rootSlots: undefined,
 } as TStampedSlot);
 
 const oneShapeSlot = (key: string, content: unknown): TStampedSlot => ({
@@ -68,7 +68,7 @@ const oneShapeColumnSlot = (key: string): TStampedSlot => oneShapeSlot(key, OWNE
 
 const oneShapeComputedSlot = (key: string): TStampedSlot => oneShapeSlot(key, {
     sourceSlots: [], sourceComputeds: [], value: 0, ranAtRevision: -1, ranAtEpoch: -1, checkedAtRevision: -1,
-    checkedAtEpoch: -1, isDeriving: false, allRootSlots: undefined,
+    checkedAtEpoch: -1, isDeriving: false, rootSlots: undefined,
 });
 
 const commonPart = (): TStampedSlot => ({
@@ -93,7 +93,7 @@ const commonPartColumnSlot = (key: string): TSlotWithCommonPart => ({
 
 const commonPartComputedSlot = (key: string): TSlotWithCommonPart => ({
     common: commonPart(), key, indexKeys: undefined, sourceSlots: [], sourceComputeds: [], value: 0, ranAtRevision: -1,
-    ranAtEpoch: -1, checkedAtRevision: -1, checkedAtEpoch: -1, isDeriving: false, allRootSlots: undefined,
+    ranAtEpoch: -1, checkedAtRevision: -1, checkedAtEpoch: -1, isDeriving: false, rootSlots: undefined,
 } as TSlotWithCommonPart);
 
 const writeShippedSlot = (slot: TStampedSlot): void => {

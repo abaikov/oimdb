@@ -16,7 +16,7 @@ function createFixture() {
     const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     const updateRow = (key: string, patch: Partial<TRow>): void => {
-        const rowSlot = rowsService.findSlotByKey(rows, key);
+        const rowSlot = rowsService.peekSlotByKey(rows, key);
         if (rowSlot !== undefined) rowsService.slotContentService.updateEntity(rowSlot, patch);
     };
     return { db, effectService, rowsService, rows, updateRow };
@@ -48,7 +48,7 @@ describe('when an effect is called and when it is not', () => {
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let titleWoke = 0;
-        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumn(slot, 'title')]);
+        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumnSlot(slot, 'title')]);
         updateRow('r1', { title: 'b' });
         db.flush();
         expect(titleWoke).toBe(1);
@@ -60,7 +60,7 @@ describe('when an effect is called and when it is not', () => {
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let titleWoke = 0;
-        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumn(slot, 'title')]);
+        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumnSlot(slot, 'title')]);
         updateRow('r1', { n: 5 });
         db.flush();
         expect(titleWoke).toBe(0);
@@ -86,7 +86,7 @@ describe('when an effect is called and when it is not', () => {
         // through the door that does: `hold`.
         const heldSlot = rowsService.holdSlotByKey(rows, 'r1');
         let titleWoke = 0;
-        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumn(heldSlot, 'title')]);
+        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumnSlot(heldSlot, 'title')]);
         rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         expect(titleWoke).toBe(1);
@@ -103,7 +103,7 @@ describe('when an effect is called and when it is not', () => {
         // effect on the slot is a reference, and the value is not the only thing
         // that keeps a slot filed.
         const keep = effectService.createEffect(db, () => { /* held */ }, [slot]);
-        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumn(slot, 'title')]);
+        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumnSlot(slot, 'title')]);
         rowsService.slotContentService.clearSlotContent(slot);
         db.flush();
         expect(titleWoke).toBe(1);
@@ -116,7 +116,7 @@ describe('when an effect is called and when it is not', () => {
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let calls = 0;
-        const effect = effectService.createEffect(db, () => { calls++; }, [rowsService.columnSlotService.getColumn(slot, 'title')]);
+        const effect = effectService.createEffect(db, () => { calls++; }, [rowsService.columnSlotService.getColumnSlot(slot, 'title')]);
         effectService.disposeEffect(effect);
         updateRow('r1', { title: 'zzz' });
         db.flush();
@@ -132,7 +132,7 @@ describe('when an effect is called and when it is not', () => {
         // second call arrives at an owner holding an identity that has already
         // been given back — which is declined rather than acted on.
         const onSlot = effectService.createEffect(db, () => { /* nothing */ }, [slot]);
-        const onColumn = effectService.createEffect(db, () => { /* nothing */ }, [rowsService.columnSlotService.getColumn(slot, 'title')]);
+        const onColumn = effectService.createEffect(db, () => { /* nothing */ }, [rowsService.columnSlotService.getColumnSlot(slot, 'title')]);
         expect(() => {
             effectService.disposeEffect(onSlot); effectService.disposeEffect(onSlot);
             effectService.disposeEffect(onColumn); effectService.disposeEffect(onColumn);
@@ -218,7 +218,7 @@ describe('when an effect is called and when it is not', () => {
         // Subscribed after the write and before the flush: the timing of a
         // reader subscribing in response to the render that write caused.
         let titleWoke = 0;
-        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumn(slot, 'title')]);
+        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumnSlot(slot, 'title')]);
         db.flush();
 
         expect(wholeWoke).toBe(1);
@@ -237,7 +237,7 @@ describe('when an effect is called and when it is not', () => {
         updateRow('r1', { title: 'b' });
         let runCount = 0;
         effectService.createEffect(
-            db, () => { runCount++; }, (['title', 'n'] as const).map((name) => rowsService.columnSlotService.getColumn(slot, name)),
+            db, () => { runCount++; }, (['title', 'n'] as const).map((name) => rowsService.columnSlotService.getColumnSlot(slot, name)),
         );
         db.flush();
         expect(runCount).toBe(0);
@@ -254,7 +254,7 @@ describe('when an effect is called and when it is not', () => {
         const slot = slotOf(rowsService, rows,'r1');
         updateRow('r1', { n: 5 });
         let titleWoke = 0;
-        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumn(slot, 'title')]);
+        effectService.createEffect(db, () => { titleWoke++; }, [rowsService.columnSlotService.getColumnSlot(slot, 'title')]);
         db.flush();
         expect(titleWoke).toBe(0);
 

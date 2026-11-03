@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAtEmptyReleasePolicy, OIMSlotAtUnholdReleasePolicy, OIMSlotEarliestReleasePolicy, OIMSlotNeverReleasePolicy, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAtEmptyReleasePolicy, OIMSlotAtUnholdReleasePolicy, OIMSlotEarliestReleasePolicy, OIMSlotNeverReleasePolicy, isOIMSlotReleased } from '../../index';
 import type { IOIMSlotReleasePolicy } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -39,8 +39,8 @@ describe('which policy releases a written slot', () => {
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'two' });
         cardsService.slotContentService.updateEntity(card, { title: 'three' });
 
-        expect(oimIsSlotReleased(card)).toBe(false);
-        expect(cardsService.findSlotByKey(cards, 'c1')?.entity?.title).toBe('three');
+        expect(isOIMSlotReleased(card)).toBe(false);
+        expect(cardsService.peekSlotByKey(cards, 'c1')?.entity?.title).toBe('three');
         expect(cardsService.hasSlotContentByKey(cards, 'c2')).toBe(true);
     });
 
@@ -50,7 +50,7 @@ describe('which policy releases a written slot', () => {
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         cardsService.writeInBatch(cards, () => ([{ id: 'c2', title: 'two' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
 
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
         expect(cardsService.hasSlotContentByKey(cards, 'c1')).toBe(false);
         expect(cardsService.hasSlotContentByKey(cards, 'c2')).toBe(false);
     });

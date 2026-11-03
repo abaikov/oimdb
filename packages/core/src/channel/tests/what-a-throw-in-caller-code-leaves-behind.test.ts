@@ -8,7 +8,7 @@ import type { TOIMDBOptions } from '../../db/types/TOIMDBOptions';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsArrayStore } from '../../bucket/array/types/TOIMBucketSlotsArrayStore';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
@@ -33,7 +33,7 @@ const updateEntityByKey = (
     cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>['createStoreSlot']>,
     key: string, patch: Partial<TCard>,
 ): void => {
-    const slot = cardsService.findSlotByKey(cards, key);
+    const slot = cardsService.peekSlotByKey(cards, key);
     if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
 };
 
@@ -180,7 +180,7 @@ describe('a batch subscribe a released bucket refuses', () => {
         expect(Array.from(bench.byDeckService.slotContentService.getBucketMemberSlots(good)).length).toBe(2);
         const gone = bench.byDeckService.holdSlotByKey(bench.byDeck, 'd2');
         gone.owner.unholdSlot(gone);
-        expect(oimIsSlotReleased(gone)).toBe(true);
+        expect(isOIMSlotReleased(gone)).toBe(true);
         return { bench, good, gone };
     };
 
@@ -221,7 +221,7 @@ describe('a slot the engine has let go of', () => {
 
         deckSlot.owner.unholdSlot(deckSlot);
 
-        expect(oimIsSlotReleased(deckSlot)).toBe(true);
+        expect(isOIMSlotReleased(deckSlot)).toBe(true);
         expect(byDeckService.getSlotCount(byDeck)).toBe(0);
         expect(() => effectService.createEffect(db, () => undefined, [deckSlot]))
             .toThrow(/This identity was released/);

@@ -1,16 +1,16 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMInPlaceEntityWriter } from '../../entity/createOIMInPlaceEntityWriter';
-import { oimInsertEntityWithCopy } from '../../entity/utils/oimInsertEntityWithCopy';
-import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { insertOIMEntityWithCopy } from '../../entity/utils/insertOIMEntityWithCopy';
+import { isOIMSlotEmpty } from '../utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
 
 const rowsOf = (db: OIMDB) => {
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithCopy }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 
@@ -153,10 +153,10 @@ describe('an identity is not filed before its content lands', () => {
         expect(errors).toHaveLength(1);
         expect(rowsService.getSlotCount(rows)).toBe(1);
         expect(rowsService.getSlotByKey(rows, 'r1')).toBe(holdingSlot);
-        expect(oimIsSlotEmpty(holdingSlot)).toBe(true);
+        expect(isOIMSlotEmpty(holdingSlot)).toBe(true);
 
         holdingSlot.owner.unholdSlot(holdingSlot);
-        expect(oimIsSlotReleased(holdingSlot)).toBe(true);
+        expect(isOIMSlotReleased(holdingSlot)).toBe(true);
         expect(rowsService.getSlotCount(rows)).toBe(0);
     });
 });
@@ -200,7 +200,7 @@ describe('a bulk load leaves no key filed for content that never landed', () => 
 
     it('keeps the rows that landed and leaves nothing for the one that threw', () => {
         const { rowsService, rows } = createFixture();
-        // A ROW THAT CANNOT BE READ. `oimInsertEntityWithCopy` copies what it is
+        // A ROW THAT CANNOT BE READ. `insertOIMEntityWithCopy` copies what it is
         // handed with a spread, and a spread calls a getter — so this throws inside the write of
         // the third pair, with two pairs already filed and holding their values.
         const unreadable: TRow = {
@@ -239,9 +239,9 @@ describe('a bulk load leaves no key filed for content that never landed', () => 
             })(entity), entity)))).toThrow('this row has no key');
 
         expect(rowsService.getSlotCount(rows)).toBe(2);
-        expect(rowsService.findSlotByKey(rows, 'r1')?.entity).toEqual({ id: 'r1', n: 1 });
-        expect(rowsService.findSlotByKey(rows, 'r2')?.entity).toEqual({ id: 'r2', n: 2 });
-        expect(rowsService.findSlotByKey(rows, 'r3')).toBeUndefined();
-        expect(rowsService.findSlotByKey(rows, 'r4')).toBeUndefined();
+        expect(rowsService.peekSlotByKey(rows, 'r1')?.entity).toEqual({ id: 'r1', n: 1 });
+        expect(rowsService.peekSlotByKey(rows, 'r2')?.entity).toEqual({ id: 'r2', n: 2 });
+        expect(rowsService.peekSlotByKey(rows, 'r3')).toBeUndefined();
+        expect(rowsService.peekSlotByKey(rows, 'r4')).toBeUndefined();
     });
 });

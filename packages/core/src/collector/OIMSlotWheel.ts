@@ -6,7 +6,7 @@ import type { IOIMErrorPolicy } from '../error/interfaces/IOIMErrorPolicy';
 import type { TOIMSlotWheelOptions } from './types/TOIMSlotWheelOptions';
 import { OIMFlushSchedulerService } from '../schedule/OIMFlushSchedulerService';
 import type { IOIMFlushSchedulerListener } from '../schedule/interfaces/IOIMFlushSchedulerListener';
-import { oimSliceOfMs } from './utils/oimSliceOfMs';
+import { getOIMSliceOfMs } from './utils/getOIMSliceOfMs';
 import { OIM_SLICE_LENGTH_MS } from './constants/OIM_SLICE_LENGTH_MS';
 
 export abstract class OIMSlotWheel implements TOIMFlushSchedulerSlot, IOIMFlushSchedulerListener<OIMSlotWheel> {
@@ -159,7 +159,7 @@ export abstract class OIMSlotWheel implements TOIMFlushSchedulerSlot, IOIMFlushS
     }
 
     protected getSweptSliceNumberAt(nowMs: number): number {
-        return oimSliceOfMs(nowMs);
+        return getOIMSliceOfMs(nowMs);
     }
 
     protected abstract onSlotDue(slot: TOIMSlot, nowMs: number): void;

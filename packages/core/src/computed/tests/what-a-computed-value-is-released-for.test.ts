@@ -21,7 +21,7 @@ function setUp(sameValueGuard?: (prev: TQuery, next: TQuery) => boolean) {
         createSources: slot => ({ sourceSlots: [correctionsService.getSlotByKey(corrections, slot.key)] }),
         derive: slot => {
             derived++;
-            return { key: slot.key, version: correctionsService.findSlotByKey(corrections, slot.key)?.entity?.version ?? 0 };
+            return { key: slot.key, version: correctionsService.peekSlotByKey(corrections, slot.key)?.entity?.version ?? 0 };
         },
         sameValueGuard,
         releaseValue: query => { released.push(query); },
@@ -87,7 +87,7 @@ describe('what a computed value is released for', () => {
         query.owner.unholdSlot(query);
 
         expect(released).toEqual([current]);
-        expect(queriesService.findSlotByKey(queries, 'q')).toBeUndefined();
+        expect(queriesService.peekSlotByKey(queries, 'q')).toBeUndefined();
     });
 
     it('releases nothing on the release of a slot that never derived', () => {

@@ -7,12 +7,13 @@ description: Which reads mint a slot and how the unused-slot collector handles t
 
 | You want | Take | Not |
 |---|---|---|
-| a value once, now | `getSlotByKey(storeSlot, key).entity`, or `slotContentService.findSlotByKey(storeSlot, pk)` | an effect you dispose straight away |
+| a value once, now | `getSlotByKey(storeSlot, key).entity`, or `slotContentService.peekSlotByKey(storeSlot, pk)` | an effect you dispose straight away |
 | to know whether a key has a value, without minting it | `hasSlotContentByKey(storeSlot, key)` | `getSlotByKey(storeSlot, key).entity !== undefined`, which mints |
 | an identity that must outlive this turn | `holdSlotByKey(storeSlot, key)` … `unholdSlot(slot)` | keeping a `getSlotByKey` result across a `flush()` |
 | to be told when a slot moves | `effectService.createEffect` | polling |
 | a first value now, then every change | `effectService.createAndRunEffect` | `createEffect` plus a read before it |
-| to be told when one column moves | `effectService.createEffect(db, [column], [], body)` | an effect over the whole entity |
+| to be told when one column moves | `effectService.createEffect(db, body, [column])` | an effect over the whole entity |
+| to run something now and on every change of one slot | `slot.watch(body, columnNames?)` | an effect you wire by hand |
 | work after every effect of a frame has run | [`subscribeOnceAfterFrame` / `subscribeAfterEachFrame`](/docs/core/channel#work-that-needs-the-whole-settled-frame) | a write from an effect body |
 | work once the flush has fully ended | [`subscribeAfterEachFlush`](/docs/core/channel#after-the-flush-has-ended) | a microtask you queue yourself from a tail handler |
 | a cache that empties itself | [a `slotReleasePolicy` at construction](/docs/core/lifecycle#releasing-an-identity-on-a-clock--opt-in-and-off-it-costs-nothing) | a sweep or a `release` call of your own |
@@ -21,7 +22,7 @@ description: Which reads mint a slot and how the unused-slot collector handles t
 
 - There is no observable wrapper: you read the slot.
 - `getSlotByKey` mints, and the unused-slot collector gives back what you do not keep.
-- `findSlotByKey`, `findSlotByKey` and `hasSlotContentByKey` look a key up and mint nothing.
+- `peekSlotByKey` and `hasSlotContentByKey` look a key up and mint nothing.
 - Subscribing is building an effect over an entity, a column or a computed.
 
 </InShort>
@@ -55,8 +56,8 @@ declare const poll: () => void;
 const cardSlot = cardService.getSlotByKey(cards, 'c1');   // TOIMEntitySlot<Card>, never undefined
 cardSlot.entity;                                         // Card | undefined
 cardSlot.entity?.title;
-cardService.findSlotByKey(cards, 'c1')?.entity;   // the entity or undefined, and nothing minted
-cardService.findSlotByKey(cards, 'c1');                  // the slot or undefined, and nothing minted
+cardService.peekSlotByKey(cards, 'c1')?.entity;   // the entity or undefined, and nothing minted
+cardService.peekSlotByKey(cards, 'c1');                  // the slot or undefined, and nothing minted
 cardService.hasSlotContentByKey(cards, 'c2');            // false, and nothing minted
 
 cardService.getSlotCount(cards);
@@ -90,11 +91,11 @@ a key you reserved with `holdSlotByKey` has an identity and no value yet, and
 | Read | Mints when the key has no identity | What keeps the mint |
 |---|---|---|
 | `getSlotByKey(storeSlot, key)`, `getSingleSlot(storeSlot)` | the slot | the unused-slot collector, until the next `flush()` |
-| `findSlotByKey(storeSlot, pk)?.entity`, `findSlotByKey(storeSlot, key)`, `findSingleSlot(storeSlot)` | nothing | — |
+| `peekSlotByKey(storeSlot, pk)?.entity`, `peekSlotByKey(storeSlot, key)`, `peekSingleSlot(storeSlot)` | nothing | — |
 | `getEntitiesByKey(indexStoreSlot, key)` on an index service | the bucket | the unused-slot collector |
-| `getBucketColumnByKey(indexStoreSlot, key, columnName)` on an index service | the bucket and its column slot | the unused-slot collector |
-| `getColumn(slot, name)`, `getAnyColumn(slot)` | the column slot | the unused-slot collector |
-| `holdSlotByKey(storeSlot, key)`, `holdSingleSlot(storeSlot)`, `holdColumn(slot, name)` | the slot | your hold, until its give-back |
+| `getBucketColumnSlotByKey(indexStoreSlot, key, columnName)` on an index service | the bucket and its column slot | the unused-slot collector |
+| `getColumnSlot(slot, name)`, `getAnyColumnSlot(slot)` | the column slot | the unused-slot collector |
+| `holdSlotByKey(storeSlot, key)`, `holdSingleSlot(storeSlot)`, `holdColumnSlot(slot, name)` | the slot | your hold, until its give-back |
 | `hasSlotContentByKey(storeSlot, key)`, `hasSingleSlotContent(storeSlot)`, `isSameKey(key, otherKey)`, `getSlots(storeSlot)`, `getSlotCount(storeSlot)`, `getBucketMemberSlots(bucket)`, `getBucketMemberSlotCount(bucket)` | nothing | — |
 
 A computed slot is read through the value service it carries — `slot.value`
@@ -248,35 +249,59 @@ ignored, so an expression-bodied arrow such as `() => set.add(key)` is safe.
 ### Subscribing to one column
 
 ```typescript
-const onRank = effectService.createEffect(db, () => { render(slot.entity); }, [slot.holdColumn('rank')]);
+const onRank = effectService.createEffect(db, () => { render(slot.entity); }, [slot.holdColumnSlot('rank')]);
 ```
 
 It wakes only when that named column moves. A write that changes
-`title` does not run it. Use it instead of `createEffect(db, [slot], …)` when the body depends
+`title` does not run it. Use it instead of `createEffect(db, …, [slot])` when the body depends
 on one column of a wide entity that is written often.
 
 A column effect takes the column slot, which
 goes in the root list of `createEffect`; the derivation list stays empty. What
 mints the column identity and holds it is the door one level up —
-`holdColumn(slot, name)` on the collection service of an entity or bucket collection, for a slot of a
+`holdColumnSlot(slot, name)` on the collection service of an entity or bucket collection, for a slot of a
 collection or of a single alike, or
-`holdBucketColumnByKey(indexStoreSlot, key, columnName)` on an index service for a column across a bucket's
-members. Each has its give-back — `unholdColumn(columnSlot)` on the same service.
+`holdBucketColumnSlotByKey(indexStoreSlot, key, columnName)` on an index service for a column across a bucket's
+members. Each has its give-back — `unholdColumnSlot(columnSlot)` on the same service.
 
-A computed has columns too: `computedService.holdColumn(computedSlot, 'field')` returns a
+A computed has columns too: `computedService.holdColumnSlot(computedSlot, 'field')` returns a
 `TOIMComputedColumnSlot`, which goes in the `sourceComputeds` list and wakes the effect only when that
 field of the derived value changes (see
 [Computed columns](/docs/core/computed-effects#computed-columns)). Every collection service also has
-`getAnyColumn(slot)` / `holdAnyColumn(slot)`, a column slot that wakes on any column write to its carrier.
+`getAnyColumnSlot(slot)` / `holdAnyColumnSlot(slot)`, a column slot that wakes on any column write to its carrier.
 
 A carrier slot is not released while a column slot is filed on it. A column slot goes when nothing
-holds it and nothing subscribes to it. A column holds no value: what moved is on the slot you already
-have (`slot.entity?.rank`); the effect says *when* to look.
+holds it and nothing subscribes to it. Its `value` is the carrier's state the column stands for
+(`rank.value` is `slot.entity?.rank`; see [what a column slot's value is](/docs/core/collections#what-a-column-slots-value-is)),
+and a tracked read of it subscribes to the column only.
 
-Column names are type-checked. `holdColumn` takes the collection's column name type,
-which `createOIMSlotCollectionService<Card>` sets to `TOIMEntityColumnName<Card>`, the
+Column names are type-checked. `holdColumnSlot` takes the collection's column name type,
+which `createOIMSlotCollectionService<Card>` sets to `TOIMColumnName<Card>`, the
 keys of `Card`, so a misspelt column fails to compile.
-`deleteEntityColumns` on the entity content service takes `readonly TOIMEntityColumnName<TEntity>[]`.
+`deleteEntityColumns` on the entity content service takes `readonly TOIMColumnName<TEntity>[]`.
+
+### Watching one slot
+
+`slot.watch(body, columnNames?)` is an effect over that one slot, wired for you. It runs `body` at once and
+after every frame that changed the slot, and returns the `TOIMDisposer` that stops it. Its source is the slot,
+named up front: nothing is tracked, and what the body reads besides the slot does not wake it.
+
+```typescript
+const watchedCard = cardService.holdSlotByKey(cards, 'c1');
+const stopTitle = watchedCard.watch(card => { render(card); }, ['title']);
+
+stopTitle();
+watchedCard.unholdSlot();
+```
+
+| Slot | `body` gets | `columnNames` |
+|---|---|---|
+| an entity slot, keyed or single | `slot.entity`, or `undefined` | one column name, or the names of a group declared in `columnGroups`; only a write to them runs it |
+| a computed's slot | its `value` | the same, over the fields of the value |
+| a bucket slot | the bucket slot; read `commands` / `isWholeListRecorded` inside the body | none |
+
+The watch holds what it subscribes to while it stands, like any effect; a slot of yours that must outlive it
+takes its own hold.
 
 ### Holding what you subscribe to
 
@@ -360,14 +385,14 @@ const loadedCardService = createOIMSlotCollectionService({ slotContentService: c
   entities counts the entity slot and its column slots together.
 - The hooks can run inside a flush (an effect created from an effect body), where writes are
   refused. Record what to do and act on it from `subscribeAfterEachFlush`.
-- Bucket and index factories take the same option. Left out, it is
+- Bucket, index and computed factories take the same option. Left out, it is
   `OIMNoSlotSubscriptionListener.INSTANCE`, which hears nothing.
 
 ## Interop
 
 An identity is plain data with no methods. Its `owner` is the only reference back
 to the runtime, and operations go through the owner and the effect service, so the
-API reads `effectService.createEffect(db, [slot], [], handler)` and has no
+API reads `effectService.createEffect(db, handler, [slot])` and has no
 `slot.subscribe(handler)`.
 
 To hand a slot to a binding library, build the pair yourself over what you have:

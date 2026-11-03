@@ -61,13 +61,13 @@ describe('what an index store aggregate reads', () => {
         const { byDeckService, byDeckStoreSlot, byDeckStoreAggregate } = createFixture();
 
         const held = byDeckStoreAggregate.holdSlotsByKeys(['spades', 'clubs']);
-        const anyColumn = byDeckStoreAggregate.holdAnyBucketColumnByKey('spades');
-        const idColumn = byDeckStoreAggregate.holdBucketColumnByKey('spades', 'id');
+        const anyColumn = byDeckStoreAggregate.holdAnyBucketColumnSlotByKey('spades');
+        const idColumn = byDeckStoreAggregate.holdBucketColumnSlotByKey('spades', 'id');
 
         expect(held).toEqual([byDeckService.getSlotByKey(byDeckStoreSlot, 'spades'), byDeckService.getSlotByKey(byDeckStoreSlot, 'clubs')]);
         expect(held.map(bucketSlot => bucketSlot.holdCount > 0)).toEqual([true, true]);
-        expect(byDeckStoreAggregate.getAnyBucketColumnByKey('spades')).toBe(anyColumn);
-        expect(byDeckStoreAggregate.getBucketColumnByKey('spades', 'id')).toBe(idColumn);
+        expect(byDeckStoreAggregate.getAnyBucketColumnSlotByKey('spades')).toBe(anyColumn);
+        expect(byDeckStoreAggregate.getBucketColumnSlotByKey('spades', 'id')).toBe(idColumn);
     });
 
     it('is built over a collection store aggregate in one call, with keyOf typed from the collection', () => {

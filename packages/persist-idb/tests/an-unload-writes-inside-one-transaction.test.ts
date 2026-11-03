@@ -76,7 +76,7 @@ describe('persistor.unload on an IndexedDB records resource', () => {
         await persistor.whenIdle();
 
         expect(readwriteTransactionCount()).toBe(1);
-        expect(entityService.findSlotByKey(entityStoreSlot,'u1')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot,'u1')?.entity).toBeUndefined();
         expect(await persistIndexedDbBackend.readAllTableRecords('users')).toEqual([
             { key: 'u1', value: { id: 'u1', name: 'Ada' } },
             { key: 'u2', value: { id: 'u2', name: 'Grace Hopper' } },
@@ -99,7 +99,7 @@ describe('persistor.unload on an IndexedDB records resource', () => {
         await persistor.whenIdle();
 
         expect(readwriteTransactionCount()).toBe(1);
-        expect(entityService.findSlotByKey(entityStoreSlot,'u1')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot,'u1')?.entity).toBeUndefined();
         expect(await persistIndexedDbBackend.readAllTableRecords('users')).toEqual([
             { key: 'u1', value: { id: 'u1', name: 'Ada' } },
             { key: 'u2', value: { id: 'u2', name: 'Grace' } },
@@ -126,7 +126,7 @@ describe('persistor.unload on an IndexedDB records resource', () => {
         expect(unloadRejection).not.toBeUndefined();
         expect(unloadRejection).toMatchObject({ name: 'DataCloneError', message: expect.any(String) });
         expect(persistOperations).toEqual([]);
-        expect(entityService.findSlotByKey(entityStoreSlot,'u1')?.entity).toEqual({ id: 'u1', name: 'Ada Lovelace' });
+        expect(entityService.peekSlotByKey(entityStoreSlot,'u1')?.entity).toEqual({ id: 'u1', name: 'Ada Lovelace' });
         expect(await persistIndexedDbBackend.readAllTableRecords('users')).toEqual([
             { key: 'u1', value: { id: 'u1', name: 'Ada' } },
         ]);
@@ -159,8 +159,8 @@ describe('persistor.unload on an IndexedDB records resource', () => {
         } finally {
             objectStoreGetSpy.mockRestore();
         }
-        expect(entityService.findSlotByKey(entityStoreSlot,'u1')?.entity).toEqual({ id: 'u1', name: 'Ada' });
-        expect(entityService.findSlotByKey(entityStoreSlot,'u2')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot,'u1')?.entity).toEqual({ id: 'u1', name: 'Ada' });
+        expect(entityService.peekSlotByKey(entityStoreSlot,'u2')?.entity).toBeUndefined();
         expect(await persistIndexedDbBackend.readAllTableRecords('users')).toEqual([
             { key: 'u1', value: { id: 'u1', name: 'Ada' } },
             { key: 'u2', value: { id: 'u2', name: 'Grace' } },

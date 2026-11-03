@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
@@ -15,7 +15,7 @@ const createFixture =() => {
     const cards = cardsService.createStoreSlot(db);
     cardsService.holdSlotByKey(cards, 'a');
     const rowSlot = cardsService.getSlotByKey(cards, 'a');
-    const rankService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+    const rankService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
     const rankComputed = rankService.createStoreSlot(
         db,
         () => rowSlot.entity?.rank ?? -1,

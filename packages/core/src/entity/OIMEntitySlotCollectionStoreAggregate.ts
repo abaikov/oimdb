@@ -1,13 +1,13 @@
 import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
 import type { TOIMEntitySlot } from './types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from './types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../column/types/TOIMColumnName';
 import type { OIMEntityContentService } from './OIMEntityContentService';
 import type { OIMWritableSlotCollectionService } from '../slot/OIMWritableSlotCollectionService';
 import { OIMWritableSlotCollectionStoreAggregate } from '../slot/OIMWritableSlotCollectionStoreAggregate';
 import { OIMSlotCollectionBucketService } from '../bucket/OIMSlotCollectionBucketService';
-import { oimGetBucketMemberSlotEntities } from '../bucket/utils/oimGetBucketMemberSlotEntities';
+import { getOIMBucketMemberSlotEntities } from '../bucket/utils/getOIMBucketMemberSlotEntities';
 
-export class OIMEntitySlotCollectionStoreAggregate<TEntity extends object, TColumnName extends TOIMEntityColumnName<TEntity> = TOIMEntityColumnName<TEntity>>
+export class OIMEntitySlotCollectionStoreAggregate<TEntity extends object, TColumnName extends TOIMColumnName<TEntity> = TOIMColumnName<TEntity>>
     extends OIMWritableSlotCollectionStoreAggregate<
         TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey, TColumnName>, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey, TColumnName>>, TEntity, Partial<TEntity>,
         OIMWritableSlotCollectionService<
@@ -16,7 +16,7 @@ export class OIMEntitySlotCollectionStoreAggregate<TEntity extends object, TColu
         >
     > {
     public getEntities(): TEntity[] {
-        return oimGetBucketMemberSlotEntities(OIMSlotCollectionBucketService.INSTANCE.getBucketSlot(this.storeSlot).getBucketMemberSlots());
+        return getOIMBucketMemberSlotEntities(OIMSlotCollectionBucketService.INSTANCE.getBucketSlot(this.storeSlot).getBucketMemberSlots());
     }
 
     public getEntityCount(): number {

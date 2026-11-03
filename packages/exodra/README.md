@@ -1,188 +1,85 @@
 # @oimdb/exodra
 
-Adapts `@oimdb/core` reads into [Exodra](https://exodra.org) bindables: `TExoBindable`,
-`TExoBindableList`. There is no React and there are no hooks. Every OIMDB read becomes
-something you can drop straight into an Exodra view.
+The [Exodra](https://exodra.org) plugin for `@oimdb/core`. It reads: one-line effects and bucket lists that keep
+their nodes. Writes go through your orchestrator (cnstra), not through the view.
+
+📖 **[Full documentation](https://oimdb.org/docs/packages/exodra)**
 
 ```bash
-npm install @oimdb/exodra @oimdb/core
+npm install @oimdb/exodra @oimdb/core @exodra/core @exodra/dom @exodra/context
 ```
 
-It pulls in only the **type-only** `@exodra/reactivity-types` package, never the reactivity
-runtime. Your app already provides `@exodra/reactivity` for `bindable`, `derive` and `h`.
+## Plug it in
 
-## One door from the engine
+```ts setup
+import { EXO_PORT_CHILDREN, EXO_PORT_TEXT, composeExoPlugins, createExoMachine, createExoSchema, exoPorts } from '@exodra/core';
+import { ExoDomBackend, withExoChildList, withExoCompiler, type TExoChildList, type TExoDomNode } from '@exodra/dom';
+import { OIMBucketCommands, OIMDB, OIMPositionalArrayBucketContentService, createOIMEntityContentService, createOIMEntitySlotCollectionStoreAggregate, createOIMSingleSlotStoreAggregate, createOIMSlotCollectionIndexStoreAggregate, type TOIMEntitySlot } from '@oimdb/core';
+import { OIMExodraPlugin, withOIMBucketList, withOIMEffects } from '@oimdb/exodra';
 
-A subscription in this core is **one call**,
-`OIMEffectService.INSTANCE.createEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`. The effect
-service is stateless; the `db` you pass is the channel map, and its `defaultChannelSlot` is the
-channel the effect runs on. The value is read off the slots afterwards instead of being carried
-by the subscription. So there is one adapter, and one entity, one column, a bucket's slots and a
-derived value all come through it. Every bridge here takes that same `db` as its first argument.
-The examples on this page share this store:
-
-```typescript setup
-import { OIMDB, OIMSetBucketContentService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotCollectionService, createOIMEntityContentService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
-
-type TCard = { id: string; deckId: string; rank: number };
-type TCardSlot = TOIMEntitySlot<TCard>;
-
+type TTodo = { id: string; title: string; done: boolean };
+type TTodoSlot = TOIMEntitySlot<TTodo, string>;
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
-const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
-const byDeck = byDeckService.createStoreSlot(db);
-const boardService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
-const boards = boardService.createStoreSlot(db);
-const cardsByDeckService = createOIMSlotCollectionIndexService({
-    entityService: cardService,
-    columns: ['deckId'],
-});
-const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
-const orderService = createOIMSortedComputedService({
-    indexService: cardsByDeckService,
-    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
-});
-const order = orderService.createSortedStoreSlot(cardsByDeck);
-const renderCard = (slot: TOIMEntitySlot): string => JSON.stringify(slot.entity);
+const todos = createOIMEntitySlotCollectionStoreAggregate<TTodo>(db);
+const filter = createOIMSingleSlotStoreAggregate(db, { slotContentService: createOIMEntityContentService<{ shown: 'done' | 'active' }>() });
+const Ports = exoPorts({ TITLE: EXO_PORT_TEXT, ITEMS: EXO_PORT_CHILDREN });
+const todoMachine = createExoMachine<TExoDomNode, TTodoSlot, { todo: TTodoSlot }>(
+    createExoSchema(Ports, (b) => { b.el('li', null, (li) => { li.textPort(Ports.TITLE); }); }),
+    { createInitialState: (_c, todo) => ({ todo }) },
+);
+const listMachine = createExoMachine<TExoDomNode, unknown, { items: TExoChildList }>(
+    createExoSchema(Ports, (b) => { b.el('ul', null, (ul) => { ul.childrenPort(Ports.ITEMS); }); }),
+    { createInitialState: (c) => ({ items: c.childList(Ports.ITEMS) }) },
+);
 ```
 
-```typescript
-import { exoBinding } from '@oimdb/exodra';
 
-const slot = cardService.holdSlotByKey(cards, 'c1');
-const bucket = byDeckService.holdSlotByKey(byDeck, 'spades');
-
-const entity = exoBinding(db, {
-    sourceSlots: [slot], derive: () => slot.entity,
-});
-
-const deckCards = exoBinding(db, {
-    sourceSlots: [bucket], derive: () => Array.from(bucket.getBucketMemberSlots()),
-});
-
-const deck = orderService.holdSlotByKey(order, 'spades');
-const ordered = exoBinding(db, {
-    sourceComputeds: [deck], derive: () => deck.value,
+```ts
+const exodraPlugin = new OIMExodraPlugin({ db });
+const backend = composeExoPlugins(withExoChildList(withExoCompiler(new ExoDomBackend())), {
+    exodraPlugin: () => exodraPlugin,
 });
 ```
 
-### Why it takes the engine's arguments and not a wrapper
+The plugin holds the database, one `slot.data` cell it claimed on it (`db.claimSlotDataCell()`) and a release
+listener; `exodraPlugin.dispose()` removes the listener. A node takes the plugin provided above it under
+`OIM_EXODRA_PLUGIN_CONTEXT_TOKEN`, and the backend's one otherwise. A second database is a second plugin, built
+once next to that database and provided above the subtree that shows it:
+`c.provide(OIM_EXODRA_PLUGIN_CONTEXT_TOKEN, …)`.
 
-The core publishes no `{ getValue, onChange }` object for an entity, a field, a bucket or a
-derivation. Reading is `slot.entity`, or `computedSlot.value`, and watching is
-an effect. Both halves have to be *constructed*, so such a type declared here would have
-exactly one producer (a constructor of ours) and exactly one consumer (a translator of
-ours, one line later). It would be a rename, not a layer.
+## One-line effects
 
-Instead, `exoBinding` handles the two things a hand-written `exoSource` pair has to
-get right, and each of them fails **silently**:
-
-| | what goes wrong without it |
-|---|---|
-| settles every derivation before the read | nothing in a frame walks to a computed slot, and only reading `computedSlot.value` produces its value, so a `derive` that reaches a derivation's result any other way sees whatever the last produce left there |
-| one effect per bindable, none while nobody listens | a second subscriber arming a second effect doubles the cost of every write to that entity |
-
-### Lifetime is the caller's, and it is not optional
-
-`exoBinding` **holds nothing**. A bindable is lazy: its effect exists only while somebody
-is subscribed, so the bindable outlives its own subscriptions, and a hold scoped to one of them
-buys nothing. The give-back, `slot.unholdSlot()`, ends in `releaseSlotIfUnheld`, so
-returning it at teardown leaves exactly the state the teardown would have left anyway.
-
-So whoever **resolved** the identity holds it for as long as the bindable lives, and signals
-this by handing back a `TOIMExoDisposable`:
-
-```typescript
-import { exoBinding } from '@oimdb/exodra';
-
-const groupFor = (deckId: string) => {
-    const held = orderService.holdSlotByKey(order, deckId);   // a hold is what mints one
-    return Object.assign(
-        exoBinding(db, {
-            sourceComputeds: [held], derive: () => held.value,
-        }),
-        { dispose: () => held.unholdSlot() },
-    );
-};
+```ts
+const todoView = withOIMEffects(todoMachine, (effect) => {
+    effect((c) => { c.text(Ports.TITLE, c.state.todo.entity?.title ?? ''); });
+});
 ```
 
-Getting this wrong exposes only a **valueless** identity: an empty bucket, a key
-resolved before its entity arrived, or an entity since removed. A slot holding a value is kept by
-that value.
+Each body is a tracked `db.createEffect` on the node's database, which it is handed as the second argument:
+whatever it reads (`slot.entity`, a column slot's `value`, a computed's `value`, a bucket's members) is what wakes
+it, and it stops with the node.
 
-## What still needs its own function
+## Bucket lists
 
-Four things, because they do work that no core primitive does on its own:
-
-- **`exoFollowKey(key, makeBindable)`**: repoints a live subscription as a *selection*
-  moves. `makeBindable` must hand back a `TOIMExoDisposable`, because repointing has to
-  give the previous key's handle back. Otherwise every key transition strands one.
-- **`exoCombine(fn, sources)`**: fans in across *any* `TOIMExoReadable`, including local
-  UI state or two different channels. A computed also combines, but only inside one
-  channel's graph, and unlike this function it is glitch-free.
-- **`exoRows(keys, render)`**: identity-stable children from a sequence of primary keys.
-  `render` hands back a `TOIMExoRenderedRow` (`{ schema, dispose }`) for the same reason:
-  a schema is a tree the caller builds, and on every real path it holds core references
-  that nothing else counts. A row that holds nothing writes `dispose: () => {}`.
-- **the list bridges**, below.
-
-## Lists are a fork, and both arms ship
-
-**Who decides the order** is the whole difference. The engine's order is a
-derivation: `createOIMSortedComputedService` over an index, or any computed of
-entity slots. The caller's order is a bucket under `OIMBucketCommands`, which keeps
-the positions it is given. Which arm you get depends on which of the two you hand
-the bridge.
-
-```typescript
-import { exoDerivedList, exoPositionalList } from '@oimdb/exodra';
-
-// The engine orders it: the script is DERIVED, by oimOrderedListCommandsOfTransition.
-const deck = orderService.holdSlotByKey(order, 'spades');
-const list = exoDerivedList(db, deck, slot => renderCard(slot));
-
-// You order it: the script is the one OIMBucketCommands already RECORDED.
-const bucket = boardService.holdSlotByKey(boards, 'board');
-const board = exoPositionalList(db, boardService.slotContentService, bucket, renderCard);
+```ts
+const todoView = withOIMEffects(todoMachine, (effect) => {
+    effect((c) => { c.text(Ports.TITLE, c.state.todo.entity?.title ?? ''); });
+});
+const todosByDone = createOIMSlotCollectionIndexStoreAggregate(todos, {
+    keyOf: (todo: TTodo): 'done' | 'active' => (todo.done ? 'done' : 'active'),
+    slotContentService: new OIMPositionalArrayBucketContentService<TTodoSlot, string>({ bucketCommands: new OIMBucketCommands({}) }),
+});
+const listView = withOIMBucketList(listMachine, {
+    selectChildList: (c) => c.state.items,
+    memberMachine: todoView,
+    selectBucketSlot: () => todosByDone.getSlotByKey(filter.getSingleSlot().entity?.shown ?? 'active'),
+});
 ```
 
-`exoDerivedList(db, computedSlot, render, maxCommandsPerSlot?)` takes a `TOIMComputedSlot` of
-`readonly TOIMEntitySlot[]` (one held from `createOIMSortedComputedService`,
-`createOIMBucketMemoComputedService`, or a computed service of your own). It pays one
-`oimOrderedListCommandsOfTransition` per frame that moved the list: one pass over both lists,
-one longest-increasing-subsequence pass, and `common − LIS` moves, which is the optimum.
-
-`exoPositionalList(db, bucketContentService, bucketSlot, render)` pays nothing at all. It
-takes the bucket collection's **content service** (`bucketService.slotContentService`), the
-object that holds the bucket's slots and its reads. `OIMBucketCommands` records
-`insertBucketMemberSlotAt`, `moveBucketMemberSlotToPosition`, `removeBucketMemberSlotRange` and
-the rest on the bucket slot (`bucket.commands`, `bucket.isWholeListRecorded`) as this frame's
-script, and the bridge forwards it from inside the frame. The script is cleared once the flush
-that delivered it has ended. The content service must be built with an `OIMBucketCommands` as
-its `bucketCommands`, which is what `createOIMSlotCollectionService()` gives you when you pass no
-`slotContentService`: its default is the array-driven content service with commands.
-
-### One baseline, in one place
-
-Both return a `TOIMExoList<TSchema>` (a `TExoBindableList` plus a `dispose`), and both are
-**attached from construction**, not from their first subscriber. That is what lets
-`snapshot()` promise the list that every later op is measured against. It is the same variable
-the diff (or the applier) advances, moved in one place, so a consumer that starts from the
-snapshot and applies every op can never be off by one position.
-
-**One baseline, and only one.** If you read the bucket's slots directly *as well as* the command
-stream, you get two baselines over one bucket that agree only at frame boundaries. An entity slot
-that is written but not yet flushed is already in `snapshot()` and then arrives a second time as
-an `insert`.
-
-Each entity slot's schema is memoised in a `WeakMap` inside the bridge, so a `reset` hands back the
-same objects as the previous snapshot, and an identity-reconciling renderer moves rows
-instead of remaking them. *The memo is per bridge and is not shared: two lists showing one
-entity slot render it twice, and nothing measures the difference.*
-
-## Reference
-
-The full API is in **`llms.txt`**, which ships inside this package: read it beside
-this README in the installed package, or
-[on GitHub](https://github.com/abaikov/oimdb/blob/master/llms.txt).
+- **Give the bucket a recorder.** With `bucketCommands`, an insert builds one node and a remove detaches one.
+  Without it every change rebuilds the list from the members (still keeping their nodes).
+- **Switching buckets.** `selectBucketSlot(c, db)` runs tracked: a write to what it read switches the list to the
+  new bucket, keeping the nodes of the members both buckets share.
+- **Parked nodes.** A node that leaves the list is parked in its slot's cell with its own effects stopped (its
+  child nodes keep theirs), and is reattached if the member comes back. When the engine releases the slot, or the
+  list goes, the parked node is unmounted.

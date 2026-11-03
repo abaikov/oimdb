@@ -5,9 +5,9 @@ import type { TOIMComputedContentSlot } from './types/TOIMComputedContentSlot';
 import type { TOIMComputedValueServiceOptions } from './types/TOIMComputedValueServiceOptions';
 import type { TOIMComputedStoreSlot } from './types/TOIMComputedStoreSlot';
 import type { TOIMComputedValueReleaser } from './types/TOIMComputedValueReleaser';
-import { oimRefreshComputedSlot } from './utils/oimRefreshComputedSlot';
-import { oimAssertSlotNotReleased } from '../slot/utils/oimAssertSlotNotReleased';
-import { oimReleaseNoValue } from './utils/oimReleaseNoValue';
+import { refreshOIMComputedSlot } from './utils/refreshOIMComputedSlot';
+import { assertOIMSlotNotReleased } from '../slot/utils/assertOIMSlotNotReleased';
+import { releaseOIMNoValue } from './utils/releaseOIMNoValue';
 
 import type { OIMSourceTracker } from './OIMSourceTracker';
 export class OIMComputedValueService<
@@ -23,14 +23,14 @@ implements IOIMComputedValueService<TValue> {
     public constructor(options: TOIMComputedValueServiceOptions<TValue, TComputedSlot>) {
         this.derive = options.derive;
         this.sameValueGuard = options.sameValueGuard ?? Object.is;
-        this.releaseValue = options.releaseValue ?? oimReleaseNoValue;
+        this.releaseValue = options.releaseValue ?? releaseOIMNoValue;
     }
 
     public getValueForSlot(computedSlot: TComputedSlot): TValue {
-        oimAssertSlotNotReleased(computedSlot);
+        assertOIMSlotNotReleased(computedSlot);
         const computedStoreSlot = computedSlot.storeSlot as TOIMComputedStoreSlot<unknown, TValue, TComputedSlot>;
         const derive = computedStoreSlot.derive ?? this.derive;
-        oimRefreshComputedSlot(
+        refreshOIMComputedSlot(
             computedSlot, derive as (computedSlot: TComputedSlot) => TValue, this.sameValueGuard, this.releaseValue,
             computedStoreSlot.channelSlot.clock,
         );

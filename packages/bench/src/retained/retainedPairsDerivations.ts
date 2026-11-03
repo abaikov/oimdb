@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotMapStoreService, oimSameValueZeroGuard, createOIMComputedService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
+import { OIMDB, OIMSlotMapStoreService, isOIMSameValueZero, createOIMComputedService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { OIMComputedService, TOIMColumnSlot, TOIMComputedColumnSlot, TOIMComputedSlot, TOIMComputedStoreSlot, TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
 import type { TPriceEntityService } from '../price/priceFixture';
 import { ERetainedPath } from './ERetainedPath';
@@ -89,8 +89,8 @@ type TDerivations = {
 // The source array is the derivation's own for life (assigned, not copied).
 const derivationsOver = (slots: readonly TRowSlot[], db: OIMDB): TDerivations => {
     const rankSumComputedService = createOIMComputedService<number, number>({
-        computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
-        sameValueGuard: oimSameValueZeroGuard,
+        slotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
+        sameValueGuard: isOIMSameValueZero,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
     const rankSumComputedStoreSlot = rankSumComputedService.createStoreSlot(

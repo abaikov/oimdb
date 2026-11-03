@@ -12,7 +12,7 @@ import type { TOIMSlot } from './types/TOIMSlot';
 import type { TOIMStoreSlot } from './types/TOIMStoreSlot';
 import type { TOIMSingleSlotServiceOptions } from './types/TOIMSingleSlotServiceOptions';
 import { createOIMStoreSlot } from './utils/createOIMStoreSlot';
-import { oimIsSlotEmpty } from './utils/oimIsSlotEmpty';
+import { isOIMSlotEmpty } from './utils/isOIMSlotEmpty';
 import { OIMSingleSlotStoreAggregate } from './OIMSingleSlotStoreAggregate';
 
 export class OIMSingleSlotService<
@@ -62,13 +62,13 @@ export class OIMSingleSlotService<
         return new OIMSingleSlotStoreAggregate(this, storeSlot);
     }
 
-    public findSingleSlot(storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>): TSlot | undefined {
+    public peekSingleSlot(storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>): TSlot | undefined {
         return this.slotStoreService.getSingleSlot(storeSlot.store);
     }
 
     public hasSingleSlotContent(storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>): boolean {
         const slot = this.slotStoreService.getSingleSlot(storeSlot.store);
-        return slot !== undefined && !oimIsSlotEmpty(slot);
+        return slot !== undefined && !isOIMSlotEmpty(slot);
     }
 
     public getSingleSlot(storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>): TSlot {

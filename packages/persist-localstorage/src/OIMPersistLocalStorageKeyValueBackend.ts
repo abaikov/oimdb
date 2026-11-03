@@ -2,7 +2,7 @@ import { OIMPersistKeyValueBackend, OIMPersistItemKeyValueStorage } from '@oimdb
 import type { TOIMPersistKeyValueItemStorage } from '@oimdb/persist';
 import type { TOIMPersistLocalStorageKeyValueBackendOptions } from './types/TOIMPersistLocalStorageKeyValueBackendOptions';
 
-const oimReadGlobalLocalStorage = (): TOIMPersistKeyValueItemStorage => {
+const peekOIMGlobalLocalStorage = (): TOIMPersistKeyValueItemStorage => {
     const persistKeyValueItemStorage = (globalThis as { localStorage?: TOIMPersistKeyValueItemStorage }).localStorage;
     if (persistKeyValueItemStorage === undefined) {
         throw new Error(
@@ -18,7 +18,7 @@ export class OIMPersistLocalStorageKeyValueBackend extends OIMPersistKeyValueBac
         super({
             persistKeyValueStorage: new OIMPersistItemKeyValueStorage({
                 persistKeyValueItemStorage: persistLocalStorageKeyValueBackendOptions.persistKeyValueItemStorage
-                    ?? oimReadGlobalLocalStorage(),
+                    ?? peekOIMGlobalLocalStorage(),
             }),
             persistKeyValueSerializer: persistLocalStorageKeyValueBackendOptions.persistKeyValueSerializer,
         });

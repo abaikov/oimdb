@@ -36,7 +36,7 @@ function build(onPersistError?: TOIMPersistErrorHandler) {
         },
     }));
     persistor.start();
-    const findCardByKey = (key: TOIMStoreKey): TCard | undefined => entityCollectionService.findSlotByKey(entityStoreSlot, key)?.entity;
+    const findCardByKey = (key: TOIMStoreKey): TCard | undefined => entityCollectionService.peekSlotByKey(entityStoreSlot, key)?.entity;
     return {
         persistor,
         persistRecordsResource,
@@ -52,7 +52,7 @@ function build(onPersistError?: TOIMPersistErrorHandler) {
             entityContentService.updateEntity(entityCollectionService.getSlotByKey(entityStoreSlot, key), patch);
         },
         deleteCardByKey: (key: TOIMStoreKey): void => {
-            const cardSlot = entityCollectionService.findSlotByKey(entityStoreSlot, key);
+            const cardSlot = entityCollectionService.peekSlotByKey(entityStoreSlot, key);
             if (cardSlot !== undefined) entityContentService.clearSlotContent(cardSlot);
         },
         readTitleInMemory: (key: TOIMStoreKey): string | undefined => findCardByKey(key)?.title,

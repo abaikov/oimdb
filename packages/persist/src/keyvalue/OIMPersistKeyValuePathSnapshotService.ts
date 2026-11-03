@@ -2,7 +2,7 @@ import type { IOIMPersistSnapshotService } from '../strategy/interfaces/IOIMPers
 import type { OIMPersistKeyValueBackend } from './OIMPersistKeyValueBackend';
 import type { OIMPersistKeyValueWriteBatch } from './OIMPersistKeyValueWriteBatch';
 import type { TOIMPersistKeyValuePathSnapshotServiceOptions } from './types/TOIMPersistKeyValuePathSnapshotServiceOptions';
-import { oimGetPath } from './utils/oimGetPath';
+import { getOIMPath } from './utils/getOIMPath';
 
 export class OIMPersistKeyValuePathSnapshotService<TSnapshot>
 implements IOIMPersistSnapshotService<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TSnapshot> {
@@ -21,7 +21,7 @@ implements IOIMPersistSnapshotService<OIMPersistKeyValueBackend, OIMPersistKeyVa
     }
 
     public async readSnapshot(persistKeyValueBackend: OIMPersistKeyValueBackend): Promise<TSnapshot | undefined> {
-        return oimGetPath(await persistKeyValueBackend.readValue(this.storageKey), this.path) as TSnapshot | undefined;
+        return getOIMPath(await persistKeyValueBackend.readValue(this.storageKey), this.path) as TSnapshot | undefined;
     }
 
     public writeSnapshot(persistKeyValueWriteBatch: OIMPersistKeyValueWriteBatch, snapshot: TSnapshot): void {

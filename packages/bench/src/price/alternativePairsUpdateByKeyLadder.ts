@@ -1,5 +1,5 @@
 import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
-import { OIMChannelService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
+import { OIMChannelService, createOIMInPlaceEntityWriter, isOIMSameValueZero } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
@@ -52,7 +52,7 @@ const sameValueZeroLookup: TByKeyRung = (fixture, trackedFrame, title, upTo) => 
     const { entityService, entityStoreSlot } = fixture;
     for (let i = 0; i < upTo; i++) {
         const entity = entityService.getSlotByKey(entityStoreSlot, rows[i].id).entity as Record<string, unknown> | undefined;
-        if (entity === undefined || oimSameValueZeroGuard(entity.title, title)) continue;
+        if (entity === undefined || isOIMSameValueZero(entity.title, title)) continue;
         entity.title = title;
         priceQueueOnce(trackedFrame, i);
     }
@@ -325,7 +325,7 @@ export const alternativePairsUpdateByKeyLadder: readonly TPricePair[] = [
     byKeyPair('2-engine-lookup', trackedSlotLookup, 'entityService.getSlotByKey(entityStoreSlot, id).entity, then the same compare, store and queue',
         trackedMapStore, 'map.get(id), skip when equal, store, queue once per frame',
         'finding the entity through the collection instead of a Map of entities.'),
-    byKeyPair('3-same-value-zero', sameValueZeroLookup, 'the same with oimSameValueZeroGuard instead of ===',
+    byKeyPair('3-same-value-zero', sameValueZeroLookup, 'the same with isOIMSameValueZero instead of ===',
         trackedSlotLookup, 'getSlotByKey, ===, store, queue',
         'the SameValueZero comparison the shipped writer uses.'),
     byKeyPair('4-writer-column', writerColumn, 'getSlotByKey, then the shipped writer\'s patchColumn, then the hand queue',

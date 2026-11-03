@@ -4,7 +4,7 @@ import type { TOIMBucketSlotsArrayStore } from './types/TOIMBucketSlotsArrayStor
 import { OIMBucketMemberSlotsArrayService } from './OIMBucketMemberSlotsArrayService';
 import { OIM_NOTHING_WAS_INSERTED } from '../constants/OIM_NOTHING_WAS_INSERTED';
 import { OIM_NOTHING_WAS_REMOVED } from '../constants/OIM_NOTHING_WAS_REMOVED';
-import { oimSameUniqueSlotSequence } from '../utils/oimSameUniqueSlotSequence';
+import { isOIMSameUniqueSlotSequence } from '../utils/isOIMSameUniqueSlotSequence';
 
 export class OIMBucketUniqueMemberSlotsArrayService<TBucketMemberSlot extends TOIMSlot = TOIMSlot>
     extends OIMBucketMemberSlotsArrayService<TBucketMemberSlot> {
@@ -77,7 +77,7 @@ export class OIMBucketUniqueMemberSlotsArrayService<TBucketMemberSlot extends TO
     ): boolean {
         const heldBucketMemberSlots = bucketSlotsArrayStore.bucketMemberSlots;
         if (bucketMemberSlots.length < heldBucketMemberSlots.length) return false;
-        return oimSameUniqueSlotSequence(heldBucketMemberSlots, bucketMemberSlots);
+        return isOIMSameUniqueSlotSequence(heldBucketMemberSlots, bucketMemberSlots);
     }
 
     public override clearBucketMemberSlots(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>): void {

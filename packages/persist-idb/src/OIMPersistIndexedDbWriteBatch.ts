@@ -3,9 +3,9 @@ import type { IOIMPersistWriteBatch } from '@oimdb/persist';
 import type { TOIMPersistIndexedDbOpenOptions } from './types/TOIMPersistIndexedDbOpenOptions';
 import type { TOIMPersistIndexedDbPrimaryKey } from './types/TOIMPersistIndexedDbPrimaryKey';
 import type { TOIMPersistIndexedDbWriteBatchOptions } from './types/TOIMPersistIndexedDbWriteBatchOptions';
-import { oimIndexedDbTransactionToPromise } from './utils/oimIndexedDbTransactionToPromise';
-import { oimNormalizeIndexedDbPrimaryKey } from './utils/oimNormalizeIndexedDbPrimaryKey';
-import { oimOpenIndexedDbWithTables } from './utils/oimOpenIndexedDbWithTables';
+import { promisifyOIMIndexedDbTransaction } from './utils/promisifyOIMIndexedDbTransaction';
+import { normalizeOIMIndexedDbPrimaryKey } from './utils/normalizeOIMIndexedDbPrimaryKey';
+import { openOIMIndexedDbWithTables } from './utils/openOIMIndexedDbWithTables';
 
 type TOIMIndexedDbTableChange = (objectStoreByTableName: ReadonlyMap<string, IDBObjectStore>) => void;
 
@@ -19,14 +19,14 @@ export class OIMPersistIndexedDbWriteBatch implements IOIMPersistWriteBatch {
     }
 
     public putTableValue(tableName: string, primaryKey: TOIMPersistIndexedDbPrimaryKey, value: unknown): void {
-        const normalizedPrimaryKey = oimNormalizeIndexedDbPrimaryKey(primaryKey);
+        const normalizedPrimaryKey = normalizeOIMIndexedDbPrimaryKey(primaryKey);
         this.addTableChange(tableName, objectStoreByTableName => {
             (objectStoreByTableName.get(tableName) as IDBObjectStore).put(value, normalizedPrimaryKey);
         });
     }
 
     public deleteTableValue(tableName: string, primaryKey: TOIMPersistIndexedDbPrimaryKey): void {
-        const normalizedPrimaryKey = oimNormalizeIndexedDbPrimaryKey(primaryKey);
+        const normalizedPrimaryKey = normalizeOIMIndexedDbPrimaryKey(primaryKey);
         this.addTableChange(tableName, objectStoreByTableName => {
             (objectStoreByTableName.get(tableName) as IDBObjectStore).delete(normalizedPrimaryKey);
         });
@@ -42,12 +42,12 @@ export class OIMPersistIndexedDbWriteBatch implements IOIMPersistWriteBatch {
         const persistWriteBatchChanges = this.persistWriteBatchChanges;
         if (!persistWriteBatchChanges.hasWriteBatchChanges) return;
         const tableNames = Array.from(this.tableNames);
-        const database = await oimOpenIndexedDbWithTables({
+        const database = await openOIMIndexedDbWithTables({
             persistIndexedDbOpenOptions: this.persistIndexedDbOpenOptions,
             tableNames,
         });
         try {
-            await oimIndexedDbTransactionToPromise(database, tableNames, objectStoreByTableName => {
+            await promisifyOIMIndexedDbTransaction(database, tableNames, objectStoreByTableName => {
                 persistWriteBatchChanges.applyWriteBatchChanges(objectStoreByTableName);
             });
         } finally {

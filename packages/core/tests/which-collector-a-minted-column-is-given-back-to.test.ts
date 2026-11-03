@@ -9,7 +9,7 @@ import { createOIMUnusedSlotCollectorSlot } from '../src/collector/utils/createO
 import { OIMPushColumnSlotOwner } from '../src/column/OIMPushColumnSlotOwner';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
-import { oimIsSlotReleased } from '../src/slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../src/slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../src/entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 
@@ -50,12 +50,12 @@ describe('which collector a minted column is given back to', () => {
         const cardService = cardServiceOn();
         const card = filedCard(cardService, db);
 
-        const column = cardService.columnSlotService.getColumn(card, 'title');
+        const column = cardService.columnSlotService.getColumnSlot(card, 'title');
         expect(column.holdCount).toBe(1);
 
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(column.holdCount).toBe(0);
-        expect(oimIsSlotReleased(column)).toBe(true);
+        expect(isOIMSlotReleased(column)).toBe(true);
     });
 
     it('is a collector nothing flushes when the caller names one, and the hold then never comes back', () => {
@@ -65,15 +65,15 @@ describe('which collector a minted column is given back to', () => {
         const unusedSlotCollectorSlot = createOIMUnusedSlotCollectorSlot();
         const columnSlotOwner = new OIMPushColumnSlotOwner({ columnSlotStoreService: OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.getValue() });
 
-        const column = columnSlotOwner.getColumn(card, 'title', unusedSlotCollectorSlot);
+        const column = columnSlotOwner.getColumnSlot(card, 'title', unusedSlotCollectorSlot);
         expect(column.holdCount).toBe(1);
 
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(column.holdCount).toBe(1);
-        expect(oimIsSlotReleased(column)).toBe(false);
+        expect(isOIMSlotReleased(column)).toBe(false);
 
         OIMUnusedSlotCollectorService.INSTANCE.flush(unusedSlotCollectorSlot);
         expect(column.holdCount).toBe(0);
-        expect(oimIsSlotReleased(column)).toBe(true);
+        expect(isOIMSlotReleased(column)).toBe(true);
     });
 });

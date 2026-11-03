@@ -33,7 +33,7 @@ import { OIMDB, createOIMInPlaceEntityWriter, createOIMEntityContentService, cre
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource,
-    OIMPersistMicrotaskScheduler, OIMPersistor, oimReconcileByKey,
+    OIMPersistMicrotaskScheduler, OIMPersistor, reconcileOIMByKey,
 } from '@oimdb/persist';
 import { OIMPersistMemoryRecordsService, OIMPersistMemoryWriteBatch } from '@oimdb/persist-memory';
 import { OIMPersistJsonMemoryBackend } from '@oimdb/persist-json';
@@ -127,7 +127,7 @@ answerPersistor.addPersistResource(new OIMPersistRecordsResource({
         persistEntityWriter,
     }),
     persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TQuestion>({ storageKey: 'questions' }),
-    persistHydrateReconcile: oimReconcileByKey<TOIMStoreKey, TQuestion>(
+    persistHydrateReconcile: reconcileOIMByKey<TOIMStoreKey, TQuestion>(
         (currentQuestion, incomingQuestion) => currentQuestion === undefined
             ? incomingQuestion
             : { ...currentQuestion, answer: incomingQuestion.answer },
@@ -138,7 +138,7 @@ answerPersistor.start();
 ```
 
 A second JSON backend stands in for the durable one here; in an application it is an
-`OIMPersistIndexedDbBackend` with an `OIMPersistIndexedDbRecordsService`. `oimReconcileByKey` calls the
+`OIMPersistIndexedDbBackend` with an `OIMPersistIndexedDbRecordsService`. `reconcileOIMByKey` calls the
 resolver for every stored key with what memory holds (`currentQuestion`, from the server) and what
 the cache holds (`incomingQuestion`); keys only in memory are kept as they are.
 

@@ -23,7 +23,7 @@ const createFixture = (columns: readonly ('a' | 'b')[]) => {
     const order = (): string => readValueWithoutTracking(sortedSlot).map(entitySlot => String(entitySlot.key)).join(',');
     order();
     const updateCard = (id: string, patch: Partial<TCard>): void => {
-        const cardSlot = cardsService.findSlotByKey(cards, id);
+        const cardSlot = cardsService.peekSlotByKey(cards, id);
         if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, patch);
     };
     return { db, updateCard, order };

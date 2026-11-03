@@ -1,7 +1,7 @@
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
 
 import { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
-import { OIMDB, OIMSlotTreeStoreService, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMSlotTreeStoreService, isOIMSlotEmpty, isOIMSlotReleased } from '../../index';
 import type { TOIMBucketSlot, TOIMEntitySlot, TOIMBucketSlotsArrayStore } from '../../index';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -111,7 +111,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
 
         // Still in the bucket, and that is what keeps the identity alive.
         expect(Array.from(pinnedService.slotContentService.getBucketMemberSlots(annInGeneral)).map(slot => slot.key)).toEqual(['m1', 'm2']);
-        expect(oimIsSlotEmpty(pinnedM1)).toBe(true);
+        expect(isOIMSlotEmpty(pinnedM1)).toBe(true);
 
         // The caller takes it out, which is the same call that put it in.
         pinnedService.slotContentService.writeSlotContent(annInGeneral, [messagesService.getSlotByKey(messages, 'm2')!]);
@@ -120,7 +120,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
         expect(Array.from(pinnedService.slotContentService.getBucketMemberSlots(annInGeneral)).map(slot => slot.key)).toEqual(['m2']);
         // The last bucket that held it let it go and it has no value, so the
         // identity is not the collection's any more.
-        expect(oimIsSlotReleased(pinnedM1)).toBe(true);
+        expect(isOIMSlotReleased(pinnedM1)).toBe(true);
         expect(messagesService.getSlotCount(messages)).toBe(2);
     });
 
@@ -146,7 +146,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
         // Nobody holds it and it has no slots, so the collection dropped it and
         // the store pruned the nodes that existed only to reach it.
         expect(Array.from(pinnedService.getSlots(pinned)).includes(annInGeneral)).toBe(false);
-        expect(oimIsSlotReleased(annInGeneral)).toBe(true);
+        expect(isOIMSlotReleased(annInGeneral)).toBe(true);
         expect(pinnedService.getSlotCount(pinned)).toBe(1);
         expect(annChain[1].holdCount).toBe(segmentHoldsWhileTheChainIsFiled - 1);
     });
@@ -163,12 +163,12 @@ describe('Hand-set slots, one bucket under no key at all', () => {
 
     it('is one hand-filled bucket that nothing filed, so nothing can unfile it while it is held', () => {
         const { db, messagesService, messages, shortlistService, shortlist, heldShortlistSlot } = hand();
-        expect(oimIsSlotReleased(heldShortlistSlot)).toBe(false);
+        expect(isOIMSlotReleased(heldShortlistSlot)).toBe(false);
 
         shortlistService.slotContentService.writeSlotContent(shortlistService.getSingleSlot(shortlist),[messagesService.getSlotByKey(messages, 'm3')!, messagesService.getSlotByKey(messages, 'm1')!]);
         db.flush();
         expect(Array.from(shortlistService.slotContentService.getBucketMemberSlots(shortlistService.getSingleSlot(shortlist))).map(slot => slot.key)).toEqual(['m3', 'm1']);
-        expect(oimIsSlotReleased(heldShortlistSlot)).toBe(false);
+        expect(isOIMSlotReleased(heldShortlistSlot)).toBe(false);
         expect(shortlistService.getSingleSlot(shortlist)).toBe(heldShortlistSlot);
         expect(shortlistService.getSingleSlot(shortlist).owner).toBe((shortlistService as unknown as { slotOwnerService: unknown }).slotOwnerService);
     });
@@ -195,7 +195,7 @@ describe('Hand-set slots, one bucket under no key at all', () => {
         shortlistService.slotContentService.clearSlotContent(shortlistService.getSingleSlot(shortlist));
         db.flush();
         expect(shortlistService.slotContentService.getBucketMemberSlotCount(shortlistService.getSingleSlot(shortlist))).toBe(0);
-        expect(oimIsSlotReleased(heldShortlistSlot)).toBe(false);
+        expect(isOIMSlotReleased(heldShortlistSlot)).toBe(false);
         expect(shortlistService.getSingleSlot(shortlist)).toBe(heldShortlistSlot);
         shortlistService.slotContentService.writeSlotContent(shortlistService.getSingleSlot(shortlist),[messagesService.getSlotByKey(messages, 'm2')!]);
         expect(Array.from(shortlistService.slotContentService.getBucketMemberSlots(shortlistService.getSingleSlot(shortlist))).map(slot => slot.key)).toEqual(['m2']);

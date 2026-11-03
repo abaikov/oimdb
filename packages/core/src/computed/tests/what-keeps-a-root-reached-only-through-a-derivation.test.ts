@@ -2,8 +2,8 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
@@ -33,7 +33,7 @@ const createFixture =() => {
 
 const derivationOver = (source: TOIMSlot, db: OIMDB): TOIMComputedContentSlot<number> => {
     let ran = 0;
-    const derivationService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+    const derivationService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
     const derivationStore = derivationService.createStoreSlot(
         db,
         () => ++ran,
@@ -52,7 +52,7 @@ describe(`a root an effect reaches only through a derivation (${DO_NOT_EDIT_TO_M
         const effect = effectService.createEffect(db, () => { /* held */ }, [], [derivationOver(slot, db)]);
 
         expect(effect.sourceSlots.length).toBe(0);
-        expect(effect.allRootSlots.includes(slot)).toBe(true);
+        expect(effect.rootSlots.includes(slot)).toBe(true);
         expect(somethingIsListening(slot)).toBe(true);
         expect(slot.holdCount).toBe(2);
 
@@ -70,7 +70,7 @@ describe(`a root an effect reaches only through a derivation (${DO_NOT_EDIT_TO_M
         slot.owner.unholdSlot(slot);
 
         expect(somethingIsListening(slot)).toBe(true);
-        expect(oimIsSlotReleased(slot)).toBe(false);
+        expect(isOIMSlotReleased(slot)).toBe(false);
         expect(rowsService.getSlotByKey(rows, 'r1')).toBe(slot);
         expect(rowsService.getSlotCount(rows)).toBe(1);
 
@@ -85,7 +85,7 @@ describe(`a root an effect reaches only through a derivation (${DO_NOT_EDIT_TO_M
         bucket.owner.unholdSlot(bucket);
 
         expect(somethingIsListening(bucket)).toBe(true);
-        expect(oimIsSlotReleased(bucket)).toBe(false);
+        expect(isOIMSlotReleased(bucket)).toBe(false);
         expect(byTagService.getSlotCount(byTag)).toBe(1);
 
         effectService.disposeEffect(effect);
@@ -100,7 +100,7 @@ describe(`a root an effect reaches only through a derivation (${DO_NOT_EDIT_TO_M
         db.flush();
         flushUnusedSlots();
 
-        expect(oimIsSlotReleased(slot)).toBe(false);
+        expect(isOIMSlotReleased(slot)).toBe(false);
         expect(rowsService.getSlotByKey(rows, 'r1')).toBe(slot);
 
         effectService.disposeEffect(effect);

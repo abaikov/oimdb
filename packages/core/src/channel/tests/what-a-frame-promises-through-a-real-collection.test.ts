@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
@@ -17,7 +17,7 @@ type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
 
 const effectService = OIMEffectService.INSTANCE;
 
-const createDoubledService = () => createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
+const createDoubledService = () => createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
 
 /** A collection over a db this test flushes by hand. */
 function collectionOver(db: OIMDB) {
@@ -37,7 +37,7 @@ function createFixture() {
 const slotOf = (rowsService: TRowsService, rows: TRowsStoreSlot, id: string): TRowSlot => rowsService.getSlotByKey(rows, id)!;
 
 const updateEntityByKey = (rowsService: TRowsService, rows: TRowsStoreSlot, key: string, patch: Partial<TRow>): void => {
-    const slot = rowsService.findSlotByKey(rows, key);
+    const slot = rowsService.peekSlotByKey(rows, key);
     if (slot !== undefined) rowsService.slotContentService.updateEntity(slot, patch);
 };
 

@@ -15,7 +15,7 @@ collection service first and the store slot after it.
 ```ts setup
 import { memo } from 'react';
 import type { ReactNode } from 'react';
-import { OIMDB, OIMSetBucketContentService, OIMSingleSlotStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleComputedService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService, OIMSingleSlotStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, isOIMSameValueZero, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleComputedService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMComputedSlot, TOIMEntitySlot, TOIMSingleSlotStore, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMDBProvider, useOIMBucketSlotsByKey, useOIMComputedValue, useOIMDB, useOIMEntity,
@@ -119,7 +119,7 @@ function ProfileHeader() {
 and a write marks only the column slots of the columns it changed, so an edit to
 `bio` never reaches this component. The slot comes from whoever already holds
 it — a module, as here, or a parent rendering a bucket's slots. The hook subscribes over the column slot
-`getColumn(slot, name)` mints and holds the entity slot itself while subscribed,
+`getColumnSlot(slot, name)` mints and holds the entity slot itself while subscribed,
 because the effect counts the column and not the slot that carries it. `name` is
 checked against the entity type, so a typo is a compile error. For a component
 that shows several columns, one `useOIMEntity` is one subscription and several
@@ -235,7 +235,7 @@ and re-render on each of them.
 ```tsx
 const hearts = cardsByDeckService.holdSlotByKey(cardsByDeck, 'hearts');
 const heartsCountService = createOIMSingleComputedService<number>({
-  sameValueGuard: oimSameValueZeroGuard,
+  sameValueGuard: isOIMSameValueZero,
 });
 const heartsCount = heartsCountService.createStoreSlot(
   db,

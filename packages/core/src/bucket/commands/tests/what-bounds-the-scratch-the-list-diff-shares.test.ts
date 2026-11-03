@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { oimOrderedListCommandsOfTransition } from '../utils/oimOrderedListCommandsOfTransition';
+import { getOIMOrderedListCommands } from '../utils/getOIMOrderedListCommands';
 import { OIM_MAX_DIFF_SCRATCH_SLOTS } from '../constants/OIM_MAX_DIFF_SCRATCH_SLOTS';
 import { applyOrderedListCommands, sameEntitySlotSequence } from '../../../../tests/support/orderedListConsumer';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
@@ -32,14 +32,14 @@ const SMALL_PREV = [a, b, c];
 const SMALL_NEXT = [c, a, d];
 
 const theSmallDiff = (): readonly TOIMOrderedListCommand[] => {
-    const commands = oimOrderedListCommandsOfTransition(SMALL_PREV, SMALL_NEXT);
+    const commands = getOIMOrderedListCommands(SMALL_PREV, SMALL_NEXT);
     expect(sameEntitySlotSequence(applyOrderedListCommands(SMALL_PREV.slice(), commands), SMALL_NEXT)).toBe(true);
     return commands;
 };
 
 describe('what bounds the scratch the list diff shares', () => {
     it('names the scratch in every line it bounds, and bounds nothing else under src', () => {
-        const lines = readFileSync(join(__dirname, '..', 'utils', 'oimOrderedListCommandsOfTransition.ts'), 'utf8')
+        const lines = readFileSync(join(__dirname, '..', 'utils', 'getOIMOrderedListCommands.ts'), 'utf8')
             .split('\n')
             .filter(line => line.includes('OIM_MAX_DIFF_SCRATCH_SLOTS') && !line.startsWith('import'));
 
@@ -47,7 +47,7 @@ describe('what bounds the scratch the list diff shares', () => {
         expect(lines.filter(line => !/Int32Array|Map</.test(line))).toEqual([]);
         expect(sourceFilesNaming('OIM_MAX_DIFF_SCRATCH_SLOTS')).toEqual([
             'bucket/commands/constants/OIM_MAX_DIFF_SCRATCH_SLOTS.ts',
-            'bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
+            'bucket/commands/utils/getOIMOrderedListCommands.ts',
         ]);
     });
 
@@ -62,7 +62,7 @@ describe('what bounds the scratch the list diff shares', () => {
         const before = theSmallDiff();
 
         const atTheBound = slotsNumbering(OIM_MAX_DIFF_SCRATCH_SLOTS);
-        expect(oimOrderedListCommandsOfTransition(atTheBound, atTheBound.slice())).toEqual([]);
+        expect(getOIMOrderedListCommands(atTheBound, atTheBound.slice())).toEqual([]);
 
         expect(theSmallDiff()).toEqual(before);
     });
@@ -71,7 +71,7 @@ describe('what bounds the scratch the list diff shares', () => {
         const before = theSmallDiff();
 
         const pastTheBound = slotsNumbering(OIM_MAX_DIFF_SCRATCH_SLOTS + 1);
-        expect(oimOrderedListCommandsOfTransition(pastTheBound, pastTheBound.slice())).toEqual([]);
+        expect(getOIMOrderedListCommands(pastTheBound, pastTheBound.slice())).toEqual([]);
 
         expect(theSmallDiff()).toEqual(before);
     });
@@ -80,7 +80,7 @@ describe('what bounds the scratch the list diff shares', () => {
         const pastTheBound = slotsNumbering(OIM_MAX_DIFF_SCRATCH_SLOTS + 1);
         const moved = [pastTheBound[pastTheBound.length - 1], ...pastTheBound.slice(0, -1)];
 
-        const commands = oimOrderedListCommandsOfTransition(pastTheBound, moved);
+        const commands = getOIMOrderedListCommands(pastTheBound, moved);
 
         expect(commands).toEqual([{ type: 'move', from: pastTheBound.length - 1, to: 0 }]);
         expect(sameEntitySlotSequence(applyOrderedListCommands(pastTheBound.slice(), commands), moved)).toBe(true);

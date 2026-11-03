@@ -1,5 +1,5 @@
 import { OIMDB, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, createOIMSlotCollectionIndexService } from '../../index';
-import type { TOIMBucketSlotsSetStore, TOIMEntityColumnName, TOIMEntitySlot } from '../../index';
+import type { TOIMBucketSlotsSetStore, TOIMColumnName, TOIMEntitySlot } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
@@ -19,7 +19,7 @@ export function aSetBucketIsAskedForNoPosition(): void {
     const singleDeckService = createOIMSingleSlotService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
     const singleDeck = singleDeckService.getSingleSlot(singleDeckService.createStoreSlot(db));
     const byDeckService = createOIMSlotCollectionIndexService<
-        TCard, string, readonly TOIMEntityColumnName<TCard>[], string, unknown,
+        TCard, string, readonly TOIMColumnName<TCard>[], string, unknown,
         TOIMBucketSlotsSetStore<TCardSlot>, OIMSetBucketContentService<TCardSlot, string>
     >({
         entityService: cardsService,

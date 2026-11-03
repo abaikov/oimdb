@@ -4,8 +4,8 @@ import {
     OIMDB,
     createOIMSlotCollectionService,
     createOIMEntityContentService,
-    oimIsSlotEmpty,
-    oimIsSlotReleased,
+    isOIMSlotEmpty,
+    isOIMSlotReleased,
     type TOIMEntitySlot,
     type TOIMStoreKey,
 } from '@oimdb/core';
@@ -50,7 +50,7 @@ class LifecycleModel {
 
     public unhold(): void {
         const slot = this.slot;
-        if (slot === undefined || oimIsSlotReleased(slot) || slot.holdCount === 0) return this.note('nothing to give back');
+        if (slot === undefined || isOIMSlotReleased(slot) || slot.holdCount === 0) return this.note('nothing to give back');
         try {
             slot.unholdSlot();
             this.note('unholdSlot — one reference fewer');
@@ -67,7 +67,7 @@ class LifecycleModel {
     }
 
     public remove(): void {
-        const slot = this.cardService.findSlotByKey(this.cards, KEY);
+        const slot = this.cardService.peekSlotByKey(this.cards, KEY);
         if (slot !== undefined) slot.clearSlotContent();
         this.note('clearSlotContent — the value leaves; the identity stays while something keeps it');
     }
@@ -98,8 +98,8 @@ class LifecycleModel {
         this.onChange({
             identity: this.identity,
             holdCount: slot?.holdCount ?? 0,
-            isEmpty: slot === undefined || oimIsSlotEmpty(slot),
-            isReleased: slot !== undefined && oimIsSlotReleased(slot),
+            isEmpty: slot === undefined || isOIMSlotEmpty(slot),
+            isReleased: slot !== undefined && isOIMSlotReleased(slot),
             log: [...this.log],
         });
     }

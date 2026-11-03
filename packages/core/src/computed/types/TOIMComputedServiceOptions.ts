@@ -4,5 +4,5 @@ import type { TOIMComputedDerivationOptions } from './TOIMComputedDerivationOpti
 
 export type TOIMComputedServiceOptions<TKey extends NonNullable<unknown>, TValue, TComputedStore> =
     TOIMComputedDerivationOptions<TValue, TOIMComputedSlot<TValue, TKey>> & {
-        computedSlotStoreService: IOIMSlotStoreService<TKey, TOIMComputedSlot<TValue, TKey>, TComputedStore>;
+        slotStoreService: IOIMSlotStoreService<TKey, TOIMComputedSlot<TValue, TKey>, TComputedStore>;
     };

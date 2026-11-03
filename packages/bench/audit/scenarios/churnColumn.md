@@ -47,7 +47,7 @@ payoff.
   types.ts:130-137) rather than subscribe to the row.
 - B3 MET (:2214-2218) names LokiJS; redux-toolkit declines for the same reason
   (adapters/redux-toolkit.ts:1137-1144). Holds for the adapter read
-  (adapters/oimdb.ts:735-741 uses `effectService.createEffect([columnSlot], …)` on `entityService.slotContentOwner.holdColumn(…)`);
+  (adapters/oimdb.ts:735-741 uses `effectService.createEffect([columnSlot], …)` on `entityService.slotContentOwner.holdColumnSlot(…)`);
   others not read for this card.
 - B4 MET (:2219-2222): no floor divides this table, so B4's demand is not met in
   substance; the MET passes only the declared-absence check (standard.ts:443-460).

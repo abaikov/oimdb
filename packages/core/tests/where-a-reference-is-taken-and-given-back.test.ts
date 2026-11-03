@@ -13,8 +13,8 @@ import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
 import type { TOIMStoreSlot } from '../src/slot/types/TOIMStoreSlot';
 import type { TOIMSlot } from '../src/slot/types/TOIMSlot';
-import { oimIsSlotEmpty } from '../src/slot/utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../src/slot/utils/oimIsSlotReleased';
+import { isOIMSlotEmpty } from '../src/slot/utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../src/slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../src/entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 
@@ -72,12 +72,12 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards, effectService } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        const status = cardsService.columnSlotService.getColumn(card, 'status');
+        const status = cardsService.columnSlotService.getColumnSlot(card, 'status');
         aDependentOn(db, effectService, status);
 
         cardsService.slotContentService.clearSlotContent(card);
 
-        expect(oimIsSlotEmpty(card)).toBe(true);
+        expect(isOIMSlotEmpty(card)).toBe(true);
         expect(card.holdCount).toBe(0);
         expect(card.effects).toBeUndefined();
         expect(card.columnSlotStore !== undefined).toBe(true);
@@ -93,7 +93,7 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards, effectService } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        const status = cardsService.columnSlotService.getColumn(card, 'status');
+        const status = cardsService.columnSlotService.getColumnSlot(card, 'status');
         const effect = aDependentOn(db, effectService, status);
         cardsService.slotContentService.clearSlotContent(card);
         expect(cardsService.getSlotByKey(cards, 'card-1')).toBe(card);
@@ -103,7 +103,7 @@ describe('a subscribed column keeps its slot', () => {
 
         expect(card.columnSlotStore).toBeUndefined();
         expect(card.columnSlotStore !== undefined).toBe(false);
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 
@@ -116,15 +116,15 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        cardsService.columnSlotService.getColumn(card, 'status');
-        cardsService.columnSlotService.getColumn(card, 'title');
+        cardsService.columnSlotService.getColumnSlot(card, 'status');
+        cardsService.columnSlotService.getColumnSlot(card, 'title');
 
         expect((card.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(2);
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(card.columnSlotStore !== undefined).toBe(false);
 
         cardsService.slotContentService.clearSlotContent(card);
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 
@@ -138,16 +138,16 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        const status = cardsService.columnSlotService.holdColumn(card, 'status');
+        const status = cardsService.columnSlotService.holdColumnSlot(card, 'status');
         cardsService.slotContentService.clearSlotContent(card);
 
         expect(status.effects).toBeUndefined();
         expect(card.columnSlotStore !== undefined).toBe(true);
         expect(cardsService.getSlotByKey(cards, 'card-1')).toBe(card);
 
-        cardsService.columnSlotService.unholdColumn(status);
+        cardsService.columnSlotService.unholdColumnSlot(status);
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 
@@ -161,9 +161,9 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards, effectService } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        cardsService.columnSlotService.getColumn(card, 'status');
-        cardsService.columnSlotService.getColumn(card, 'title');
-        const assignee = cardsService.columnSlotService.getColumn(card, 'assignee');
+        cardsService.columnSlotService.getColumnSlot(card, 'status');
+        cardsService.columnSlotService.getColumnSlot(card, 'title');
+        const assignee = cardsService.columnSlotService.getColumnSlot(card, 'assignee');
         aDependentOn(db, effectService, assignee);
 
         cardsService.slotContentService.clearSlotContent(card);
@@ -199,7 +199,7 @@ describe('a subscribed column keeps its slot', () => {
         const { cardsService, cards } = createFixture();
         const first = aCardIn(cardsService, cards, 'card-1');
         cardsService.slotContentService.clearSlotContent(first);
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
 
         const second = aCardIn(cardsService, cards, 'card-1');

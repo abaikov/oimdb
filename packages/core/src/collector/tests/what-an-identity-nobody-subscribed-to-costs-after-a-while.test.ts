@@ -1,4 +1,4 @@
-import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterWriteReleasePolicy, oimIsSlotReleased, oimMintAfterIdleSlotReleaseWheel, oimMintAfterWriteSlotReleaseWheel } from '../../index';
+import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterWriteReleasePolicy, isOIMSlotReleased, mintOIMAfterIdleSlotReleaseWheel, mintOIMAfterWriteSlotReleaseWheel } from '../../index';
 import type { TOIMDisposer } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -17,7 +17,7 @@ const createFixtureAt = (after: number) => {
     return {
         db,
         flushAfterIdle: (): void => {
-            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+            mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
         },
         cardsService,
         cards,
@@ -37,7 +37,7 @@ describe('an identity nothing subscribed to', () => {
         fixture.at(1_000_000 + 31_000);
         fixture.flushAfterIdle();
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 
@@ -69,7 +69,7 @@ describe('what a subscriber does to the clock', () => {
 
         fixture.at(1_000_000 + 31_000 + 31_000);
         fixture.flushAfterIdle();
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
     });
 });
 
@@ -88,7 +88,7 @@ describe('what a hold does', () => {
         // AND THE GIVE-BACK FINISHES IT, because the window ran out while it was
         // held: a hold does not restart the clock, it only defers the verdict.
         slot.owner.unholdSlot(slot);
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
     });
 });
 
@@ -101,7 +101,7 @@ describe('the other window, which counts from the last write', () => {
         return {
             db,
             flushAfterWrite: (): void => {
-                oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
+                mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
             },
             cardsService,
             cards,
@@ -125,7 +125,7 @@ describe('the other window, which counts from the last write', () => {
 
         fixture.at(1_000_000 + 20_000 + 31_000);
         fixture.flushAfterWrite();
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
     });
 
     it('a subscriber does not renew it, and does not lose it mid-read either', () => {
@@ -139,7 +139,7 @@ describe('the other window, which counts from the last write', () => {
         expect(fixture.cardsService.getSlotByKey(fixture.cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
     });
 });
 

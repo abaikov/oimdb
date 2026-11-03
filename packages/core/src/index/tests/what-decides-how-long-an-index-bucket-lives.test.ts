@@ -10,7 +10,7 @@ import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMDBOptions } from '../../db/types/TOIMDBOptions';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -65,7 +65,7 @@ describe('what decides how long an index bucket lives', () => {
 
         spades.owner.unholdSlot(spades);
 
-        expect(oimIsSlotReleased(spades)).toBe(false);
+        expect(isOIMSlotReleased(spades)).toBe(false);
         expect(fixture.byDeckService.getSlotCount(fixture.byDeck)).toBe(1);
         expect(fixture.idsIn(spades)).toEqual(['c1']);
     });
@@ -106,7 +106,7 @@ describe('what decides how long an index bucket lives', () => {
 
         spades.owner.unholdSlot(spades);
 
-        expect(oimIsSlotReleased(spades)).toBe(true);
+        expect(isOIMSlotReleased(spades)).toBe(true);
         expect(fixture.byDeckService.getSlotCount(fixture.byDeck)).toBe(0);
     });
 
@@ -116,13 +116,13 @@ describe('what decides how long an index bucket lives', () => {
         const spades = fixture.byDeckService.getSlotByKey(fixture.byDeck, 'spades');
         const effect = OIMEffectService.INSTANCE.createEffect(fixture.db, () => undefined, [spades]);
         fixture.db.flush();
-        expect(oimIsSlotReleased(spades)).toBe(false);
+        expect(isOIMSlotReleased(spades)).toBe(false);
         expect(fixture.idsIn(spades)).toEqual(['c1']);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
         fixture.db.flush();
 
-        expect(oimIsSlotReleased(spades)).toBe(true);
+        expect(isOIMSlotReleased(spades)).toBe(true);
         expect(fixture.idsIn(fixture.byDeckService.getSlotByKey(fixture.byDeck, 'spades'))).toEqual(['c1']);
     });
 
@@ -148,7 +148,7 @@ describe('what decides how long an index bucket lives', () => {
 
         spades.owner.unholdSlot(spades);
 
-        expect(oimIsSlotReleased(spades)).toBe(false);
+        expect(isOIMSlotReleased(spades)).toBe(false);
         expect(fixture.byDeckService.getSlotCount(fixture.byDeck)).toBe(1);
     });
 });
@@ -208,7 +208,7 @@ describe('what an index bucket holds while it stands', () => {
         fixture.db.flush();
         expect(fixture.idsIn(spades)).toEqual(['c1', 'c2']);
 
-        const c2 = fixture.cardsService.findSlotByKey(fixture.cards, 'c2');
+        const c2 = fixture.cardsService.peekSlotByKey(fixture.cards, 'c2');
         if (c2 !== undefined) fixture.cardsService.slotContentService.clearSlotContent(c2);
         fixture.db.flush();
 

@@ -42,9 +42,9 @@ export const bundlePieces: readonly TBundlePiece[] = [
         armIds: [ARM_EVERYTHING, ARM_DATABASE_ONLY, ARM_WITHOUT, ARM_WITH],
         findings: bundleOrderedListFindings,
         spotlight: {
-            module: 'bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
+            module: 'bucket/commands/utils/getOIMOrderedListCommands.ts',
             label: 'diff?',
-            name: 'bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
+            name: 'bucket/commands/utils/getOIMOrderedListCommands.ts',
         },
         decompose: [{ findingId: 'ordered-list-diff', from: ARM_WITHOUT, to: ARM_WITH }],
         closing: {
@@ -174,7 +174,7 @@ export const bundlePieces: readonly TBundlePiece[] = [
             + 'application the cost is one field test per write. THE BYTES ARE THE OPEN QUESTION. THE '
             + 'TWO ARMS DIFFER IN THE ENGINE, NOT IN THE CONSUMER, and they have to: the code of '
             + 'the column owner is LINKED into the bundle by the `createColumnSlotOwner` option that '
-            + '`oimResolveSlotOwnerServiceOptions` hands to `OIMSlotOwnerService`, and by the '
+            + '`resolveOIMSlotOwnerServiceOptions` hands to `OIMSlotOwnerService`, and by the '
             + '`columnSlotOwner.markColumnsChanged` calls on the write paths, so '
             + 'nothing a consumer writes can decline it and two arms over today\'s engine would '
             + 'differ by exactly zero. The second arm is therefore a COUNTERFACTUAL BUILD: the '

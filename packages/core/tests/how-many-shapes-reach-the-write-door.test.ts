@@ -5,7 +5,7 @@ import { OIMEffectService } from '../src/effect/OIMEffectService';
 import { OIMSlotOwner } from '../src/slot/OIMSlotOwner';
 import { OIMDB } from '../src/db/OIMDB';
 import { createOIMComputedService } from '../src/computed/createOIMComputedService';
-import { oimSameValueZeroGuard } from '../src/slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../src/slot/utils/isOIMSameValueZero';
 import type { TOIMChannelSlot } from '../src/channel/types/TOIMChannelSlot';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
 import type { TOIMSlot } from '../src/slot/types/TOIMSlot';
@@ -103,7 +103,7 @@ const driveEveryDoor = (db: OIMDB) => {
     singleService.writeSingleSlotContent(single, { id: 'solo', title: 'solo', rank: 0 });
     const singleSlot = singleService.holdSingleSlot(single);
     const doubledService = createOIMComputedService<string, number>({
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const doubled = doubledService.createStoreSlot(
         db,
@@ -118,7 +118,7 @@ const driveEveryDoor = (db: OIMDB) => {
     db.flush();
 
     const a = cardsService.getSlotByKey(cards, 'a');
-    cardsService.columnSlotService.holdColumn(a, 'title');
+    cardsService.columnSlotService.holdColumnSlot(a, 'title');
     cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'renamed', rank: 1 });
     db.flush();
 
@@ -132,7 +132,7 @@ const driveEveryDoor = (db: OIMDB) => {
     db.flush();
 
     const derived = doubledService.holdSlotByKey(doubled, 'a');
-    doubledService.columnSlotService.holdAnyColumn(derived);
+    doubledService.columnSlotService.holdAnyColumnSlot(derived);
     OIMEffectService.INSTANCE.createEffect(db, () => { void readValueWithoutTracking(derived); }, [], [derived]);
     OIMEffectService.INSTANCE.createEffect(db, () => { void cardsService.getSlotCount(cards); }, [cardsService.getSlotByKey(cards, 'b')]);
     OIMEffectService.INSTANCE.createEffect(db, () => { void singleSlot.entity; }, [singleSlot]);
@@ -146,7 +146,7 @@ const driveEveryDoor = (db: OIMDB) => {
 const V8_POLYMORPHIC_CEILING = 4;
 
 const THREE_SLOT_LITERALS: TArrivingShape[] = [
-    { label: 'OIMColumnSlot', keyCount: 15, whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT },
+    { label: 'OIMColumnSlot', keyCount: 26, whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT },
     {
         label: 'OIMBucketSlot',
         keyCount: 20,

@@ -2,8 +2,8 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMSlotAfterIdleReleasePolicy } from '../../collector/OIMSlotAfterIdleReleasePolicy';
 import { OIMSlotAfterWriteReleasePolicy } from '../../collector/OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotEarliestReleasePolicy } from '../../collector/OIMSlotEarliestReleasePolicy';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
-import { oimMintAfterIdleSlotReleaseWheel } from '../../collector/utils/oimMintAfterIdleSlotReleaseWheel';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
+import { mintOIMAfterIdleSlotReleaseWheel } from '../../collector/utils/mintOIMAfterIdleSlotReleaseWheel';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
@@ -16,7 +16,7 @@ function worldWhereTheTwoClocksDisagree() {
     let afterWriteNowMs = 1_000;
     const afterIdleNowMs = 500_000_000;
     const db = new OIMDB({ getNowMs: () => afterWriteNowMs });
-    Object.assign(oimMintAfterIdleSlotReleaseWheel(db.collectorSlot), { getNowMs: () => afterIdleNowMs });
+    Object.assign(mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot), { getNowMs: () => afterIdleNowMs });
     const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
             new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }),
             new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }),
@@ -36,11 +36,11 @@ describe('each release deadline is measured against its own clock', () => {
         const card = cardsService.getSlotByKey(cards, 'c1')!;
 
         card.owner.releaseSlotIfUnheld(card);
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
 
         advanceAfterWriteClockBy(KEEP_AFTER_WRITE_MS - 1);
         card.owner.releaseSlotIfUnheld(card);
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
     });
 
     it('and it is let go once ITS OWN clock reaches the deadline, not before', () => {
@@ -52,7 +52,7 @@ describe('each release deadline is measured against its own clock', () => {
         advanceAfterWriteClockBy(KEEP_AFTER_WRITE_MS);
         card.owner.releaseSlotIfUnheld(card);
 
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 
     it('one collector alone still answers from its own clock', () => {
@@ -65,9 +65,9 @@ describe('each release deadline is measured against its own clock', () => {
         const card = cardsService.getSlotByKey(cards, 'c1')!;
 
         card.owner.releaseSlotIfUnheld(card);
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
         nowMs += KEEP_AFTER_WRITE_MS;
         card.owner.releaseSlotIfUnheld(card);
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 });

@@ -2,7 +2,7 @@ import { computed, effect, endBatch, signal, startBatch } from 'alien-signals';
 import { OIMDB, OIMEffectService, OIM_FROZEN_EMPTY_SLOTS, createOIMSingleComputedService } from '../../../core/src/index';
 import type {
     OIMSingleComputedService,
-    TOIMComputedContentSlot, TOIMComputedStoreSlot, TOIMEntityContentSlot, TOIMSingleSlotStore,
+    TOIMComputedCarrierSlot, TOIMComputedStoreSlot, TOIMEntityContentSlot, TOIMSingleSlotStore,
 } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
@@ -29,7 +29,7 @@ const WRITES_PER_COALESCED_FRAME: readonly number[] = [1, 4, 16];
 
 const valueOfRoot = (rootSlot: TGraphRootSlot): number => rootSlot.entity?.value ?? 0;
 
-type TGraphComputedStoreSlot = TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedContentSlot<number>>, number>;
+type TGraphComputedStoreSlot = TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedCarrierSlot<number>>, number, TOIMComputedCarrierSlot<number>>;
 
 type TGraphComputedService = OIMSingleComputedService<number>;
 
@@ -82,7 +82,7 @@ const createHeadOfAlienChain = (rootSignal: TAlienSignal, depth: number): (() =>
 };
 
 
-type TGraphHeadComputedSlot = TOIMComputedContentSlot<number>;
+type TGraphHeadComputedSlot = TOIMComputedCarrierSlot<number>;
 
 type TGraphEffectStrategy = {
     createRootsEffect: (
@@ -780,7 +780,7 @@ const oursDeliveryWriteWithAnotherColumnHeld = (): TPriceSide => {
     const rootEntityService = createRootEntityService<TGraphTwoColumnRoot>();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0, note: 0 });
-    const valueColumnSlot = rootEntityService.columnSlotService.holdColumn(rootSlot, 'value');
+    const valueColumnSlot = rootEntityService.columnSlotService.holdColumnSlot(rootSlot, 'value');
     let written = 0;
     return {
         reset: () => undefined,
@@ -844,7 +844,7 @@ const oursDerivedCollection = (writtenColumn: 'value' | 'note'): TPriceSide => {
     const derivedComputedService = createGraphComputedService();
     const roots = Array.from({ length: DERIVED_COLLECTION_SIZE }, (_, i) => {
         const rootSlot = createRootSlot(db, rootEntityService, { value: i, note: i });
-        const valueColumnSlot = rootEntityService.columnSlotService.holdColumn(rootSlot, 'value');
+        const valueColumnSlot = rootEntityService.columnSlotService.holdColumnSlot(rootSlot, 'value');
         const derivedComputedStoreSlot = derivedComputedService.createStoreSlot(
             db,
             () => (rootSlot.entity?.value ?? 0) * 2,
@@ -918,7 +918,7 @@ const derivedCollectionCaveat = (writtenColumn: 'value' | 'note'): string => cav
     writtenColumn === 'value'
         ? 'THE WRITTEN COLUMN IS THE ONE THE DERIVED VALUES READ, so both arms re-derive every value and run the effect once.'
         : 'THE WRITTEN COLUMN IS ONE NO DERIVED VALUE READS, so neither arm may re-derive anything or run the effect, and what is left is what each arm pays to learn that.',
-    'Ours sources each derived value on the held column slot of value (rootEntityService.holdColumn), so a note write does not reach it;',
+    'Ours sources each derived value on the held column slot of value (rootEntityService.holdColumnSlot), so a note write does not reach it;',
     'alien has one signal per field, the shape every signal adapter in this bench uses, and batches the frame with startBatch/endBatch, since ours delivers once per frame.',
 ]);
 

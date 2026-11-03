@@ -16,7 +16,7 @@ describe('every slot carries data for its user', () => {
         const titleService = createOIMSingleComputedService<string>();
         const title = titleService.createStoreSlot(db, () => card.entity?.title ?? '', () => ({ sourceSlots: [card] }));
         const titleSlot = titleService.holdSingleSlot(title);
-        const titleColumn = card.holdColumn('title');
+        const titleColumn = card.holdColumnSlot('title');
 
         const slots = [card, bucket, titleSlot, titleColumn];
         expect(slots.map(slot => slot.data)).toEqual([undefined, undefined, undefined, undefined]);

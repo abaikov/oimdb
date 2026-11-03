@@ -49,7 +49,7 @@ export const bundleFieldMachineryFindings = (
             + 'NOT A PREDICTION FOR THIS ONE. It priced `slot.movedFields`, `recordMovedFields` '
             + 'and the `dependsOn` column routing — a module, a recording function, a '
             + 'declared-column check and a routing loop — all deleted on 2026-08-23. What is '
-            + 'excised now is the `createColumnSlotOwner` option of oimResolveSlotOwnerServiceOptions, '
+            + 'excised now is the `createColumnSlotOwner` option of resolveOIMSlotOwnerServiceOptions, '
             + 'three `columnSlotOwner.markColumnsChanged` calls in the write '
             + 'layers, one property of the '
             + 'slot literal, and the column owner those keep alive. '

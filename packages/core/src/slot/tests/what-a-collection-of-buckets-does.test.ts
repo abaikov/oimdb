@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreService';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
@@ -111,7 +111,7 @@ describe('the slots it holds keep their bucket, and that is the asymmetry', () =
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
 
         expect(byDeckService.getSlotCount(decks)).toBe(0);
-        expect(oimIsSlotReleased(bucket)).toBe(true);
+        expect(isOIMSlotReleased(bucket)).toBe(true);
         expect(byDeckService.getSlotByKey(decks, 'd1')).not.toBe(bucket);
     });
 
@@ -122,7 +122,7 @@ describe('the slots it holds keep their bucket, and that is the asymmetry', () =
         writeBucket(byDeckService, decks, 'd1', []);
 
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(bucket)).toBe(0);
-        expect(oimIsSlotReleased(bucket)).toBe(true);
+        expect(isOIMSlotReleased(bucket)).toBe(true);
         expect(byDeckService.getSlotCount(decks)).toBe(0);
     });
 
@@ -132,7 +132,7 @@ describe('the slots it holds keep their bucket, and that is the asymmetry', () =
         bucket.owner.holdSlot(bucket);
 
         writeBucket(byDeckService, decks, 'd1', []);
-        expect(oimIsSlotReleased(bucket)).toBe(false);
+        expect(isOIMSlotReleased(bucket)).toBe(false);
 
         bucket.owner.unholdSlot(bucket);
         expect(byDeckService.getSlotCount(decks)).toBe(0);
@@ -143,7 +143,7 @@ describe('the slots it holds keep their bucket, and that is the asymmetry', () =
         const bucket = writeBucket(byDeckService, decks, 'd1', [card(cardsService, cards, 'a')]);
         byDeckService.slotContentService.clearSlotContent(bucket);
         expect(byDeckService.getSlotCount(decks)).toBe(0);
-        expect(oimIsSlotReleased(bucket)).toBe(true);
+        expect(isOIMSlotReleased(bucket)).toBe(true);
         expect(byDeckService.getSlotByKey(decks, 'd1')).not.toBe(bucket);
     });
 });
@@ -212,7 +212,7 @@ describe('what a bucket costs the slot it holds, and that it is paid back', () =
 
         byDeckService.slotContentService.clearSlotContent(bucket);
         expect(ghost.holdCount).toBe(0);
-        expect(oimIsSlotReleased(ghost)).toBe(true);
+        expect(isOIMSlotReleased(ghost)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 

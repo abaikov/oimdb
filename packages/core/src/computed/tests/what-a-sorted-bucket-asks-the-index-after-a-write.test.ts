@@ -28,7 +28,7 @@ const createFixture = () => {
     order();
     const hasBucketMemberSlot = jest.spyOn(byDeckService.slotContentService, 'hasBucketMemberSlot');
     const updateCard = (id: string, patch: Partial<TCard>): void => {
-        const cardSlot = cardsService.findSlotByKey(cards, id);
+        const cardSlot = cardsService.peekSlotByKey(cards, id);
         if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, patch);
     };
     return { db, updateCard, order, hasBucketMemberSlot };

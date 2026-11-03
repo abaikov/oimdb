@@ -21,7 +21,7 @@
  * simply not run — no throw, no failing case, a screen that stops redrawing.
  *
  * A computed is a slot, `TOIMComputedSlot`, and its owner is its factory. The
- * value is a field of that slot, and its one writer is `oimRefreshComputedSlot`,
+ * value is a field of that slot, and its one writer is `refreshOIMComputedSlot`,
  * which only the owner calls. `value` is on the pin below, and the case at the
  * bottom of this file names that one writer. This file is deliberately not
  * about that one field.
@@ -363,7 +363,7 @@ const signatures = (): string[] => {
  * this file know about when it is allowed to write, and what enforces that".
  *
  * `value`, `isDeriving`, `ranAt*` and `checkedAt*` of a computed slot have one
- * writer, `computed/utils/oimRefreshComputedSlot.ts`, called only by the
+ * writer, `computed/utils/refreshOIMComputedSlot.ts`, called only by the
  * slot's owner.
  *
  * ELEVEN LINES ARRIVED AT ONCE WHEN THE THREE ENTITY CONSTRUCTORS TOOK AN
@@ -389,14 +389,14 @@ const PINNED: readonly string[] = [
     'addedColumnNames slot/OIMSlotContentChangeListenerService.ts mutate×1',
     'afterEachFlush channel/OIMChannelService.ts mutate×3',
     'afterEachFrame channel/OIMChannelService.ts mutate×6',
-    'afterIdleSlotReleaseWheel collector/utils/oimMintAfterIdleSlotReleaseWheel.ts write×1',
-    'afterUnholdSlotReleaseWheel collector/utils/oimMintAfterUnholdSlotReleaseWheel.ts write×1',
-    'afterWriteSlotReleaseWheel collector/utils/oimMintAfterWriteSlotReleaseWheel.ts write×1',
+    'afterIdleSlotReleaseWheel collector/utils/mintOIMAfterIdleSlotReleaseWheel.ts write×1',
+    'afterUnholdSlotReleaseWheel collector/utils/mintOIMAfterUnholdSlotReleaseWheel.ts write×1',
+    'afterWriteSlotReleaseWheel collector/utils/mintOIMAfterWriteSlotReleaseWheel.ts write×1',
     'allColumnsListenerCount slot/OIMSlotContentChangeListenerService.ts write×2',
-    'allRootSlots computed/OIMComputedSlot.ts write×1',
-    'allRootSlots computed/OIMSourceTrackingComputedValueService.ts write×2',
-    'allRootSlots computed/utils/oimGetAllRootSlots.ts write×1',
-    'allRootSlots effect/OIMEffectService.ts write×2',
+    'rootSlots computed/OIMComputedSlot.ts write×1',
+    'rootSlots computed/OIMSourceTrackingComputedValueService.ts write×2',
+    'rootSlots computed/utils/getOIMRootSlots.ts write×1',
+    'rootSlots effect/OIMEffectService.ts write×2',
     'arrivedBucketMemberSlotChannelQueues bucket/OIMBucketContentService.ts write×1',
     'atThisKey key/OIMKeyTreeWalk.ts write×1',
     'atThisKey store/OIMSlotTreeStoreService.ts write×1',
@@ -404,16 +404,28 @@ const PINNED: readonly string[] = [
     'batchDepth slot/OIMSlotContentChangeDeliveryService.ts write×1',
     'batchPatchChannelQueue slot/OIMSlotContentChangeDeliveryService.ts write×3',
     'batchSlotChannelQueue slot/OIMSlotContentChangeDeliveryService.ts write×3',
+    'bucketCommands bucket/commands/OIMWholeListBucketCommands.ts write×1',
     'bucketCommands bucket/OIMBucketContentService.ts write×1',
     'bucketMemberSlots bucket/array/OIMBucketMemberSlotsArrayService.ts mutate×13',
     'bucketMemberSlotsArrayService bucket/OIMArrayBucketContentService.ts write×1',
+    'bucketSlot bucket/commands/OIMBucketCommandsCursor.ts write×1',
     'bucketSlotsStore bucket/OIMBucketSlot.ts write×1',
     'carrierSlot column/OIMColumnSlot.ts write×1',
+    'checkedAtEpoch column/OIMColumnSlot.ts write×1',
+    'checkedAtRevision column/OIMColumnSlot.ts write×1',
+    'computedValueService column/OIMColumnSlot.ts write×1',
+    'isDeriving column/OIMColumnSlot.ts write×1',
+    'ranAtEpoch column/OIMColumnSlot.ts write×1',
+    'ranAtRevision column/OIMColumnSlot.ts write×1',
+    'rootSlots column/OIMColumnSlot.ts write×1',
+    'sourceComputeds column/OIMColumnSlot.ts write×1',
+    'sourceSlots column/OIMColumnSlot.ts write×1',
+    'sourceTracker column/OIMColumnSlot.ts write×1',
     'changedColumnNames entity/OIMEntityContentService.ts write×1 mutate×1',
     'checkedAtEpoch computed/OIMComputedSlot.ts write×1',
-    'checkedAtEpoch computed/utils/oimRefreshComputedSlot.ts write×2',
+    'checkedAtEpoch computed/utils/refreshOIMComputedSlot.ts write×2',
     'checkedAtRevision computed/OIMComputedSlot.ts write×1',
-    'checkedAtRevision computed/utils/oimRefreshComputedSlot.ts write×2',
+    'checkedAtRevision computed/utils/refreshOIMComputedSlot.ts write×2',
     'childNodes key/OIMKeyTreeWalk.ts write×1 mutate×2',
     'cleanup effect/OIMEffectService.ts write×2',
     'collectorSlot db/OIMDB.ts write×1',
@@ -441,11 +453,11 @@ const PINNED: readonly string[] = [
     'contentChangeListenerReadColumns slot/OIMSlotContentChangeListenerService.ts write×1 mutate×1',
     'contentChangeListeners slot/OIMSlotContentChangeListenerService.ts write×1 mutate×2',
     'createSources computed/OIMExplicitSourceComputedContentService.ts write×1',
-    'createSources computed/utils/oimAttachComputedDerivation.ts write×1',
+    'createSources computed/utils/attachOIMComputedDerivation.ts write×1',
     'defaultChannelSlot db/OIMDB.ts write×1',
     'departedBucketMemberSlotChannelQueues bucket/OIMBucketContentService.ts write×3',
     'derive computed/OIMComputedValueService.ts write×1',
-    'derive computed/utils/oimAttachComputedDerivation.ts write×1',
+    'derive computed/utils/attachOIMComputedDerivation.ts write×1',
     'dropped channel/OIMChannelService.ts write×1',
     'effectEdges slot/OIMSlot.ts write×1',
     'effectEdges slot/OIMSlotOwner.ts write×1 mutate×2',
@@ -472,7 +484,7 @@ const PINNED: readonly string[] = [
     'initialValue computed/OIMComputedContentService.ts write×1',
     'isAnyColumnAdded slot/OIMSlotContentChangeListenerService.ts write×1',
     'isDeriving computed/OIMComputedSlot.ts write×1',
-    'isDeriving computed/utils/oimRefreshComputedSlot.ts write×2',
+    'isDeriving computed/utils/refreshOIMComputedSlot.ts write×2',
     'isDisposed index/OIMSlotCollectionIndexService.ts write×1',
     'isFlushing channel/OIMChannelService.ts write×2',
     'isFlushing collector/OIMUnusedSlotCollectorService.ts write×2',
@@ -493,10 +505,10 @@ const PINNED: readonly string[] = [
     'positionInFirstSubscribedSlot effect/OIMEffectService.ts write×1',
     'positionsInOtherSubscribedSlots effect/OIMEffectService.ts write×1 mutate×1',
     'ranAtEpoch computed/OIMComputedSlot.ts write×1',
-    'ranAtEpoch computed/utils/oimRefreshComputedSlot.ts write×1',
+    'ranAtEpoch computed/utils/refreshOIMComputedSlot.ts write×1',
     'ranAtEpoch effect/OIMEffectService.ts write×1',
     'ranAtRevision computed/OIMComputedSlot.ts write×1',
-    'ranAtRevision computed/utils/oimRefreshComputedSlot.ts write×1',
+    'ranAtRevision computed/utils/refreshOIMComputedSlot.ts write×1',
     'ranAtRevision effect/OIMEffectService.ts write×1',
     'releaseScheduledSlotFlag collector/OIMSlotReleaseWheel.ts write×1',
     'releaseValue computed/OIMComputedValueService.ts write×1',
@@ -518,6 +530,7 @@ const PINNED: readonly string[] = [
     'slotContentService slot/OIMSingleSlotService.ts write×1',
     'slotContentService slot/OIMSlotCollectionService.ts write×1',
     'slotContentService slot/OIMSlotOwnerService.ts write×1',
+    'slotReleaseListeners db/OIMDB.ts mutate×2',
     'slotEmptinessPolicy entity/OIMEntityContentService.ts write×1',
     'slotFilingService slot/OIMSlotOwnerService.ts write×1 mutate×2',
     'slotRefetchListener collector/OIMSlotRefetchWheel.ts write×1',
@@ -532,7 +545,6 @@ const PINNED: readonly string[] = [
     'slots store/OIMSlotTreeStoreService.ts mutate×3',
     'sortedCount bucket/array/OIMBucketMemberSlotsArrayService.ts write×7',
     'sourceComputeds computed/OIMComputedSlot.ts write×1',
-    'sourceComputeds column/OIMPullColumnSlotOwner.ts write×1',
     'sourceComputeds computed/OIMExplicitSourceComputedContentService.ts write×1',
     'sourceComputeds computed/OIMSourceTrackingComputedValueService.ts write×1',
     'sourceComputeds effect/OIMEffectService.ts write×2',
@@ -543,7 +555,7 @@ const PINNED: readonly string[] = [
     'sourceSlots effect/OIMEffectService.ts write×2',
     'sourceStoreSlot bucket/OIMSlotCollectionBucketService.ts write×1',
     'sourceTracker computed/OIMComputedSlot.ts write×1',
-    'sourceTracker computed/utils/oimSwapActiveSourceTracker.ts write×1',
+    'sourceTracker computed/utils/swapOIMActiveSourceTracker.ts write×1',
     'collectionBucketSlot bucket/OIMSlotCollectionBucketService.ts write×1',
     'storeSlotListener db/OIMDefaults.ts write×1',
     'storeSlotListener slot/OIMSingleSlotService.ts write×1',
@@ -562,10 +574,10 @@ const PINNED: readonly string[] = [
  */
 const PINNED_FIELDS: readonly string[] = [
     'afterEachFlush', 'addedColumnNames', 'afterEachFrame', 'afterEachFrameHandlerChannelQueue', 'afterIdleSlotReleaseWheel',
-    'afterUnholdSlotReleaseWheel', 'afterWriteSlotReleaseWheel', 'allColumnsListenerCount', 'allRootSlots',
+    'afterUnholdSlotReleaseWheel', 'afterWriteSlotReleaseWheel', 'allColumnsListenerCount', 'rootSlots',
     'arrivedBucketMemberSlotChannelQueues', 'atThisKey', 'batchChangedColumnsChannelQueue',
     'batchDepth', 'batchPatchChannelQueue', 'batchSlotChannelQueue', 'body', 'bucketCollectionService',
-    'bucketCommands', 'bucketMemberSlots', 'bucketMemberSlotsArrayService',
+    'bucketCommands', 'bucketMemberSlots', 'bucketMemberSlotsArrayService', 'bucketSlot',
     'bucketSlotsStore', 'carrierSlot', 'changedColumnNames', 'channelScheduler', 'channelSlot', 'checkedAtEpoch',
     'checkedAtRevision', 'childNodes', 'cleanup', 'clock', 'collectionBucketSlot', 'collectorSlot', 'columnGroupsByEdge',
     'columnGroups', 'columnListenerCountsByColumnName', 'columnName', 'columnNames',
@@ -573,7 +585,7 @@ const PINNED_FIELDS: readonly string[] = [
     'columnSlotService', 'columnSlotStoreService', 'columns', 'commands', 'commandsBucketSlotChannelQueue',
     'commandsStartedAtEpoch', 'commandsStartedAtRevision', 'commandsStoreSlotChannelQueue', 'comparator', 'createSchemas',
     'computedColumnSlotStoreService',
-    'computedSlotStoreService', 'computedValueService', 'contentChangeListener',
+    'computedValueService', 'contentChangeListener',
     'contentChangeListenerReadColumns', 'contentChangeListeners', 'createColumnSlotOwner', 'createSources', 'declaredColumnNames',
     'defaultChannelSlot', 'defaults', 'departedBucketMemberSlotChannelQueues', 'derive', 'direction', 'dropped',
     'effectChannelQueue', 'effectEdges', 'effectFlags', 'effectService', 'effects', 'entityInserter',
@@ -587,7 +599,7 @@ const PINNED_FIELDS: readonly string[] = [
     'releasesWrittenSlots', 'removedAtChannelQueues', 'requestedKeys', 'revision', 'rootCompositeKeyNode',
     'sameValueGuard', 'scheduledCallback', 'schedulesReleaseOnWrite', 'schemas', 'setReleaseDueMs', 'settlesWrittenSlots',
     'slot', 'slotContentChangeListenerReadColumns', 'slotContentService', 'slotEmptinessPolicy', 'slotFilingService', 'slotRefetchListener',
-    'slotReleaseDueFramePolicy', 'slotReleasePolicy', 'slotService', 'slotStamp', 'slotStoreService',
+    'slotReleaseDueFramePolicy', 'slotReleasePolicy', 'slotService', 'slotReleaseListeners', 'slotStamp', 'slotStoreService',
     'slotSubscriptionListener', 'slotWheelOptions', 'slots', 'sortColumns', 'sortedCount', 'sourceComputeds',
     'sourceSlotCollectionService', 'sourceSlots', 'sourceStoreSlot', 'sourceTracker', 'store', 'storeSlotListener',
     'timer', 'timerDisposer', 'uniqueBucketMemberSlots', 'unusedSlotChannelQueue', 'unusedSlotCollectorSlot',
@@ -607,7 +619,7 @@ const printTable = (): void => {
 describe('a write through a local is still a write', () => {
     it('reads a tree with something in it', () => {
         expect(files.length).toBeGreaterThan(50);
-        expect(files.some(file => file.path === 'computed/utils/oimRefreshComputedSlot.ts')).toBe(true);
+        expect(files.some(file => file.path === 'computed/utils/refreshOIMComputedSlot.ts')).toBe(true);
         // Comments were blanked and code was not: `createOIMAutoIndex`
         // discusses `OIMComputed.value` in prose four times over and writes it
         // never, which a reader counting prose would report as four writers.
@@ -652,12 +664,12 @@ describe('a write through a local is still a write', () => {
      * have fired. It is named separately from the table above so that the failure
      * says which rule broke rather than printing forty lines of counts.
      */
-    it('the value of a derivation is written by oimRefreshComputedSlot and by nothing else', () => {
+    it('the value of a derivation is written by refreshOIMComputedSlot, and a push column caches its value through its owner alone', () => {
         const writers = files
             .filter(file => file.path.startsWith('computed/') || file.path.startsWith('column/'))
             .filter(file => /(?<!this)\.content\s*=(?![=>])/.test(file.lines.join('\n')))
             .map(file => file.path);
-        expect(writers).toEqual(['computed/utils/oimRefreshComputedSlot.ts']);
+        expect(writers).toEqual(['column/OIMPushColumnSlotOwner.ts', 'computed/utils/refreshOIMComputedSlot.ts']);
     });
 
     /**

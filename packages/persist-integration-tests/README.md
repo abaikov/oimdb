@@ -7,7 +7,7 @@ They cover what a single package's tests cannot:
 - the full SSR cycle across packages: the server persists into an `OIMPersistJsonMemoryBackend` and
   dumps `dehydrate()` as JSON text; the client builds an `OIMPersistJsonMemoryBackend` from that dump with
   `initialPersistJsonDump`, hydrates, and then hydrates a durable `OIMPersistIndexedDbBackend` on top
-  with `persistHydrateReconcile: oimReconcileByKey(...)`;
+  with `persistHydrateReconcile: reconcileOIMByKey(...)`;
 - that a server render and a client React `hydrateRoot` of the same hydrated state produce the same
   markup.
 

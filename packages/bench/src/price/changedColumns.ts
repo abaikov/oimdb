@@ -1,7 +1,7 @@
 import type { TOIMEntityContentSlot } from '../../../core/src/entity/types/TOIMEntityContentSlot';
 import type { TOIMSameValueGuard } from '../../../core/src/slot/types/TOIMSameValueGuard';
-import { oimIsProtoKey } from '../../../core/src/entity/utils/oimIsProtoKey';
-import { oimIsPlainObject } from '../../../core/src/entity/utils/oimIsPlainObject';
+import { isOIMProtoKey } from '../../../core/src/entity/utils/isOIMProtoKey';
+import { isOIMPlainObject } from '../../../core/src/entity/utils/isOIMPlainObject';
 
 export function changedColumns(
     slot: TOIMEntityContentSlot,
@@ -12,9 +12,9 @@ export function changedColumns(
     if (entity === undefined) return undefined;
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
-    const inherited = !oimIsPlainObject(source);
+    const inherited = !isOIMPlainObject(source);
     for (const name in source) {
-        if (oimIsProtoKey(name)) continue;
+        if (isOIMProtoKey(name)) continue;
         if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
         if (sameValueGuard(entity[name], source[name])) continue;
         (changed ??= []).push(name);

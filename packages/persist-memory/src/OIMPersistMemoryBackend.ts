@@ -1,4 +1,4 @@
-import { oimWritePersistRecordsDelta } from '@oimdb/persist';
+import { writeOIMPersistRecordsDelta } from '@oimdb/persist';
 import type { IOIMPersistBackend, TOIMPersistRecords, TOIMPersistRecordsDelta } from '@oimdb/persist';
 import { OIMPersistMemoryWriteBatch } from './OIMPersistMemoryWriteBatch';
 
@@ -48,7 +48,7 @@ export class OIMPersistMemoryBackend implements IOIMPersistBackend<OIMPersistMem
             this.entityByKeyByStorageKey.set(storageKey, entityByKey);
         }
         const filedEntityByKey = entityByKey;
-        oimWritePersistRecordsDelta(
+        writeOIMPersistRecordsDelta(
             persistRecordsDelta,
             (key, entity) => { filedEntityByKey.set(key, entity); },
             key => { filedEntityByKey.delete(key); },

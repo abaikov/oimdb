@@ -13,7 +13,7 @@ a selection, drag-and-drop reordering, a count or a sum per group, and minting s
 groups in one call.
 
 ```ts setup
-import { OIMDB, OIMEffectService, createOIMSortedCollectionSingleSlotStoreAggregate, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMBucketMemoComputedService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands, createOIMSingleSlotService, OIMSlotCollectionBucketService, oimGetBucketMemberSlotEntities } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSortedCollectionSingleSlotStoreAggregate, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMBucketMemoComputedService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, isOIMSameValueZero, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands, createOIMSingleSlotService, OIMSlotCollectionBucketService, getOIMBucketMemberSlotEntities } from '@oimdb/core';
 
 type Card = {
     id: string;
@@ -123,7 +123,7 @@ derives again only when a card joined or left the deck or a write changed `rank`
 member; a title edit moves none of its sources. `sortColumns` says when to sort and
 `comparator` says how. Given a comparator alone, the engine cannot see which columns
 it reads, so its sources become the bucket slot and the bucket's any-column slot
-(`getAnyBucketColumnByKey`, which wakes on member content only; a join or leave wakes the bucket slot)
+(`getAnyBucketColumnSlotByKey`, which wakes on member content and on a join or leave)
 and any write to a member re-sorts. A re-sort that yields the same sequence keeps the previous array, so a
 consumer comparing by identity sees no change. Read the value through
 `slot.value`: outside an effect body the slot's own value field
@@ -140,7 +140,7 @@ differently, and it can include slots that were minted by a read and hold no ent
 
 ```ts
 const all = OIMSlotCollectionBucketService.INSTANCE.holdBucketSlot(cards);
-effectService.createAndRunEffect(db, () => render(oimGetBucketMemberSlotEntities(all.getBucketMemberSlots())), [all]);
+effectService.createAndRunEffect(db, () => render(getOIMBucketMemberSlotEntities(all.getBucketMemberSlots())), [all]);
 ```
 
 Why this way: the list has every slot that holds an entity, in no strict order (sort it
@@ -413,7 +413,7 @@ const cardCountByDeckService = createOIMComputedService<string, number>({
     derive: (computedSlot) => deckReads.getBucketMemberSlotCount(
         cardsByDeckService.getSlotByKey(cardsByDeck, computedSlot.key),
     ),
-    sameValueGuard: oimSameValueZeroGuard,
+    sameValueGuard: isOIMSameValueZero,
     initialValue: 0,
 });
 const cardCountByDeck = cardCountByDeckService.createStoreSlot(db);
@@ -422,7 +422,7 @@ const pointsByDeckService = createOIMComputedService<string, number>({
     createSources: ({ key: deck }) => ({
         sourceSlots: [
             cardsByDeckService.getSlotByKey(cardsByDeck, deck),
-            cardsByDeckService.getBucketColumnByKey(cardsByDeck, deck, 'points'),
+            cardsByDeckService.getBucketColumnSlotByKey(cardsByDeck, deck, 'points'),
         ],
     }),
     derive: (computedSlot) => {
@@ -434,7 +434,7 @@ const pointsByDeckService = createOIMComputedService<string, number>({
         }
         return total;
     },
-    sameValueGuard: oimSameValueZeroGuard,
+    sameValueGuard: isOIMSameValueZero,
     initialValue: 0,
 });
 const pointsByDeck = pointsByDeckService.createStoreSlot(db);
@@ -452,7 +452,7 @@ slot moves on membership, and the bucket column slot moves when a write changes
 column slots only after one has been asked for, so a deck nobody sums pays nothing for
 them. A computed's `sameValueGuard` decides whether a re-derived total counts as
 unchanged, and an unchanged total wakes nothing above it; with none given the guard is
-`Object.is`, and `oimSameValueZeroGuard` also treats `NaN` as equal to `NaN`. A
+`Object.is`, and `isOIMSameValueZero` also treats `NaN` as equal to `NaN`. A
 computed's default release policy is `OIMSlotAtUnholdReleasePolicy`: a slot only read
 goes at the next flush, a held one at its last unhold, and its holds on the bucket go
 with it.

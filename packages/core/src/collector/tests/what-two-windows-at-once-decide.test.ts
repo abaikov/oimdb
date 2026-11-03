@@ -1,9 +1,9 @@
 import { OIMSlotAfterIdleReleasePolicy } from '../OIMSlotAfterIdleReleasePolicy';
-import { oimMintAfterIdleSlotReleaseWheel } from '../utils/oimMintAfterIdleSlotReleaseWheel';
-import { oimMintAfterWriteSlotReleaseWheel } from '../utils/oimMintAfterWriteSlotReleaseWheel';
+import { mintOIMAfterIdleSlotReleaseWheel } from '../utils/mintOIMAfterIdleSlotReleaseWheel';
+import { mintOIMAfterWriteSlotReleaseWheel } from '../utils/mintOIMAfterWriteSlotReleaseWheel';
 import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotEarliestReleasePolicy } from '../OIMSlotEarliestReleasePolicy';
-import { OIMDB, OIMEffectService, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, isOIMSlotReleased } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -25,8 +25,8 @@ const createFixtureWith = (idleMs: number, afterWriteMs: number) => {
         cards,
         at: (value: number): void => { ms = value; },
         collect: (): void => {
-            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
-            oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
+            mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+            mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
         },
     };
 };
@@ -40,7 +40,7 @@ describe('a row under both windows at once', () => {
         fixture.at(START + 21_000);
         fixture.collect();
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 
@@ -52,7 +52,7 @@ describe('a row under both windows at once', () => {
         fixture.at(START + 21_000);
         fixture.collect();
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 
@@ -79,7 +79,7 @@ describe('a row under both windows at once', () => {
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 });

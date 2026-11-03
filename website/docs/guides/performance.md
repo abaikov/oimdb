@@ -35,17 +35,17 @@ const handler = (): void => {};
 
 ```typescript
 entityService.updateEntity(slot, patch);   // you already hold the identity
-const found = cardService.findSlotByKey(cards, 'c1');   // one Map read
+const found = cardService.peekSlotByKey(cards, 'c1');   // one Map read
 if (found !== undefined) entityService.updateEntity(found, patch);
 ```
 
 Every write but the whole-value `writeSlotContentByKey` takes the slot, so the map read is
-always a call you can see: `findSlotByKey` or `getSlotByKey`. If a key arrives from outside (a
+always a call you can see: `peekSlotByKey` or `getSlotByKey`. If a key arrives from outside (a
 route param, a server payload), the read is unavoidable. If you already hold the slot, from the
 return value of `writeSlotContentByKey` or from an earlier `getSlotByKey`, going back through the key is
 pure waste.
 
-**Not measured:** a price pair for each against its own floor (`findSlotByKey` plus
+**Not measured:** a price pair for each against its own floor (`peekSlotByKey` plus
 `updateEntity` against a `map.get` plus a store, `updateEntity` against a bare field assignment)
 on this engine.
 
@@ -55,14 +55,14 @@ A write reports the columns it moved, and each column anybody has subscribed to
 is a slot with its own dependent list:
 
 ```typescript
-const deckColumn = slot.getColumn('deck');
+const deckColumn = slot.getColumnSlot('deck');
 effectService.createEffect(db, handler, [deckColumn]);
 entityService.updateEntity(slot, { title: 'ACE' });   // never reaches handler
 entityService.updateEntity(slot, { deck: 'hearts' }); // reaches handler
 ```
 
 It is **lazy on both sides**. A column identity is minted only by the door that
-asks for it (the collection's `holdColumn`, or its `getColumn` inside a
+asks for it (the collection's `holdColumnSlot`, or its `getColumnSlot` inside a
 subscription), and it is dropped once its last effect is disposed and nothing holds
 it. A write never mints one: the service's column owner skips a moved
 column that has no slot filed.
@@ -109,7 +109,7 @@ write instead. The other sorted list is
 whose `createSortedStoreSlot(indexStoreSlot)` builds it over one index store slot: a pull computed re-derived on the read that asks. Its sources are the
 bucket slot (membership) and one bucket column slot per sort column, so a write that
 changes no sort column on a member does not re-derive it; with only a `comparator`
-the sources are the bucket slot and the bucket's any-column slot (member content only; a join or leave wakes the bucket slot), and any member write re-sorts. A re-sort
+the sources are the bucket slot and the bucket's any-column slot (member content, and a join or leave too), and any member write re-sorts. A re-sort
 that yields the same sequence keeps the previous array.
 
 **Not measured:** the cost of a re-sort against keeping the order at the write, at

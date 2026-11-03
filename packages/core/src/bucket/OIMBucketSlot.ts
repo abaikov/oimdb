@@ -7,6 +7,8 @@ import type { TOIMOrderedListCommand } from './commands/types/TOIMOrderedListCom
 import type { TOIMBucketContentSlot } from './types/TOIMBucketContentSlot';
 import type { TOIMBucketSlotOwnerService } from './types/TOIMBucketSlotOwnerService';
 import type { OIMBucketContentService } from './OIMBucketContentService';
+import type { TOIMDisposer } from '../schedule/types/TOIMDisposer';
+import { createOIMEffectDisposer } from '../effect/utils/createOIMEffectDisposer';
 
 export class OIMBucketSlot<
     TSlots = unknown, TKey extends NonNullable<unknown> = NonNullable<unknown>,
@@ -86,6 +88,10 @@ export class OIMBucketSlot<
 
     public markContentChanged(): void {
         this.bucketContentService().markContentChanged(this.bucketContentSlot());
+    }
+
+    public watch(body: (bucketSlot: this) => void): TOIMDisposer {
+        return createOIMEffectDisposer({ defaultChannelSlot: this.storeSlot.channelSlot }, () => { body(this); }, [this]);
     }
 
     private bucketContentSlot(): TOIMBucketContentSlot<TSlots> {

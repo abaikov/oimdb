@@ -1,8 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMInPlaceEntityWriter } from '../createOIMInPlaceEntityWriter';
 import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWriter';
-import { oimInsertEntityWithoutCopy } from '../utils/oimInsertEntityWithoutCopy';
-import { oimInsertEntityWithCopy } from '../utils/oimInsertEntityWithCopy';
+import { insertOIMEntityWithoutCopy } from '../utils/insertOIMEntityWithoutCopy';
+import { insertOIMEntityWithCopy } from '../utils/insertOIMEntityWithCopy';
 import type { TOIMEntityInserter } from '../types/TOIMEntityInserter';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -18,7 +18,7 @@ const collectionWith = (entityInserter: TOIMEntityInserter) => {
 
 describe('what each fill arm does with the object it is handed', () => {
     it('copies, so the caller cannot reach into the slot afterwards', () => {
-        const { db, cardsService, cards } = collectionWith(oimInsertEntityWithCopy);
+        const { db, cardsService, cards } = collectionWith(insertOIMEntityWithCopy);
         const handed: TCard = { id: 'c1', title: 'one' };
 
         const slot = cardsService.writeSlotContentByKey(cards, handed.id, handed);
@@ -30,7 +30,7 @@ describe('what each fill arm does with the object it is handed', () => {
     });
 
     it('stores the object itself, so the caller holds the slot content', () => {
-        const { db, cardsService, cards } = collectionWith(oimInsertEntityWithoutCopy);
+        const { db, cardsService, cards } = collectionWith(insertOIMEntityWithoutCopy);
         const handed: TCard = { id: 'c1', title: 'one' };
 
         const slot = cardsService.writeSlotContentByKey(cards, handed.id, handed);
@@ -40,19 +40,19 @@ describe('what each fill arm does with the object it is handed', () => {
     });
 
     it('is the arm the writer was built with, and not a shared body below the fork', () => {
-        expect(createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }).fillEntity)
-            .toBe(oimInsertEntityWithCopy);
-        expect(createOIMReplacingEntityWriter({ entityInserter: oimInsertEntityWithCopy }).fillEntity)
-            .toBe(oimInsertEntityWithCopy);
+        expect(createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithCopy }).fillEntity)
+            .toBe(insertOIMEntityWithCopy);
+        expect(createOIMReplacingEntityWriter({ entityInserter: insertOIMEntityWithCopy }).fillEntity)
+            .toBe(insertOIMEntityWithCopy);
     });
 
     it('lets each arm pick an arm independently of how it updates', () => {
-        const inPlaceWithoutCopy = createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithoutCopy });
-        const replacingWithCopy = createOIMReplacingEntityWriter({ entityInserter: oimInsertEntityWithCopy });
+        const inPlaceWithoutCopy = createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithoutCopy });
+        const replacingWithCopy = createOIMReplacingEntityWriter({ entityInserter: insertOIMEntityWithCopy });
 
-        expect(inPlaceWithoutCopy.fillEntity).toBe(oimInsertEntityWithoutCopy);
+        expect(inPlaceWithoutCopy.fillEntity).toBe(insertOIMEntityWithoutCopy);
         expect(inPlaceWithoutCopy.patchEntity).not.toBe(replacingWithCopy.patchEntity);
-        expect(replacingWithCopy.fillEntity).toBe(oimInsertEntityWithCopy);
+        expect(replacingWithCopy.fillEntity).toBe(insertOIMEntityWithCopy);
     });
 
     it('still takes a held comparator through the same options object', () => {
@@ -60,7 +60,7 @@ describe('what each fill arm does with the object it is handed', () => {
             typeof a === 'string' && typeof b === 'string'
                 ? a.toLowerCase() === b.toLowerCase()
                 : a === b;
-        const writer = createOIMInPlaceEntityWriter({ sameValueGuard: caseless, entityInserter: oimInsertEntityWithoutCopy });
+        const writer = createOIMInPlaceEntityWriter({ sameValueGuard: caseless, entityInserter: insertOIMEntityWithoutCopy });
         const slot = { content: { id: 'c1', title: 'one' } } as unknown as Parameters<
             typeof writer.patchEntity
         >[0];

@@ -1,6 +1,6 @@
 import { OIMDefaults } from '../../index';
 import { OIMDB, OIMEffectService, createOIMInPlaceEntityWriter, createOIMSlotCollectionIndexService } from '../../index';
-import type { IOIMEntityWriter, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey } from '../../index';
+import type { IOIMEntityWriter, TOIMColumnName, TOIMEntitySlot, TOIMStoreKey } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -12,12 +12,12 @@ const createFixture = () => {
     const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService<
-        TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
+        TCard, TOIMStoreKey, readonly TOIMColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>
     >({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'd', rank: 1, title: 't' });
-    const rank = byDeckService.holdBucketColumnByKey(byDeck, 'd', 'rank');
+    const rank = byDeckService.holdBucketColumnSlotByKey(byDeck, 'd', 'rank');
     let woke = 0;
     effectService.createEffect(db, () => { woke++; }, [rank]);
     db.flush();

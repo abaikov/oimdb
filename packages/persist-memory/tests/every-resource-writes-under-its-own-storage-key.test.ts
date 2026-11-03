@@ -248,7 +248,7 @@ describe('@oimdb/persist-memory', () => {
         await targetPersistor.hydrate();
         targetDb.flush();
 
-        expect(targetSettings.singleEntityService.findSingleSlot(targetSettings.singleEntityStoreSlot)?.entity).toEqual({ theme: 'dark' });
+        expect(targetSettings.singleEntityService.peekSingleSlot(targetSettings.singleEntityStoreSlot)?.entity).toEqual({ theme: 'dark' });
         expect(Array.from(
             targetAdmins.bucketService.slotContentService.getBucketMemberSlots(targetAdmins.bucketSlot),
             entitySlot => entitySlot.entity,

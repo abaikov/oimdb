@@ -2,8 +2,8 @@ import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../../computed/createOIMComputedService';
 import { OIMUnusedSlotCollectorService } from '../OIMUnusedSlotCollectorService';
 import { createOIMUnusedSlotCollectorSlot } from '../utils/createOIMUnusedSlotCollectorSlot';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import type { TOIMComputedContentSlot } from '../../computed/types/TOIMComputedContentSlot';
@@ -22,7 +22,7 @@ const createFixture =() => {
             return { sourceSlots: [cardsService.getSlotByKey(cards, id)] };
         },
         derive: (computedSlot) => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const ranks = ranksService.createStoreSlot(db);
     return {
@@ -74,7 +74,7 @@ describe('an arena is a collector of its own, and its lifetime is the caller\'s'
 
         OIMUnusedSlotCollectorService.INSTANCE.flush(arena);
 
-        expect(oimIsSlotReleased(derived)).toBe(true);
+        expect(isOIMSlotReleased(derived)).toBe(true);
         expect(fixture.ranksService.getSlotCount(fixture.ranks)).toBe(0);
     });
 
@@ -109,7 +109,7 @@ describe('an arena is a collector of its own, and its lifetime is the caller\'s'
         OIMUnusedSlotCollectorService.INSTANCE.close(arena);
 
         fixture.flushUnusedSlotCollector();
-        expect(oimIsSlotReleased(derived)).toBe(true);
+        expect(isOIMSlotReleased(derived)).toBe(true);
         expect(fixture.ranksService.getSlotCount(fixture.ranks)).toBe(0);
     });
 });

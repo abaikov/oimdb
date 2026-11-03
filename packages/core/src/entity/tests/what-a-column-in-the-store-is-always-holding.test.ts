@@ -43,7 +43,7 @@ describe('a column the store holds is always one something references', () => {
         const { cardsService, cards } = createFixture();
         const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'alpha', rank: 1 });
 
-        const column = cardsService.columnSlotService.getColumn(slot, 'title');
+        const column = cardsService.columnSlotService.getColumnSlot(slot, 'title');
 
         expect(column.holdCount).toBe(1);
         expect(slot.columnSlotStore !== undefined).toBe(askingEveryColumnItself(slot));
@@ -53,7 +53,7 @@ describe('a column the store holds is always one something references', () => {
     it('answers as the walk does once the collector gives that frame-length hold back', () => {
         const { cardsService, cards, db } = createFixture();
         const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'alpha', rank: 1 });
-        cardsService.columnSlotService.getColumn(slot, 'title');
+        cardsService.columnSlotService.getColumnSlot(slot, 'title');
 
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
 
@@ -66,11 +66,11 @@ describe('a column the store holds is always one something references', () => {
         const { cardsService, cards } = createFixture();
         const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'alpha', rank: 1 });
 
-        const column = cardsService.columnSlotService.holdColumn(slot, 'title');
+        const column = cardsService.columnSlotService.holdColumnSlot(slot, 'title');
         expect(slot.columnSlotStore !== undefined).toBe(askingEveryColumnItself(slot));
         expect(slot.columnSlotStore !== undefined).toBe(true);
 
-        cardsService.columnSlotService.unholdColumn(column);
+        cardsService.columnSlotService.unholdColumnSlot(column);
 
         expect(slot.columnSlotStore).toBeUndefined();
         expect(slot.columnSlotStore !== undefined).toBe(askingEveryColumnItself(slot));
@@ -81,15 +81,15 @@ describe('a column the store holds is always one something references', () => {
         const { cardsService, cards } = createFixture();
         const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'alpha', rank: 1 });
 
-        const title = cardsService.columnSlotService.holdColumn(slot, 'title');
-        const rank = cardsService.columnSlotService.holdColumn(slot, 'rank');
+        const title = cardsService.columnSlotService.holdColumnSlot(slot, 'title');
+        const rank = cardsService.columnSlotService.holdColumnSlot(slot, 'rank');
         expect(slot.columnSlotStore !== undefined).toBe(askingEveryColumnItself(slot));
 
-        cardsService.columnSlotService.unholdColumn(title);
+        cardsService.columnSlotService.unholdColumnSlot(title);
         expect(slot.columnSlotStore !== undefined).toBe(askingEveryColumnItself(slot));
         expect(slot.columnSlotStore !== undefined).toBe(true);
 
-        cardsService.columnSlotService.unholdColumn(rank);
+        cardsService.columnSlotService.unholdColumnSlot(rank);
         expect(slot.columnSlotStore).toBeUndefined();
         expect(slot.columnSlotStore !== undefined).toBe(askingEveryColumnItself(slot));
         expect(slot.columnSlotStore !== undefined).toBe(false);
@@ -98,9 +98,9 @@ describe('a column the store holds is always one something references', () => {
     it('answers as the walk does on a column kept only by its subscriber', () => {
         const { cardsService, cards, db } = createFixture();
         const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'alpha', rank: 1 });
-        const column = cardsService.columnSlotService.holdColumn(slot, 'title');
+        const column = cardsService.columnSlotService.holdColumnSlot(slot, 'title');
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [column]);
-        cardsService.columnSlotService.unholdColumn(column);
+        cardsService.columnSlotService.unholdColumnSlot(column);
 
         expect(column.effects?.length).toBe(1);
         expect(slot.columnSlotStore !== undefined).toBe(askingEveryColumnItself(slot));

@@ -10,8 +10,10 @@ import type { TOIMComputedContentServiceOptions } from './types/TOIMComputedCont
 import { OIMComputedSourcesService } from './OIMComputedSourcesService';
 import { createOIMComputedSlot } from './utils/createOIMComputedSlot';
 import { createOIMComputedContentSlot } from './utils/createOIMComputedContentSlot';
-import { oimAssertSlotUnheld } from '../slot/utils/oimAssertSlotUnheld';
+import { assertOIMSlotUnheld } from '../slot/utils/assertOIMSlotUnheld';
 import type { OIMSourceTracker } from './OIMSourceTracker';
+import type { OIMComputedSlot } from './OIMComputedSlot';
+import { peekOIMColumnGroupValue } from '../slot/utils/peekOIMColumnGroupValue';
 
 export abstract class OIMComputedContentService<
     TValue, TComputedSlot extends TOIMComputedContentSlot<TValue, OIMSourceTracker | undefined> = TOIMComputedContentSlot<TValue>,
@@ -47,8 +49,21 @@ implements IOIMSlotContentService<TComputedSlot>,
         return false;
     }
 
+    public peekColumnValue(computedSlot: TComputedSlot, columnName: string): unknown {
+        const value: unknown = (computedSlot as unknown as OIMComputedSlot<TValue>).content;
+        return typeof value === 'object' && value !== null ? (value as Record<string, unknown>)[columnName] : undefined;
+    }
+
+    public peekColumnGroupValue(computedSlot: TComputedSlot, columnNames: readonly string[]): unknown {
+        return peekOIMColumnGroupValue(this, computedSlot, columnNames);
+    }
+
+    public peekAnyColumnValue(computedSlot: TComputedSlot): unknown {
+        return (computedSlot as unknown as OIMComputedSlot<TValue>).content;
+    }
+
     public releaseSlotContent(computedSlot: TComputedSlot): void {
-        oimAssertSlotUnheld(computedSlot);
+        assertOIMSlotUnheld(computedSlot);
         OIMComputedSourcesService.INSTANCE.unholdSources(computedSlot);
         this.computedValueService.releaseSlotValue(computedSlot);
     }

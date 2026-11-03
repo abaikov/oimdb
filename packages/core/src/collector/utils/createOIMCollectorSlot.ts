@@ -6,6 +6,7 @@ export function createOIMCollectorSlot(options: TOIMCollectorSlotOptions): TOIMC
     return {
         unusedSlotCollectorSlot: createOIMUnusedSlotCollectorSlot(),
         slotWheelOptions: { getNowMs: options.getNowMs, timer: options.releaseTimer, errorPolicy: options.errorPolicy },
+        slotReleaseListeners: [],
         afterIdleSlotReleaseWheel: undefined,
         afterWriteSlotReleaseWheel: undefined,
         afterUnholdSlotReleaseWheel: undefined,

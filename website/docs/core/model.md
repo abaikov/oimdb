@@ -36,14 +36,14 @@ code that files the slots of one kind under their keys, in the store each of its
   <Term name="hold">A counted reference on a slot (`holdCount`), taken by `owner.holdSlot` or a collection's `holdSlotByKey` and given back by `owner.unholdSlot`.</Term>
   <Term name="store slot" type="TOIMStoreSlot">One collection: the state of one instance — the `store` its slots are filed in, its `channelSlot`, its listeners and column state. `createStoreSlot(db)` makes one; every door that works on a whole collection takes it first.</Term>
   <Term name="mint">Create the slot of a key that has none and file it in the store of its store slot.</Term>
-  <Term name="release">Unfile a slot that nothing holds or refers to, once its release policy allows it. The slot's RELEASED flag is then set (`oimIsSlotReleased(slot)`).</Term>
+  <Term name="release">Unfile a slot that nothing holds or refers to, once its release policy allows it. The slot's RELEASED flag is then set (`isOIMSlotReleased(slot)`).</Term>
 </Glossary>
 
 Three sentences carry the rest of this section:
 
 1. Four doors mint an identity: writing a value, subscribing, taking a
    hold, and `getSlotByKey`, whose mint the unused-slot collector holds for the
-   turn. `findSlotByKey`, `findSlotByKey` and `hasSlotContentByKey` look a key up and mint nothing.
+   turn. `peekSlotByKey` and `hasSlotContentByKey` look a key up and mint nothing.
 2. A slot goes when nothing refers to it, and a reference is given back by
    the thing that took it.
 3. Where a trade-off has two defensible strategies, both ship and you pick at
@@ -78,13 +78,13 @@ key. The store service decides which: a single is built over
 
 | kind | single | collection |
 |---|---|---|
-| entity | `createOIMSingleSlotService()`: `getSingleSlot`, `holdSingleSlot`, `findSingleSlot` | `createOIMSlotCollectionService({ keyOf })`: `getSlotByKey`, `holdSlotByKey`, `findSlotByKey` |
+| entity | `createOIMSingleSlotService()`: `getSingleSlot`, `holdSingleSlot`, `peekSingleSlot` | `createOIMSlotCollectionService({ keyOf })`: `getSlotByKey`, `holdSlotByKey`, `peekSlotByKey` |
 | bucket | `createOIMSingleSlotService()` | `createOIMSlotCollectionService()`, or an index |
 | computed | `createOIMSingleComputedService({ … })`, read through the service itself (`getSingleSlot`, `holdSingleSlot`) | `createOIMComputedService({ … })` |
 
 `createStoreSlot` mints nothing. A single's slot is minted on the first
 `getSingleSlot(storeSlot)` or `holdSingleSlot(storeSlot)`, exactly as a
-collection's slot is minted on the first read of its key, and `findSingleSlot(storeSlot)`
+collection's slot is minted on the first read of its key, and `peekSingleSlot(storeSlot)`
 answers it without minting. It is released at its release policy like any slot of that
 type, and the next get or hold mints a fresh one. A single invents no behaviour of its own.
 Use the single shape for one value the whole program shares (settings, a session,
@@ -126,7 +126,7 @@ const byDeck = byDeckService.createStoreSlot(db);
 const rankService = createOIMComputedService<TOIMStoreKey, number>({});
 const ranks = rankService.createStoreSlot(
     db,
-    (computedSlot) => cardService.findSlotByKey(cards, computedSlot.key)?.entity?.title.length ?? 0,
+    (computedSlot) => cardService.peekSlotByKey(cards, computedSlot.key)?.entity?.title.length ?? 0,
     ({ key }) => ({ sourceSlots: [cardService.getSlotByKey(cards, key)] }),
 );
 
@@ -163,7 +163,7 @@ The root holds what every collection in one program must share, and the defaults
 | `schemas` | what the `createSchemas` option returned, called once at the end of the constructor; `undefined` without it (see [A database with schemas](../getting-started/oimdb.md)) |
 
 Its constructor takes the channel's options (`channelScheduler`, `errorPolicy`,
-`onBeforeFlush`), the clock and timer (`getNowMs`, `releaseTimer`) and `createSchemas` in one object. The strategies a
+`onBeforeFlush`), the clock and timer (`getNowMs`, `releaseTimer`), and `createSchemas` in one object. The strategies a
 factory falls back on are not the root's: they are an `OIMDefaults` passed as `defaults`.
 `db.flush()` flushes its default channel slot, and `db.createEffect(body, sourceSlots?, { lazy? })` creates an
 effect on it and returns the disposer. `db.dispose()` drops the database: no later flush delivers, its effects stop and its release wheels are
@@ -215,8 +215,8 @@ const read = cardService.getSlotByKey(cards, pk);                    // door 4: 
 ```
 
 The same four doors exist on every collection. A single uses `getSingleSlot(storeSlot)` and
-`holdSingleSlot(storeSlot)`; on a column, they are the collection service's `getColumn(slot, columnName)` and
-`holdColumn(slot, columnName)`.
+`holdSingleSlot(storeSlot)`; on a column, they are the collection service's `getColumnSlot(slot, columnName)` and
+`holdColumnSlot(slot, columnName)`.
 
 A read by `getSlotByKey` mints, and the collector takes the mint back. It returns
 `TSlot` and never `undefined`: on a miss it mints the identity, files it, and
@@ -231,9 +231,9 @@ Which reads mint:
 
 | Mints | Does not mint |
 |---|---|
-| `getSlotByKey`, `getSingleSlot`, `getColumn`, `getAnyColumn`, `getEntitiesByKey` on an index service | `findSlotByKey`, `findSlotByKey`, `findSingleSlot`, `hasSlotContentByKey`, `hasSingleSlotContent`, `isSameKey`, `getSlots`, `getSlotCount`, `getBucketMemberSlots` |
+| `getSlotByKey`, `getSingleSlot`, `getColumnSlot`, `getAnyColumnSlot`, `getEntitiesByKey` on an index service | `peekSlotByKey`, `peekSingleSlot`, `hasSlotContentByKey`, `hasSingleSlotContent`, `isSameKey`, `getSlots`, `getSlotCount`, `getBucketMemberSlots` |
 
-`findSlotByKey(storeSlot, key)?.entity` answers the entity or `undefined`, and `hasSlotContentByKey(storeSlot, key)`
+`peekSlotByKey(storeSlot, key)?.entity` answers the entity or `undefined`, and `hasSlotContentByKey(storeSlot, key)`
 answers whether a slot is filed under the key with content; both look the key up
 and file nothing. The one by-key write is the whole-value `writeSlotContentByKey`; any other write by key resolves the slot first
 (`getSlotByKey(storeSlot, key).updateEntity(patch)`), and that read is the mint. The
@@ -297,7 +297,7 @@ The terms, and who gives each back:
 |---|---|
 | `holdCount` | `slot.unholdSlot()`; the unused-slot collector's flush after a `getSlotByKey`; a slot leaving a bucket; `effectService.disposeEffect(effect)`, for the hold the effect took |
 | `effects` | `effectService.disposeEffect(effect)` |
-| a column slot on the carrier | `unholdColumn(columnSlot)` and the last effect on that column being disposed; the carrier is asked again when its last column goes |
+| a column slot on the carrier | `unholdColumnSlot(columnSlot)` and the last effect on that column being disposed; the carrier is asked again when its last column goes |
 | the value | `slot.clearSlotContent()` or `bucket.clearSlotContent()` — under the default policy; see the release policies below |
 | a composite-key edge | the tree pruning that composite key part |
 
@@ -405,7 +405,7 @@ The forks a consumer meets first:
 | Fork | Strategies | Chosen at |
 |---|---|---|
 | how a write lands | `createOIMInPlaceEntityWriter()` / `createOIMReplacingEntityWriter()` | the `entityWriter` option of the entity content service, or of `OIMDB` |
-| whether the first value handed in is copied | `oimInsertEntityWithoutCopy` (default) / `oimInsertEntityWithCopy` / `oimInsertEntityWithSanitizedCopy` | the `entityInserter` option of either writer factory |
+| whether the first value handed in is copied | `insertOIMEntityWithoutCopy` (default) / `insertOIMEntityWithCopy` / `insertOIMEntityWithSanitizedCopy` | the `entityInserter` option of either writer factory |
 | how a bucket holds slots | `OIMSetBucketContentService` / `OIMPositionalArrayBucketContentService` (the positions are the caller's; such a bucket never sorts) / `OIMSortedArrayBucketContentService` | the `slotContentService` option of the bucket or index factory |
 | what naming a slot records | `OIMPositionalArrayBucketContentService` (per mention) / `OIMBucketUniqueMemberSlotsArrayService` (per slot) | the `slotContentService` option of the bucket factory |
 | who decides a bucket's slots | a bucket collection (the caller) / an index (the entity) | which factory you call |

@@ -14,7 +14,7 @@ import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { OIMPushColumnSlotOwner } from '../../column/OIMPushColumnSlotOwner';
 import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { entitySlotOf } from '../../../tests/support/entitySlotOf';
 
 type TToken = { id: TOIMStoreKey; value: string };
@@ -30,6 +30,18 @@ class OIMTokenContentService implements IOIMSlotContentService<TTokenSlot>, IOIM
 
     public isSlotEmpty(slot: TTokenSlot): boolean {
         return (slot as unknown as { content: unknown }).content === undefined;
+    }
+
+    public peekColumnValue(): unknown {
+        return undefined;
+    }
+
+    public peekColumnGroupValue(): unknown {
+        return undefined;
+    }
+
+    public peekAnyColumnValue(): unknown {
+        return undefined;
     }
 
     public releaseSlotContent(slot: TTokenSlot): void {
@@ -98,10 +110,10 @@ describe('an identity minted by the very give-back that is running', () => {
         const late = fixture.lateSlot();
         expect(late).toBeDefined();
         expect(late?.holdCount).toBe(0);
-        expect(late !== undefined && oimIsSlotReleased(late)).toBe(true);
+        expect(late !== undefined && isOIMSlotReleased(late)).toBe(true);
         expect(fixture.late.slotCount).toBe(0);
         expect(fixture.gates.slotCount).toBe(0);
-        expect(oimIsSlotReleased(gate)).toBe(true);
+        expect(isOIMSlotReleased(gate)).toBe(true);
     });
 
     it('is given back once, because the pass that gave it back kept nothing', () => {

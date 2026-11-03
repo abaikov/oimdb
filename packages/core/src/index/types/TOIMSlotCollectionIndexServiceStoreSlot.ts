@@ -3,5 +3,5 @@ import type { OIMSlotCollectionIndexService } from '../OIMSlotCollectionIndexSer
 export type TOIMSlotCollectionIndexServiceStoreSlot<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore,
 > = Parameters<
-    OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore>['getBucketColumnByKey']
+    OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore>['getBucketColumnSlotByKey']
 >[0];

@@ -3,8 +3,8 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotReleaseManualDueFramePolicy } from '../OIMSlotReleaseManualDueFramePolicy';
-import { oimMintAfterWriteSlotReleaseWheel } from '../utils/oimMintAfterWriteSlotReleaseWheel';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { mintOIMAfterWriteSlotReleaseWheel } from '../utils/mintOIMAfterWriteSlotReleaseWheel';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -25,7 +25,7 @@ const createWorld = () => {
     db.flush();
     return {
         db, rowsService, rows, slot, slotReleaseDueFramePolicy,
-        afterWriteSlotReleaseWheel: oimMintAfterWriteSlotReleaseWheel(db.collectorSlot),
+        afterWriteSlotReleaseWheel: mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot),
         advance: (ms: number): void => { nowMs += ms; },
     };
 };
@@ -38,7 +38,7 @@ describe('what marking a release due now does', () => {
 
         world.afterWriteSlotReleaseWheel.markSlotReleaseDueNow(world.slot);
 
-        expect(oimIsSlotReleased(world.slot)).toBe(true);
+        expect(isOIMSlotReleased(world.slot)).toBe(true);
         expect(world.rowsService.getSlotCount(world.rows)).toBe(0);
     });
 
@@ -50,11 +50,11 @@ describe('what marking a release due now does', () => {
 
         world.afterWriteSlotReleaseWheel.markSlotReleaseDueNow(world.slot);
 
-        expect(oimIsSlotReleased(world.slot)).toBe(false);
+        expect(isOIMSlotReleased(world.slot)).toBe(false);
         expect(world.slot.releaseDueAfterWriteMs).toBe(START_MS + 1_000);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
-        expect(oimIsSlotReleased(world.slot)).toBe(true);
+        expect(isOIMSlotReleased(world.slot)).toBe(true);
     });
 
     it('is undone by the next marked write, which moves the deadline a window ahead again', () => {
@@ -69,6 +69,6 @@ describe('what marking a release due now does', () => {
 
         expect(world.slot.releaseDueAfterWriteMs).toBe(START_MS + 2_000 + KEEP_MS);
         world.slot.owner.unholdSlot(world.slot);
-        expect(oimIsSlotReleased(world.slot)).toBe(false);
+        expect(isOIMSlotReleased(world.slot)).toBe(false);
     });
 });

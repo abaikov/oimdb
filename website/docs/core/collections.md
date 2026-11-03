@@ -21,7 +21,7 @@ that store slot first.
 </InShort>
 
 ```typescript setup
-import { OIMDB, OIMEffectService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, createOIMSlotCollectionService, createOIMEntityContentService, OIMSlotCollectionBucketService, oimGetBucketMemberSlotEntities, oimIsSlotEmpty, type IOIMSlotEmptinessPolicy, type TOIMEntitySlot, type TOIMStoreKey, OIMScalarKeyTreeWalk, OIMCompositeKeyTreeWalk } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, createOIMSlotCollectionService, createOIMEntityContentService, OIMSlotCollectionBucketService, getOIMBucketMemberSlotEntities, isOIMSlotEmpty, type IOIMSlotEmptinessPolicy, type TOIMEntitySlot, type TOIMStoreKey, OIMScalarKeyTreeWalk, OIMCompositeKeyTreeWalk } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -164,7 +164,7 @@ Everything about a key is asked of the collection service, with the collection's
 cardService.holdSlotByKey(cards, pk)                     // the slot; holdCount up by one
 cardService.getSlotByKey(cards, pk)                      // TOIMEntitySlot, never undefined; mints on a miss and
                                                          // the unused-slot collector holds it for this turn
-cardService.findSlotByKey(cards, pk)                     // the slot or undefined; never mints
+cardService.peekSlotByKey(cards, pk)                     // the slot or undefined; never mints
 cardService.hasSlotContentByKey(cards, pk)               // false for a key nothing filed or an empty slot; never mints
 cardService.getSlots(cards)                              // IterableIterator<TOIMEntitySlot>
 cardService.getSlotCount(cards)                          // number
@@ -176,7 +176,7 @@ The by-key write is the collection's; the slot writes are the content service's,
 
 ```typescript signature
 cardService.writeSlotContentByKey(cards, key, entity, changed?)  // mints if there is none; always returns the slot
-cardService.findSlotByKey(cards, key)?.entity                    // the entity or undefined; never mints
+cardService.peekSlotByKey(cards, key)?.entity                    // the entity or undefined; never mints
 const cardContentService = cardService.slotContentService;
 slot.updateEntity(patch)                     // a door handed a slot takes no store slot
 ```
@@ -186,7 +186,7 @@ A door that works on one slot it is handed (`updateEntity`, `writeSlotContent`,
 the slot carries the store slot it is filed in. The one by-key write is the whole-value `writeSlotContentByKey`.
 
 `hasSlotContentByKey` is the key question that files nothing: it looks the key
-up, and answers from `oimIsSlotEmpty(slot)` when there is a slot. Use it for "is there a
+up, and answers from `isOIMSlotEmpty(slot)` when there is a slot. Use it for "is there a
 value" where a mint would be wasted work.
 
 `writeSlotContentByKey` is **total**: the slot comes back whatever the write changed. Its
@@ -237,7 +237,7 @@ back for you.
 
 `OIMSlotMapStoreService<TSlot, TKey = TOIMStoreKey>` files by one key, and
 `TOIMStoreKey` is `string | number`. It is a `Map`, and it files by SameValueZero:
-`NaN` finds `NaN`, `0` and `-0` are one key, `1` and `'1'` are two. `oimSameValueZeroGuard`
+`NaN` finds `NaN`, `0` and `-0` are one key, `1` and `'1'` are two. `isOIMSameValueZero`
 applies the same rule if you need to compare two scalar keys yourself.
 
 ## Composite keys come in two strategies, and you pick one
@@ -345,8 +345,8 @@ enrollmentService.getSlotByKey(enrollments, [alice, admins]);
 
 ### Comparing two chains
 
-`oimSameSlotSequence` compares two lists of slots by reference, so it suits a chain
-of identities. `oimSameKeySequence` compares two lists of keys, or two chains of values,
+`isOIMSameSlotSequence` compares two lists of slots by reference, so it suits a chain
+of identities. `isOIMSameKeySequence` compares two lists of keys, or two chains of values,
 each key by SameValueZero, the way a `Map` files it. To compare two keys of a collection, ask its
 collection service: `cardService.isSameKey(key, otherKey)`, which takes no store slot. A key is never
 encoded into a string: the tree descends one composite key part at a time, so `['a b']` and
@@ -369,7 +369,7 @@ as `slotStoreService`.
 
 ## Emptiness is a strategy
 
-The slot's EMPTY flag (`oimIsSlotEmpty(slot)`) is settled once per write by the injected `IOIMSlotEmptinessPolicy`,
+The slot's EMPTY flag (`isOIMSlotEmpty(slot)`) is settled once per write by the injected `IOIMSlotEmptinessPolicy`,
 never recomputed at the read. An entity content service's default is
 "the entity is `undefined`" — "the entity is `undefined`". `hasSlotContentByKey`,
 the population walk below and the release policy all read that one flag.
@@ -418,30 +418,62 @@ policy all agree.
 
 An entity or bucket collection's column slots are woken by the writes that change
 their column; a computed's column slots are derived from it (see
-[Computed columns](/docs/core/computed-effects#computed-columns)).
-The doors are on an entity slot — `slot.getColumn(columnName)`, `slot.holdColumn(columnName)`,
-`slot.getColumnGroupSlot(group)`, `slot.holdColumnGroup(group)`, `slot.getAnyColumn()`, `slot.holdAnyColumn()` — and
-on the service's `columnSlotService` for any slot, which takes the slot first: `holdColumn(slot, columnName)` / `unholdColumn(columnSlot)`,
-`getColumn(slot, columnName)`, `getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)`,
-`getAnyColumn(slot)` and `holdAnyColumn(slot)`. A single entity's are the same on its slot:
-`settingsService.getSingleSlot(settings).getColumn('theme')`.
+[Computed columns](/docs/core/computed-effects#computed-columns)). Both are one class,
+`OIMColumnSlot`: the entity's owner pushes a change into it, the computed's owner pulls it.
+The doors are on an entity slot and on a computed's slot — `slot.getColumnSlot(columnName)`, `slot.holdColumnSlot(columnName)`,
+`slot.getColumnGroupSlot(group)`, `slot.holdColumnGroupSlot(group)`, `slot.getAnyColumnSlot()`, `slot.holdAnyColumnSlot()` — and
+on the service's `columnSlotService` for any slot, which takes the slot first: `holdColumnSlot(slot, columnName)` / `unholdColumnSlot(columnSlot)`,
+`getColumnSlot(slot, columnName)`, `getColumnGroupSlot(slot, group)`, `holdColumnGroupSlot(slot, group)`,
+`getAnyColumnSlot(slot)` and `holdAnyColumnSlot(slot)`. A single entity's are the same on its slot:
+`settingsService.getSingleSlot(settings).getColumnSlot('theme')`.
 With `columnNames` named the column slots sit in an array by ordinal, otherwise in a Map.
-`getColumn` takes no hold: a column slot it mints is held by the unused-slot collector
+`getColumnSlot` takes no hold: a column slot it mints is held by the unused-slot collector
 until the end of the next flush, like any getter's mint. An index's bucket column slots are the bucket
 collection's own.
 
-A column slot is a `TOIMColumnSlot` — a slot with `key` (the column name) and
-`carrierSlot`. It holds no value; it is what an effect subscribes to so that a
-write to `title` does not wake a reader of `rank`:
+A column slot is a `TOIMColumnSlot` — a slot with `key` (the column name), `carrierSlot` and
+`value`. It is what an effect subscribes to so that a write to `title` does not wake a reader
+of `rank`:
 
 ```typescript
 const card = cardService.holdSlotByKey(cards, 'c1');
-const rank = card.holdColumn('rank');
+const rank = card.holdColumnSlot('rank');
 const onRank = effectService.createEffect(db, () => render(card.entity), [rank]);
 
 effectService.disposeEffect(onRank);
 rank.unholdSlot();
 card.unholdSlot();
+```
+
+### What a column slot's value is
+
+`columnSlot.value` reads the carrier's state that the column stands for:
+
+| Column slot | `value` |
+|---|---|
+| an entity's column `'title'` | `entity.title` |
+| an entity's any-column slot | the entity |
+| an entity's column group | the fields of the group, in the group's sorted name order (`createOIMColumnGroup` sorts) |
+| a bucket's column `'title'` | an array of `title` across the members, in bucket order (a Set bucket's order is insertion order) |
+| a bucket's column group | one array per member, `[[m1.a, m1.b], [m2.a, m2.b]]` |
+| a bucket's any-column slot | the members' entities |
+| a computed's column `'top'` | `value.top` of the computed |
+
+The value is cached, and an array value keeps its identity while its elements stay equal
+one by one, so a view that compares by reference re-renders only when a field it shows moved.
+A tracked read of `.value` — inside a source-tracking effect or computed — subscribes to the
+column only, not to its carrier. Reading `.value` of a released column slot throws.
+
+```typescript
+import { createOIMColumnGroup } from '@oimdb/core';
+
+const grouped = createOIMColumnGroup<keyof Card>(['title', 'rank']);
+const groupedCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>(), columnGroups: [grouped] });
+const groupedCards = groupedCardService.createStoreSlot(db);
+groupedCardService.writeSlotContentByKey(groupedCards, 'c1', { id: 'c1', rank: 1, title: 'Ace' });
+const groupedCard = groupedCardService.holdSlotByKey(groupedCards, 'c1');
+groupedCard.holdColumnSlot('title').value;           // 'Ace'
+groupedCard.holdColumnGroupSlot(grouped).value;      // [1, 'Ace'], rank before title
 ```
 
 Which columns a write wakes: a put or a patch wakes the columns the writer reports as
@@ -459,13 +491,13 @@ may go now.
 
 ### The any-column slot
 
-`getAnyColumn(slot)` / `holdAnyColumn(slot)` mint a column slot that wakes on any column
-write to its carrier, where `holdColumn` wakes on one named column. Give it back with
-`unholdColumn`.
+`getAnyColumnSlot(slot)` / `holdAnyColumnSlot(slot)` mint a column slot that wakes on any column
+write to its carrier, where `holdColumnSlot` wakes on one named column. Give it back with
+`unholdColumnSlot`.
 
 ```typescript
 const anyColumnCard = cardService.holdSlotByKey(cards, 'c1');
-const anyColumn = anyColumnCard.holdAnyColumn();
+const anyColumn = anyColumnCard.holdAnyColumnSlot();
 const onAnyColumn = effectService.createEffect(db, () => render(anyColumnCard.entity), [anyColumn]);
 
 effectService.disposeEffect(onAnyColumn);
@@ -486,7 +518,7 @@ const rendered = createOIMColumnGroup<keyof Card>(['rank', 'title']);
 const renderedCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>(), columnGroups: [rendered] });
 const renderedCards = renderedCardService.createStoreSlot(db);
 const card = renderedCardService.holdSlotByKey(renderedCards, 'c1');
-const renderedOfCard = card.holdColumnGroup(rendered);
+const renderedOfCard = card.holdColumnGroupSlot(rendered);
 const onRendered = effectService.createEffect(db, () => render(card.entity), [renderedOfCard]);
 
 effectService.disposeEffect(onRendered);
@@ -497,10 +529,10 @@ card.unholdSlot();
 `createOIMColumnGroup(columnNames)` returns a frozen `TOIMColumnGroup<TColumnName>` — `{ key, columnNames }`,
 the names deduplicated and sorted — and throws on an empty list (a slot that hears every column is
 the any-column slot). Make it once, next to the service, and reuse that object.
-`holdColumnGroup` and `getColumnGroupSlot` take only a group named in `columnGroups` and throw
+`holdColumnGroupSlot` and `getColumnGroupSlot` take only a group named in `columnGroups` and throw
 for any other; with `columnNames` set, a group naming a column outside them throws when the
 service is constructed. A write wakes the group's slot once if it changes any of its columns and
-not at all if it changes only others. A tracked read through `slot.readEntity(group)` needs no
+not at all if it changes only others. A tracked read through `slot.getEntity(group)` needs no
 declaration: any group from `createOIMColumnGroup` works there.
 
 ### Naming the columns up front
@@ -513,15 +545,15 @@ const namedCards = namedCardService.createStoreSlot(db);
 With `columnNames`, each entity's column slots sit in an array by column
 number (`OIMColumnSlotOrdinalStoreService`) instead of a `Map` per entity. Creating
 and giving back an entity's store costs less, which is what a scrolling
-view pays for every entity that enters and leaves it. `holdColumn` and `columnGroups`
+view pays for every entity that enters and leaves it. `holdColumnSlot` and `columnGroups`
 are typed on the named columns, and a slot for any other column throws. Without
 `columnNames`, the store is `columnSlotStoreService` — a shared map-driven store by default — and any
 name is accepted. The option is on every factory (entity, bucket, index), keyed or single.
 
 The entity slot carries the names in its type, `TOIMEntitySlot<TEntity, TKey, TColumnName>`, so
-`slot.getColumn(name)` and `slot.holdColumn(name)` take only a named column:
+`slot.getColumnSlot(name)` and `slot.holdColumnSlot(name)` take only a named column:
 `createOIMEntitySlotCollectionStoreAggregate<Card, 'title'>(db, { columnNames: ['title'] })` makes
-`slot.getColumn('rank')` a type error. TypeScript infers no type argument once one is given, so with `Card`
+`slot.getColumnSlot('rank')` a type error. TypeScript infers no type argument once one is given, so with `Card`
 written out, spell the names in the type arguments too; without them every column of `Card` is accepted.
 
 Subscribing to columns is covered in
@@ -556,12 +588,16 @@ entity, like `getSlotByKey` and `holdSlotByKey`:
 Both return a `TOIMCollectionBucketSlot`, which is read-only: `getBucketMemberSlots`, `getBucketMemberSlotCount`,
 `hasBucketMemberSlot`, `holdSlot`, `unholdSlot`. The list is built by walking the store once, then kept in step
 on every fill and clear while it lives, so a collection nobody asks pays nothing for it.
-`oimGetBucketMemberSlotEntities(bucketSlot.getBucketMemberSlots())` reads the entities of the members:
+Its column slots — `getBucketColumnSlot(cards, columnName)`, `holdBucketColumnSlot(cards, columnName)`,
+`getAnyBucketColumnSlot(cards)`, `holdAnyBucketColumnSlot(cards)` on the same service — are an index bucket's
+kind: their `value` is that column (or the entity) across the members, and they wake on a member's write to it
+and on a member joining or leaving.
+`getOIMBucketMemberSlotEntities(bucketSlot.getBucketMemberSlots())` reads the entities of the members:
 
 ```typescript
 const population = OIMSlotCollectionBucketService.INSTANCE.holdBucketSlot(cards);
 population.getBucketMemberSlotCount();                              // how many cards hold an entity
-oimGetBucketMemberSlotEntities(population.getBucketMemberSlots());      // the cards
+getOIMBucketMemberSlotEntities(population.getBucketMemberSlots());      // the cards
 population.unholdSlot();
 
 cardService.getSlotCount(cards);                                    // how many ids are filed, empty ones included
@@ -577,8 +613,8 @@ The list does not hold its members: an entity goes by the collection's release p
 read, and leaves the list when it is released. An entity a tracked reader shows is held by that reader's
 effect, so it stays.
 
-The list has column slots: `getBucketColumn(cards, columnName)` / `holdBucketColumn(cards, columnName)` and
-`getAnyBucketColumn(cards)` / `holdAnyBucketColumn(cards)` on `OIMSlotCollectionBucketService.INSTANCE` return a
+The list has column slots: `getBucketColumnSlot(cards, columnName)` / `holdBucketColumnSlot(cards, columnName)` and
+`getAnyBucketColumnSlot(cards)` / `holdAnyBucketColumnSlot(cards)` on `OIMSlotCollectionBucketService.INSTANCE` return a
 column slot that wakes when a member's write changes that column (any column). They are registered on first ask
 and released with the list.
 
@@ -586,7 +622,7 @@ and released with the list.
 
 ```typescript
 for (const slot of cardService.getSlots(cards)) {
-    if (oimIsSlotEmpty(slot)) continue;
+    if (isOIMSlotEmpty(slot)) continue;
     render(slot.entity);
 }
 ```
@@ -594,7 +630,7 @@ for (const slot of cardService.getSlots(cards)) {
 An empty slot is filed only while something keeps it — a hold, a column slot,
 the unused-slot collector until the next flush — or under a policy that keeps
 empty slots, such as `OIMSlotNeverReleasePolicy`. See
-[Emptiness is a strategy](#emptiness-is-a-strategy) for what decides `oimIsSlotEmpty(slot)`.
+[Emptiness is a strategy](#emptiness-is-a-strategy) for what decides `isOIMSlotEmpty(slot)`.
 
 To have that answer maintained and subscribable instead of walked, declare an
 index keyed on the entity's own id:

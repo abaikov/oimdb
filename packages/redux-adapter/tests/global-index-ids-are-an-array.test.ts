@@ -1,7 +1,7 @@
 /**
  * Why the Global-index sync-back has NO colliding-key refusal, pinned.
  *
- * `oimDefaultCollectionMapper` and `oimDefaultKeyedIndexMapper` refuse two engine
+ * `mapOIMCollection` and `mapOIMKeyedIndex` refuse two engine
  * addresses that land on one property name — `a-numeric-key-and-the-string-it-stringifies-to.test.ts` holds both
  * refusals — because their state shapes carry addresses as property names of a
  * plain object, where `1` and `'1'` are two rows in the core's `Map` and one
@@ -9,7 +9,7 @@
  * downstream is computed from the one that survived.
  *
  * `TOIMReduxDefaultGlobalIndexState` carries them in an ARRAY. Two elements stay
- * two elements, `oimDefaultGlobalIndexMapper` puts the raw `slot.key` into it, and
+ * two elements, `mapOIMGlobalIndex` puts the raw `slot.key` into it, and
  * the sync-back resolves each element to the identity the population files it
  * under. Nothing claims a name, so nothing loses one, so there is nothing to
  * refuse — and a guard added here for symmetry would reject a state this path
@@ -128,7 +128,7 @@ describe('a Global index whose Redux state lists both scalar forms of one addres
         setSingleBucketSlots(singleBucket, usersService, users, [1, 2]);
         db.flush();
 
-        // THE OTHER HALF OF THE EXEMPTION. `oimDefaultGlobalIndexMapper` pushes the
+        // THE OTHER HALF OF THE EXEMPTION. `mapOIMGlobalIndex` pushes the
         // raw `slot.key` into an array — never a property name — so these are
         // numbers. `toEqual` tells `1` from `'1'`, which is the whole point of
         // the assertion.

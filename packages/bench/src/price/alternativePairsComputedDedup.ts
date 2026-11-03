@@ -17,7 +17,7 @@ import type { TPricePair } from './TPricePair';
  * however many readers ask. Two places can enforce that.
  *
  *   THE GETTER (ours, shipped) — the write path knows nothing about derivations.
- *   `getValueForSlot` is called by the read, and `oimHasSourceChangedSinceLastRun`
+ *   `getValueForSlot` is called by the read, and `hasOIMSourceChangedSinceLastRun`
  *   compares each source's `changedAt{Revision,Epoch}` against the computed slot's own
  *   `ranAt*`. A second read in the same frame stops on its `checkedAt` pair. What it
  *   costs: one comparison PER SOURCE PER FRAME READ, whether or not anything
@@ -96,7 +96,7 @@ const buildDedupPlaceAgainstEachOther = (readsPerFrame: number, timesEachRead: n
     const oursSourcesByDerivation: TSlot[][] = [];
     for (let d = 0; d < DERIVATIONS; d++) oursSourcesByDerivation.push(sourcesFor(oursFixture.slots, d));
     const sumComputedService = createOIMComputedService<number, number>({
-        computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
+        slotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
         sameValueGuard: (previous, next) => previous === next,
         initialValue: 0,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),

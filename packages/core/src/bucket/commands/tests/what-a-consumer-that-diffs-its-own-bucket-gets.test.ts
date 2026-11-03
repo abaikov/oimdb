@@ -1,5 +1,5 @@
 import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService } from '../../../index';
-import { oimOrderedListCommandsOfTransition } from '../utils/oimOrderedListCommandsOfTransition';
+import { getOIMOrderedListCommands } from '../utils/getOIMOrderedListCommands';
 import type { TOIMEffect } from '../../../effect/types/TOIMEffect';
 import type { TOIMBucketSlot } from '../../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
@@ -37,12 +37,12 @@ function createFixture() {
     };
 
     const updateByKey = (key: string, patch: Partial<TCard>): void => {
-        const slot = cardsService.findSlotByKey(cards, key);
+        const slot = cardsService.peekSlotByKey(cards, key);
         if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
     };
 
     const deleteByKey = (key: string): void => {
-        const slot = cardsService.findSlotByKey(cards, key);
+        const slot = cardsService.peekSlotByKey(cards, key);
         if (slot !== undefined) cardsService.slotContentService.clearSlotContent(slot);
     };
 
@@ -67,7 +67,7 @@ function orderedCommandsOf(
     const effect: TOIMEffect = OIMEffectService.INSTANCE.createEffect(db, () => {
         runCount++;
         const next = Array.from(membersService.getBucketMemberSlots(bucket));
-        commands = oimOrderedListCommandsOfTransition(prev, next, maxCommandsPerSlot);
+        commands = getOIMOrderedListCommands(prev, next, maxCommandsPerSlot);
         prev = next;
     }, [bucket]);
     return {

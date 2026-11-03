@@ -1,6 +1,6 @@
 import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 // Prose: ./README.md#alternativepairswritepath
-import { OIMDB, OIMEffectService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
+import { OIMDB, OIMEffectService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, isOIMSameValueZero } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
     IOIMSlotOwner,
@@ -15,9 +15,9 @@ import type {
 import { OIM_FROZEN_EMPTY_COLUMN_NAMES } from '../../../core/src/entity/constants/OIM_FROZEN_EMPTY_COLUMN_NAMES';
 import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { changedColumns } from './changedColumns';
-import { oimIsPlainObject } from '../../../core/src/entity/utils/oimIsPlainObject';
-import { oimIsProtoKey } from '../../../core/src/entity/utils/oimIsProtoKey';
-import { oimOwnedColumnNames } from '../../../core/src/entity/utils/oimOwnedColumnNames';
+import { isOIMPlainObject } from '../../../core/src/entity/utils/isOIMPlainObject';
+import { isOIMProtoKey } from '../../../core/src/entity/utils/isOIMProtoKey';
+import { getOIMOwnedColumnNames } from '../../../core/src/entity/utils/getOIMOwnedColumnNames';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import { priceFixture } from './priceFixture';
@@ -209,8 +209,8 @@ const walkingObjectKeys: TColumnWalk = (slot, patch) => {
     const names = Object.keys(source);
     for (let i = 0; i < names.length; i++) {
         const name = names[i];
-        if (oimIsProtoKey(name)) continue;
-        if (oimSameValueZeroGuard(entity[name], source[name])) continue;
+        if (isOIMProtoKey(name)) continue;
+        if (isOIMSameValueZero(entity[name], source[name])) continue;
         (changed ??= []).push(name);
     }
     return changed;
@@ -222,9 +222,9 @@ const probingEveryColumn: TColumnWalk = (slot, patch) => {
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
     for (const name in source) {
-        if (oimIsProtoKey(name)) continue;
+        if (isOIMProtoKey(name)) continue;
         if (!Object.prototype.hasOwnProperty.call(source, name)) continue;
-        if (oimSameValueZeroGuard(entity[name], source[name])) continue;
+        if (isOIMSameValueZero(entity[name], source[name])) continue;
         (changed ??= []).push(name);
     }
     return changed;
@@ -237,11 +237,11 @@ const askingASet: TColumnWalk = (slot, patch) => {
     if (entity === undefined) return undefined;
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
-    const inherited = !oimIsPlainObject(source);
+    const inherited = !isOIMPlainObject(source);
     for (const name in source) {
         if (FORBIDDEN_NAMES.has(name)) continue;
         if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
-        if (oimSameValueZeroGuard(entity[name], source[name])) continue;
+        if (isOIMSameValueZero(entity[name], source[name])) continue;
         (changed ??= []).push(name);
     }
     return changed;
@@ -252,11 +252,11 @@ const comparingTheNameInline: TColumnWalk = (slot, patch) => {
     if (entity === undefined) return undefined;
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
-    const inherited = !oimIsPlainObject(source);
+    const inherited = !isOIMPlainObject(source);
     for (const name in source) {
         if (name === '__proto__') continue;
         if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
-        if (oimSameValueZeroGuard(entity[name], source[name])) continue;
+        if (isOIMSameValueZero(entity[name], source[name])) continue;
         (changed ??= []).push(name);
     }
     return changed;
@@ -267,9 +267,9 @@ const withEqualityInlined: TColumnWalk = (slot, patch) => {
     if (entity === undefined) return undefined;
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
-    const inherited = !oimIsPlainObject(source);
+    const inherited = !isOIMPlainObject(source);
     for (const name in source) {
-        if (oimIsProtoKey(name)) continue;
+        if (isOIMProtoKey(name)) continue;
         if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
         const prev = entity[name];
         const next = source[name];
@@ -286,9 +286,9 @@ const withAComparatorPerColumn = (
     if (entity === undefined) return undefined;
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
-    const inherited = !oimIsPlainObject(source);
+    const inherited = !isOIMPlainObject(source);
     for (const name in source) {
-        if (oimIsProtoKey(name)) continue;
+        if (isOIMProtoKey(name)) continue;
         if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
         const compare = byColumn.get(name);
         const same =
@@ -322,12 +322,12 @@ const writeReplacingBuildingAsItWalks = (): IOIMEntityWriter => ({
         if (entity === undefined) return false;
         let changed = false;
         const source = patch as Record<string, unknown>;
-        const inherited = !oimIsPlainObject(source);
+        const inherited = !isOIMPlainObject(source);
         const next: Record<string, unknown> = { ...entity };
         for (const name in source) {
-            if (oimIsProtoKey(name)) continue;
+            if (isOIMProtoKey(name)) continue;
             if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
-            if (oimSameValueZeroGuard(entity[name], source[name])) continue;
+            if (isOIMSameValueZero(entity[name], source[name])) continue;
             next[name] = source[name];
             changed = true;
             if (changedColumnNames !== undefined) changedColumnNames.push(name);
@@ -344,7 +344,7 @@ const writeReplacingSpreadingThePatch = (): IOIMEntityWriter => ({
     putEntity: shippedReplacing.putEntity,
     deleteColumns: shippedReplacing.deleteColumns,
     patchEntity: (slot, patch, changedColumnNames) => {
-        const changed = changedColumns(slot, patch, oimSameValueZeroGuard);
+        const changed = changedColumns(slot, patch, isOIMSameValueZero);
         if (changed === undefined) return false;
         storeEntity(slot, { ...slot.entity as Record<string, unknown>, ...patch as Record<string, unknown> });
         if (changedColumnNames !== undefined) changedColumnNames.push(...changed);
@@ -371,7 +371,7 @@ const putByRemovingThenPatching = (
 
 const writeReplacingSpreadingAndDeleting = (): IOIMEntityWriter => {
     const deleteColumns: IOIMEntityWriter['deleteColumns'] = (slot, names) => {
-        const removed = oimOwnedColumnNames(slot, names);
+        const removed = getOIMOwnedColumnNames(slot, names);
         if (removed === undefined) return OIM_FROZEN_EMPTY_COLUMN_NAMES;
         const next: Record<string, unknown> = { ...slot.entity as Record<string, unknown> };
         for (let i = 0; i < removed.length; i++) delete next[removed[i]];
@@ -390,7 +390,7 @@ const writeReplacingSpreadingAndDeleting = (): IOIMEntityWriter => {
 
 const writeInPlaceBlanking = (): IOIMEntityWriter => {
     const deleteColumns: IOIMEntityWriter['deleteColumns'] = (slot, names) => {
-        const removed = oimOwnedColumnNames(slot, names);
+        const removed = getOIMOwnedColumnNames(slot, names);
         if (removed === undefined) return OIM_FROZEN_EMPTY_COLUMN_NAMES;
         const entity = slot.entity as Record<string, unknown>;
         for (let i = 0; i < removed.length; i++) entity[removed[i]] = undefined;
@@ -594,9 +594,9 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'ALREADY MATCHES IN ALL SIXTEEN COLUMNS. The population is primed outside the clock so ' +
             'every row holds round zero\'s values, and the timed patch is round zero\'s — so every ' +
             'write enumerates sixteen columns, compares sixteen times, moves nothing, and returns ' +
-            'having marked nothing. OPERATION COUNT, both arms: 16 `oimIsProtoKey` compares, 16 ' +
-            '`oimSameValueZeroGuard` calls, 16 pairs of property loads, and no changed-names array. ' +
-            'Ours additionally pays ONE `oimIsPlainObject` — one `getPrototypeOf` and two reference compares, ' +
+            'having marked nothing. OPERATION COUNT, both arms: 16 `isOIMProtoKey` compares, 16 ' +
+            '`isOIMSameValueZero` calls, 16 pairs of property loads, and no changed-names array. ' +
+            'Ours additionally pays ONE `isOIMPlainObject` — one `getPrototypeOf` and two reference compares, ' +
             'per write. The floor pays ONE `Object.keys` — a sixteen-element array allocated, filled ' +
             'and abandoned per write. THE DIFFERENCE IS ONE PROTOTYPE PROBE AGAINST ONE ' +
             'SIXTEEN-ELEMENT ARRAY, plus whatever the two enumerations cost each other. ' +
@@ -643,15 +643,15 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
     {
         id: 'alt.column-walk.probe-once-vs-hasownproperty-per-column.unchanged-resend',
         path: EPricePath.PerWrite,
-        ours: 'updateEntity(slot, patch) — one oimIsPlainObject per write, and a bare for…in after it',
-        floor: 'REJECTED: hasOwnProperty.call per column, with no oimIsPlainObject probe at all',
+        ours: 'updateEntity(slot, patch) — one isOIMPlainObject per write, and a bare for…in after it',
+        floor: 'REJECTED: hasOwnProperty.call per column, with no isOIMPlainObject probe at all',
         caveat:
             'THE SECOND DESIGN THE SAME DECISION REFUSED. The writer\'s old source put the ' +
             'per-column probe at "a quarter of" an unchanged re-send — a share of a scenario, not a ' +
             'ratio, and no directory. This row is that scenario at sixteen columns. ' +
             'ONE OPERATION IS ONE UNCHANGED `updateEntity`, primed exactly as the first row of this file. ' +
             'OPERATION COUNT, ours: 1 `getPrototypeOf` and 2 reference compares, then 16 ' +
-            '`oimIsProtoKey` compares and 16 equality calls. Floor: 16 `oimIsProtoKey` compares, 16 ' +
+            '`isOIMProtoKey` compares and 16 equality calls. Floor: 16 `isOIMProtoKey` compares, 16 ' +
             '`Object.prototype.hasOwnProperty.call` invocations and 16 equality calls. THE ' +
             'DIFFERENCE IS ONE PROTOTYPE PROBE AGAINST SIXTEEN BUILTIN CALLS, per write. ' +
             'WHAT THE FLOOR BUYS IS NOT VISIBLE IN THIS NUMBER: unconditional correctness with no ' +
@@ -673,7 +673,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
     {
         id: 'alt.forbidden-name.comparison-vs-set.unchanged-resend',
         path: EPricePath.PerWrite,
-        ours: 'updateEntity(slot, patch) — oimIsProtoKey(name), whose whole body is one comparison',
+        ours: 'updateEntity(slot, patch) — isOIMProtoKey(name), whose whole body is one comparison',
         floor: 'REJECTED: a Set of forbidden names, asked once per enumerated column',
         caveat:
             'WHAT THE RULE WOULD COST IF IT COULD GROW. The forbidden-name rule is one comparison ' +
@@ -704,7 +704,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
         floor: 'REJECTED: name !== "__proto__" written into the walk, with no call at all',
         caveat:
             'THE ROW WHOSE EXPECTED ANSWER IS 1.00, STATED IN ADVANCE SO A RUN CAN REFUTE IT. ' +
-            '`oimIsProtoKey` is module-level, monomorphic, one expression, no closure — the shape an ' +
+            '`isOIMProtoKey` is module-level, monomorphic, one expression, no closure — the shape an ' +
             'optimiser removes — which is a claim that this ratio comes back inside the noise floor. ' +
             'If it does, centralising the rule is free; if it does not, the centralisation was ' +
             'bought with something. ' +
@@ -736,9 +736,9 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'default keeps the site monomorphic and therefore free. That is a ratio, and this row ' +
             'takes it. ' +
             'ONE OPERATION IS ONE UNCHANGED `updateEntity` OF A SIXTEEN-COLUMN ROW, primed outside the ' +
-            'clock. Ours: 16 calls to `oimSameValueZeroGuard` through the shipped default writer\'s ' +
+            'clock. Ours: 16 calls to `isOIMSameValueZero` through the shipped default writer\'s ' +
             'captured parameter. Floor: the same comparison — `a === b || (a !== a && b !== b)` — ' +
-            '16 times inline. Both: 16 `oimIsProtoKey` calls, one `oimIsPlainObject`, no allocation, and the ' +
+            '16 times inline. Both: 16 `isOIMProtoKey` calls, one `isOIMPlainObject`, no allocation, and the ' +
             'early return. THE UNCHANGED WRITE IS WHERE THE PREDICATE IS THE WHOLE COLUMN; read this ' +
             'as the predicate\'s largest share of a write and not as its typical one. ' +
             `${THE_WRITE_AROUND_THE_WALK} ${ONE_COMPILED_WALK}`,
@@ -963,7 +963,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'ours returns false having allocated neither a row nor a names ' +
             'array, and the floor has already spread the row before it could know. ' +
             'ONE OPERATION IS ONE UNCHANGED `updateEntity` OF A SIXTEEN-COLUMN ROW, primed outside the ' +
-            'clock. Both arms: 16 `oimIsProtoKey` calls, 16 equality calls, one `oimIsPlainObject`, no mark. The ' +
+            'clock. Both arms: 16 `isOIMProtoKey` calls, 16 equality calls, one `isOIMPlainObject`, no mark. The ' +
             'floor allocates one seventeen-property record, copies seventeen values into it and ' +
             'stores it on the slot — per write, abandoned. THE COPY IS STORED, so it escapes and V8 ' +
             'cannot elide it; storing it is also the faithful reading of the rejected design, which ' +
@@ -990,7 +990,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
         caveat:
             'WHAT THE SHIPPED ORDER COSTS WHEN THE WRITE REALLY CHANGES SOMETHING — a re-hydration, ' +
             'where every write changes something. ' +
-            'ONE OPERATION IS ONE `updateEntity` MOVING ALL SIXTEEN COLUMNS. Both arms: 16 `oimIsProtoKey` ' +
+            'ONE OPERATION IS ONE `updateEntity` MOVING ALL SIXTEEN COLUMNS. Both arms: 16 `isOIMProtoKey` ' +
             'calls, 16 equality calls, one changed-names array with 16 pushes, the marks, and ' +
             'exactly ONE record allocated with 17 values spread and 16 stored. The difference is ' +
             'that ours walks the patch to decide and then loops the 16 recorded names a second time ' +
@@ -1020,7 +1020,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'names `changedColumns` recorded, so the spread is the rejected arm. ONE OPERATION IS ONE ' +
             '`updateEntity` CARRYING SIXTEEN COLUMNS OF WHICH EXACTLY ONE HAS MOVED — the shape a socket ' +
             're-sending a whole row produces, and the shape that makes the two designs differ most. ' +
-            'OPERATION COUNT. Both arms: the same `changedColumns` walk — 16 `oimIsProtoKey` calls, 16 ' +
+            'OPERATION COUNT. Both arms: the same `changedColumns` walk — 16 `isOIMProtoKey` calls, 16 ' +
             'equality calls, one names array with ONE push — the marks, and one record allocated. ' +
             'Ours then copies 17 values from the entity and does ONE store. The floor copies 17 from ' +
             'the entity and 16 from the patch — 33 stores, 15 of them writing a value the copy ' +

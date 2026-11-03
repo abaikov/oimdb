@@ -4,7 +4,7 @@
  *
  * Several hot paths here allocate nothing on an ordinary call because they hold
  * their working memory at module scope and reuse it: the seven buffers
- * `oimOrderedListCommandsOfTransition` carries between diffs. Each of them has a branch that takes the buffer AWAY —
+ * `getOIMOrderedListCommands` carries between diffs. Each of them has a branch that takes the buffer AWAY —
  * dropped above a size ceiling — and none of those branches is reached by any other test in
  * this suite, because every one of them needs a very large batch.
  *
@@ -36,12 +36,12 @@ import { OIMDB } from '../src/db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../src/index/createOIMSlotCollectionIndexService';
 import { createOIMSortedComputedService } from '../src/computed/createOIMSortedComputedService';
 import type { TOIMComputedSlot } from '../src/computed/types/TOIMComputedSlot';
-import { oimOrderedListCommandsOfTransition } from '../src/bucket/commands/utils/oimOrderedListCommandsOfTransition';
+import { getOIMOrderedListCommands } from '../src/bucket/commands/utils/getOIMOrderedListCommands';
 import type { TOIMBucketSlot } from '../src/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../src/bucket/types/TOIMBucketSlotsSetStore';
-import { oimIsSlotReleased } from '../src/slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../src/slot/utils/isOIMSlotReleased';
 import { applyOrderedListCommands, sameEntitySlotSequence } from './support/orderedListConsumer';
 import { createOIMEntityContentService } from '../src/entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
@@ -56,7 +56,7 @@ const collectionOf = <TEntity extends object>(db: OIMDB) => {
     const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TEntity, TOIMStoreKey>() });
     const collection = collectionService.createStoreSlot(db);
     const updateEntityByKey = (key: TOIMStoreKey, patch: Partial<TEntity>): void => {
-        const entitySlot = collectionService.findSlotByKey(collection, key);
+        const entitySlot = collectionService.peekSlotByKey(collection, key);
         if (entitySlot !== undefined) collectionService.slotContentService.updateEntity(entitySlot, patch);
     };
     return { collectionService, collection, updateEntityByKey };
@@ -131,14 +131,14 @@ describe('the ordered-list diff, after a list far past its ceiling', () => {
         // Reversed, so the diff does real work rather than finding one anchor
         // and stopping — this is the shape a column header click produces.
         const hugeReversed = huge.slice().reverse();
-        oimOrderedListCommandsOfTransition(huge, hugeReversed);
+        getOIMOrderedListCommands(huge, hugeReversed);
 
         // The ordinary call after it, with everything the diff can emit in it:
         // a removal, an arrival, and a reorder of what survived.
         const [a, b, c, d] = [makeSlot(1), makeSlot(2), makeSlot(3), makeSlot(4)];
         const prev = [a, b, c];
         const next = [c, a, d];
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         expect(sameEntitySlotSequence(applyOrderedListCommands(prev.slice(), commands), next)).toBe(true);
     });
@@ -151,12 +151,12 @@ describe('the ordered-list diff, after a list far past its ceiling', () => {
      */
     it('answers the identical question identically either side of a huge one', () => {
         const [a, b, c, d] = [makeSlot(1), makeSlot(2), makeSlot(3), makeSlot(4)];
-        const before = oimOrderedListCommandsOfTransition([a, b, c], [c, a, d]);
+        const before = getOIMOrderedListCommands([a, b, c], [c, a, d]);
 
         const huge = Array.from({ length: 6000 }, (_, i) => makeSlot(1000 + i));
-        oimOrderedListCommandsOfTransition(huge, huge.slice().reverse());
+        getOIMOrderedListCommands(huge, huge.slice().reverse());
 
-        const after = oimOrderedListCommandsOfTransition([a, b, c], [c, a, d]);
+        const after = getOIMOrderedListCommands([a, b, c], [c, a, d]);
         expect(after).toEqual(before);
     });
 });
@@ -221,11 +221,11 @@ describe('an index order whose comparator reads another order', () => {
         db.flush();
 
         const updateCard = (key: string, patch: Partial<TCard>): void => {
-            const cardSlot = cardsService.findSlotByKey(cards, key);
+            const cardSlot = cardsService.peekSlotByKey(cards, key);
             if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, patch);
         };
         const updateDeck = (key: string, patch: Partial<TDeck>): void => {
-            const deckSlot = decksService.findSlotByKey(decks, key);
+            const deckSlot = decksService.peekSlotByKey(decks, key);
             if (deckSlot !== undefined) decksService.slotContentService.updateEntity(deckSlot, patch);
         };
 
@@ -354,7 +354,7 @@ describe('what the index maintenance leaves in its bucket', () => {
         cardsService.slotContentService.clearSlotContent(slot);
         db.flush();
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
     });
 
     it('leaves the next ordinary join reading exactly its own row', () => {

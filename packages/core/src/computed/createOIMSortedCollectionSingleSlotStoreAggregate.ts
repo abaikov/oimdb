@@ -9,10 +9,10 @@ import type { OIMSingleSlotStoreAggregate } from '../slot/OIMSingleSlotStoreAggr
 import type { OIMSingleComputedService } from './OIMSingleComputedService';
 import { OIMSlotCollectionBucketService } from '../bucket/OIMSlotCollectionBucketService';
 import { createOIMSingleComputedService } from './createOIMSingleComputedService';
-import { oimSortBucketMemberSlots } from './utils/oimSortBucketMemberSlots';
-import { oimEntitySlotsComparator } from './utils/oimEntitySlotsComparator';
-import { oimColumnsComparator } from './utils/oimColumnsComparator';
-import { oimSameSlotSequence } from '../bucket/utils/oimSameSlotSequence';
+import { sortOIMBucketMemberSlots } from './utils/sortOIMBucketMemberSlots';
+import { createOIMEntitySlotsComparator } from './utils/createOIMEntitySlotsComparator';
+import { createOIMColumnsComparator } from './utils/createOIMColumnsComparator';
+import { isOIMSameSlotSequence } from '../bucket/utils/isOIMSameSlotSequence';
 import { OIM_FROZEN_EMPTY_SLOTS } from '../slot/constants/OIM_FROZEN_EMPTY_SLOTS';
 
 type TCollectionBucketContentService<TEntity extends object> = {
@@ -27,21 +27,21 @@ export function createOIMSortedCollectionSingleSlotStoreAggregate<TEntity extend
     const collectionBucketService = OIMSlotCollectionBucketService.INSTANCE;
     const sortColumns = options.sortColumns;
     const comparator = options.comparator;
-    const compareEntitySlots = oimEntitySlotsComparator<TEntity>(
-        comparator ?? (sortColumns === undefined ? compareNothing : oimColumnsComparator(sortColumns)),
+    const compareEntitySlots = createOIMEntitySlotsComparator<TEntity>(
+        comparator ?? (sortColumns === undefined ? compareNothing : createOIMColumnsComparator(sortColumns)),
     );
     const sortedComputedService = createOIMSingleComputedService<readonly TOIMEntitySlot<TEntity, TOIMStoreKey>[]>({
-        sameValueGuard: oimSameSlotSequence,
+        sameValueGuard: isOIMSameSlotSequence,
         initialValue: OIM_FROZEN_EMPTY_SLOTS,
         createSources: () => {
             const sourceSlots: TOIMSlot[] = [collectionBucketService.getBucketSlot(collectionStoreSlot)];
-            if (comparator !== undefined) sourceSlots.push(collectionBucketService.getAnyBucketColumn(collectionStoreSlot));
+            if (comparator !== undefined) sourceSlots.push(collectionBucketService.getAnyBucketColumnSlot(collectionStoreSlot));
             else if (sortColumns !== undefined) {
-                for (let i = 0; i < sortColumns.length; i++) sourceSlots.push(collectionBucketService.getBucketColumn(collectionStoreSlot, sortColumns[i].columnName));
+                for (let i = 0; i < sortColumns.length; i++) sourceSlots.push(collectionBucketService.getBucketColumnSlot(collectionStoreSlot, sortColumns[i].columnName));
             }
             return { sourceSlots };
         },
-        derive: computedSlot => oimSortBucketMemberSlots<TEntity, unknown, TOIMStoreKey>(
+        derive: computedSlot => sortOIMBucketMemberSlots<TEntity, unknown, TOIMStoreKey>(
             computedSlot,
             (computedSlot.sourceSlots[0].owner as unknown as { readonly slotContentService: TCollectionBucketContentService<TEntity> }).slotContentService,
             compareEntitySlots,

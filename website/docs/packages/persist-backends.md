@@ -328,7 +328,7 @@ A backend is three things:
 
 - a write batch, `IOIMPersistWriteBatch`: whatever methods its strategies write
   through, and `commit(): Promise<void>`, called once per batch. `OIMPersistWriteBatchChanges`
-  keeps the deferred changes until `commit`, and `oimWritePersistRecordsDelta` walks a records
+  keeps the deferred changes until `commit`, and `writeOIMPersistRecordsDelta` walks a records
   delta as upserts, then deletions;
 - the backend, `IOIMPersistBackend<TWriteBatch>`: `createWriteBatch()`, plus
   whatever its strategies read through;

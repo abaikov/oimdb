@@ -1,4 +1,4 @@
-import { OIMDB, OIMEffectService, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, isOIMSlotReleased } from '../../index';
 import type { TOIMBucketSlot, TOIMBucketContentSlot, TOIMEntitySlot } from '../../index';
 import { assertConsistent, entitiesUnderTest } from '../../../tests/support/assertConsistent';
 import type { TBucketsUnderTest } from '../../../tests/support/assertConsistent';
@@ -60,7 +60,7 @@ const asCollectionOfOne = (singleService: TSingleBucketService, single: TSingleB
 const assertPermanentBucket = (
     singleService: TSingleBucketService, single: TSingleBucket, watchedSingleSlot: TOIMBucketContentSlot, where: string,
 ): void => {
-    if (oimIsSlotReleased(watchedSingleSlot) || singleService.getSingleSlot(single) !== watchedSingleSlot) {
+    if (isOIMSlotReleased(watchedSingleSlot) || singleService.getSingleSlot(single) !== watchedSingleSlot) {
         throw new Error(
             `${where}: the single bucket was released, and whoever holds it would then be ` +
             'subscribed to a bucket nothing writes to any more.',
@@ -201,7 +201,7 @@ describe('the single bucket, with nobody watching it', () => {
         singleContentService.writeSlotContent(filledSingleSlot, []);
         db.flush();
 
-        expect(oimIsSlotReleased(filledSingleSlot)).toBe(true);
+        expect(isOIMSlotReleased(filledSingleSlot)).toBe(true);
         const freshSingleSlot = singleService.getSingleSlot(single);
         expect(freshSingleSlot).not.toBe(filledSingleSlot);
         expect(singleContentService.getBucketMemberSlotCount(freshSingleSlot)).toBe(0);
@@ -238,6 +238,6 @@ describe('the single bucket, with nobody watching it', () => {
         singleContentService.clearSlotContent(singleService.getSingleSlot(single));
         db.flush();
         expect(rowsService.getSlotCount(rows)).toBe(0);
-        expect(oimIsSlotReleased(filledSingleSlot)).toBe(true);
+        expect(isOIMSlotReleased(filledSingleSlot)).toBe(true);
     });
 });

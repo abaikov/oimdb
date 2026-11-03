@@ -28,7 +28,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import type { IOIMEntityWriter, TOIMEntitySlot } from '../src/index';
 import type { TOIMColumnSlot } from '../src/column/types/TOIMColumnSlot';
-import { OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimIsSlotReleased } from '../src/index';
+import { OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, isOIMSlotReleased } from '../src/index';
 import { createOIMEntityContentService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
 import { entitySlotOf } from './support/entitySlotOf';
@@ -209,11 +209,12 @@ const writerFiles = [...new Set(writes.map(write => write.path))].sort();
 const SIDES: Record<string, readonly string[]> = {
     /** `createOIMInPlaceEntityWriter` is absent because it writes the record's fields and never the field holding it. */
     value: [
-        'entity/utils/oimClearEntity.ts content×1',
-        'entity/utils/oimInsertEntityWithCopy.ts content×1',
-        'entity/utils/oimInsertEntityWithSanitizedCopy.ts content×1',
-        'entity/utils/oimInsertEntityWithoutCopy.ts content×1',
+        'entity/utils/clearOIMEntity.ts content×1',
+        'entity/utils/insertOIMEntityWithCopy.ts content×1',
+        'entity/utils/insertOIMEntityWithSanitizedCopy.ts content×1',
+        'entity/utils/insertOIMEntityWithoutCopy.ts content×1',
         'entity/createOIMReplacingEntityWriter.ts content×2',
+        'column/OIMPushColumnSlotOwner.ts content×1',
     ],
     /**
      * `holdCount` summarises nothing, which is why the field exists: a caller
@@ -226,13 +227,13 @@ const SIDES: Record<string, readonly string[]> = {
     ],
     /**
      * `OIMChannelService.writeWithoutFlushCheck` stamps a bare struct it was handed without knowing
-     * which kind it is, which is why it is pinned; `oimRefreshComputedSlot`
+     * which kind it is, which is why it is pinned; `refreshOIMComputedSlot`
      * stamps the computed slot its owner hands it. A third file writing either
      * is the event this makes loud.
      */
     frame: [
         'channel/OIMChannelService.ts changedAtEpoch×1 changedAtRevision×1',
-        'computed/utils/oimRefreshComputedSlot.ts changedAtEpoch×1 changedAtRevision×1 content×1',
+        'computed/utils/refreshOIMComputedSlot.ts changedAtEpoch×1 changedAtRevision×1 content×1',
     ],
     /**
      * `OIMSlotTreeStoreService` NORMALISES a key rather than only filing
@@ -243,7 +244,7 @@ const SIDES: Record<string, readonly string[]> = {
      */
     filing: [
         'slot/OIMSlotOwnerService.ts slotFlags×1',
-        'slot/utils/oimMarkSlotReleased.ts slotFlags×1',
+        'slot/utils/markOIMSlotReleased.ts slotFlags×1',
         'column/OIMColumnSlotOwner.ts columnSlotStore×2',
     ],
     registration: [
@@ -254,9 +255,9 @@ const SIDES: Record<string, readonly string[]> = {
     ],
     condemnation: [
         'collector/OIMSlotReleaseWheel.ts slotFlags×4',
-        'slot/utils/oimSetReleaseDueAfterWriteMs.ts releaseDueAfterWriteMs×1',
-        'slot/utils/oimSetReleaseDueAfterIdleMs.ts releaseDueAfterIdleMs×1',
-        'slot/utils/oimSetReleaseDueAfterUnholdMs.ts releaseDueAfterUnholdMs×1',
+        'slot/utils/setOIMReleaseDueAfterWriteMs.ts releaseDueAfterWriteMs×1',
+        'slot/utils/setOIMReleaseDueAfterIdleMs.ts releaseDueAfterIdleMs×1',
+        'slot/utils/setOIMReleaseDueAfterUnholdMs.ts releaseDueAfterUnholdMs×1',
     ],
 };
 
@@ -266,7 +267,7 @@ const EXEMPT: readonly string[] = [
     'entity/OIMEntitySlot.ts content×1 indexKeys×1 key×1',
     'computed/OIMComputedSlot.ts content×1 indexKeys×1 key×1',
     'bucket/OIMBucketSlot.ts indexKeys×1 key×1',
-    'column/OIMColumnSlot.ts changedAtEpoch×1 changedAtRevision×1 key×1',
+    'column/OIMColumnSlot.ts changedAtEpoch×1 changedAtRevision×1 content×1 key×1',
 ];
 
 const sideNames = Object.keys(SIDES).sort();
@@ -390,7 +391,7 @@ describe('a population writes its rows through the strategy it was given', () =>
         const rowEntityService = {
             upsertEntity: (storeSlot: TRowStoreSlot, row: TRow) => rowCollectionService.writeSlotContentByKey(storeSlot, row.id, row),
             updateEntityByKey: (storeSlot: TRowStoreSlot, key: string, patch: Partial<TRow>) => {
-                const slot = rowCollectionService.findSlotByKey(storeSlot, key);
+                const slot = rowCollectionService.peekSlotByKey(storeSlot, key);
                 if (slot !== undefined) rowCollectionService.slotContentService.updateEntity(slot, patch);
             },
             deleteEntity: (slot: TOIMEntitySlot<TRow, string>) => rowCollectionService.slotContentService.clearSlotContent(slot),
@@ -422,7 +423,7 @@ describe('a population writes its rows through the strategy it was given', () =>
         expect(calls).toEqual(['fillEntity', 'patchEntity', 'clearEntity']);
         // Nothing here holds the slot, so this asks whether the collection let
         // the identity go — the stronger question than "is the value undefined".
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(rowEntityService.getSlotCount(rows)).toBe(0);
     });
 

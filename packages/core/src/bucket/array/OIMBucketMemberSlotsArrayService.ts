@@ -3,7 +3,7 @@ import type { OIMChannelQueue } from '../../channel/OIMChannelQueue';
 import type { TOIMBucketSlotsArrayStore } from './types/TOIMBucketSlotsArrayStore';
 import type { IOIMBucketMemberSlotsArrayService } from './interfaces/IOIMBucketMemberSlotsArrayService';
 import { OIM_NOTHING_WAS_REMOVED } from '../constants/OIM_NOTHING_WAS_REMOVED';
-import { oimSameSlotSequence } from '../utils/oimSameSlotSequence';
+import { isOIMSameSlotSequence } from '../utils/isOIMSameSlotSequence';
 
 const insertionTailLimit = 8;
 
@@ -143,7 +143,7 @@ implements IOIMBucketMemberSlotsArrayService<TBucketMemberSlot> {
     public isSameBucketMemberSlotSequence(
         bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>, bucketMemberSlots: readonly TBucketMemberSlot[],
     ): boolean {
-        return oimSameSlotSequence(bucketSlotsArrayStore.bucketMemberSlots, bucketMemberSlots);
+        return isOIMSameSlotSequence(bucketSlotsArrayStore.bucketMemberSlots, bucketMemberSlots);
     }
 
     public clearBucketMemberSlots(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>): void {

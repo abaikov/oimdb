@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+### Changed
+
+- Requires `@oimdb/core` 4.9.0; `listenOIMToBrowserWindow` → `listenToOIMBrowserWindow`; `OIM_NO_BROWSER_LISTENER_DISPOSER` → core `OIM_NOOP_DISPOSER`.
+
 ## 1.1.1
 
 ### Changed

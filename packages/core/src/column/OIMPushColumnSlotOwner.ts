@@ -8,12 +8,16 @@ import { OIMColumnSlotOwner } from './OIMColumnSlotOwner';
 import { OIMChannelService } from '../channel/OIMChannelService';
 import { OIM_ANY_COLUMN_KEY } from './constants/OIM_ANY_COLUMN_KEY';
 import { OIMColumnSlot } from './OIMColumnSlot';
+import type { IOIMComputedValueService } from '../computed/interfaces/IOIMComputedValueService';
+import { OIM_FROZEN_EMPTY_COMPUTED_SLOTS } from '../computed/constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS';
+import { OIM_ACTIVE_SOURCE_TRACKER } from '../computed/constants/OIM_ACTIVE_SOURCE_TRACKER';
+import { isOIMSameColumnValue } from './utils/isOIMSameColumnValue';
 
 const hasValueColumn = (value: object, columnName: string): boolean =>
     Object.prototype.hasOwnProperty.call(value, columnName)
     && (value as Record<string, unknown>)[columnName] !== undefined;
 
-export class OIMPushColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TOIMColumnSlot> {
+export class OIMPushColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TOIMColumnSlot> implements IOIMComputedValueService {
     private readonly columnGroupsByColumnName: ReadonlyMap<string, readonly TOIMColumnGroup[]>;
 
     public constructor(columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMColumnSlot>, slotSubscriptionListener?: IOIMSlotSubscriptionListener) {
@@ -30,11 +34,25 @@ export class OIMPushColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TOIMCol
     }
 
     protected createColumnSlot(carrierSlot: TOIMSlot, key: string): TOIMColumnSlot {
-        return new OIMColumnSlot(key, this, carrierSlot);
+        return new OIMColumnSlot(key, this, carrierSlot, OIM_FROZEN_EMPTY_COMPUTED_SLOTS, undefined);
     }
 
     protected carrierSlotOf(columnSlot: TOIMColumnSlot): TOIMSlot {
         return columnSlot.carrierSlot;
+    }
+
+    public getValueForSlot(slot: TOIMSlot): unknown {
+        const columnSlot = slot as TOIMColumnSlot;
+        this.assertNotReleased(columnSlot);
+        const prevColumnValue = (columnSlot as unknown as OIMColumnSlot).content;
+        const nextColumnValue = this.peekCarrierColumnValue(columnSlot);
+        if (isOIMSameColumnValue(prevColumnValue, nextColumnValue)) return prevColumnValue;
+        (columnSlot as unknown as OIMColumnSlot).content = nextColumnValue;
+        return nextColumnValue;
+    }
+
+    public trackSourceColumnSlot(columnSlot: TOIMColumnSlot): void {
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker?.trackSourceSlot(columnSlot);
     }
 
     public markColumnsChanged(

@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
-import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotEmpty } from '../utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import { OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY } from '../../db/constants/OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY';
 import type { IOIMSlotEmptinessPolicy } from '../interfaces/IOIMSlotEmptinessPolicy';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
@@ -32,7 +32,7 @@ describe('how many times a removal asks whether the row is empty', () => {
         fixture.db.flush();
         const before = fixture.asked();
 
-        const slot = fixture.cardsService.findSlotByKey(fixture.cards, 'a');
+        const slot = fixture.cardsService.peekSlotByKey(fixture.cards, 'a');
         if (slot !== undefined) fixture.cardsService.slotContentService.clearSlotContent(slot);
 
         expect(fixture.asked() - before).toBe(1);
@@ -46,7 +46,7 @@ describe('how many times a removal asks whether the row is empty', () => {
         fixture.db.flush();
         const before = fixture.asked();
 
-        const slots = ['a', 'b', 'c'].flatMap(key => fixture.cardsService.findSlotByKey(fixture.cards, key) ?? []);
+        const slots = ['a', 'b', 'c'].flatMap(key => fixture.cardsService.peekSlotByKey(fixture.cards, key) ?? []);
         fixture.cardsService.writeInBatch(fixture.cards, () => { for (const entitySlot of slots) fixture.cardsService.slotContentService.clearSlotContent(entitySlot); });
 
         expect(fixture.asked() - before).toBe(3);
@@ -57,12 +57,12 @@ describe('how many times a removal asks whether the row is empty', () => {
         fixture.cardsService.writeSlotContentByKey(fixture.cards, 'a', { id: 'a', title: 'A' });
         fixture.db.flush();
 
-        const slot = fixture.cardsService.findSlotByKey(fixture.cards, 'a');
+        const slot = fixture.cardsService.peekSlotByKey(fixture.cards, 'a');
         if (slot !== undefined) fixture.cardsService.slotContentService.clearSlotContent(slot);
         fixture.db.flush();
 
         expect(fixture.cardsService.hasSlotContentByKey(fixture.cards, 'a')).toBe(false);
-        expect(fixture.cardsService.findSlotByKey(fixture.cards, 'a')?.entity).toBeUndefined();
+        expect(fixture.cardsService.peekSlotByKey(fixture.cards, 'a')?.entity).toBeUndefined();
     });
 
     it('keeps a row given back while it still holds a value, and keeps saying it is not empty', () => {
@@ -74,8 +74,8 @@ describe('how many times a removal asks whether the row is empty', () => {
         held.owner.unholdSlot(held);
         fixture.db.flush();
 
-        expect(oimIsSlotReleased(held)).toBe(false);
-        expect(oimIsSlotEmpty(held)).toBe(false);
+        expect(isOIMSlotReleased(held)).toBe(false);
+        expect(isOIMSlotEmpty(held)).toBe(false);
         expect(fixture.cardsService.hasSlotContentByKey(fixture.cards, 'a')).toBe(true);
     });
 
@@ -88,7 +88,7 @@ describe('how many times a removal asks whether the row is empty', () => {
         fixture.cardsService.slotContentService.clearSlotContent(held);
         fixture.db.flush();
 
-        expect(oimIsSlotEmpty(held)).toBe(true);
-        expect(fixture.cardsService.findSlotByKey(fixture.cards, 'a')?.entity).toBeUndefined();
+        expect(isOIMSlotEmpty(held)).toBe(true);
+        expect(fixture.cardsService.peekSlotByKey(fixture.cards, 'a')?.entity).toBeUndefined();
     });
 });

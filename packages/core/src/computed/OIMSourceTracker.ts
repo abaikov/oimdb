@@ -4,7 +4,7 @@ import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
 import type { TOIMComputedContentSlot } from './types/TOIMComputedContentSlot';
 import { OIMSourceList } from './OIMSourceList';
 import { OIM_FROZEN_EMPTY_COMPUTED_SLOTS } from './constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS';
-import { oimGetAllRootSlots } from './utils/oimGetAllRootSlots';
+import { getOIMRootSlots } from './utils/getOIMRootSlots';
 
 export class OIMSourceTracker implements IOIMSourceTracker {
 
@@ -12,15 +12,15 @@ export class OIMSourceTracker implements IOIMSourceTracker {
 
     private computedSourceList: OIMSourceList<TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>> | undefined = undefined;
 
-    private committedAllRootSlots: TOIMSlot[] = [];
+    private committedRootSlots: TOIMSlot[] = [];
 
-    private trackedAllRootSlots: TOIMSlot[] = [];
+    private trackedRootSlots: TOIMSlot[] = [];
 
-    private committedAllRootColumnGroups: (TOIMColumnGroup | undefined)[] = [];
+    private committedRootColumnGroups: (TOIMColumnGroup | undefined)[] = [];
 
-    private trackedAllRootColumnGroups: (TOIMColumnGroup | undefined)[] = [];
+    private trackedRootColumnGroups: (TOIMColumnGroup | undefined)[] = [];
 
-    private isTrackedAllRootSlotsChanged = false;
+    private isTrackedRootSlotsChanged = false;
 
     private committedComputedRootSlots: (readonly TOIMSlot[])[] = [];
 
@@ -37,14 +37,14 @@ export class OIMSourceTracker implements IOIMSourceTracker {
     public openSourceTracking(): void {
         this.slotSourceList.openSourceTracking();
         this.computedSourceList?.openSourceTracking();
-        this.isTrackedAllRootSlotsChanged = false;
+        this.isTrackedRootSlotsChanged = false;
     }
 
     public closeSourceTracking(): boolean {
         const isSourceSlotsChanged = this.slotSourceList.closeSourceTracking();
         const isSourceComputedsChanged = this.computedSourceList?.closeSourceTracking() ?? false;
         if (!isSourceSlotsChanged && !isSourceComputedsChanged && !this.isAnyComputedRootSlotsReplaced()) return false;
-        this.trackAllRootSlots();
+        this.trackRootSlots();
         return true;
     }
 
@@ -54,14 +54,14 @@ export class OIMSourceTracker implements IOIMSourceTracker {
         const committedSourceComputeds = computedSourceList.getCommittedSources();
         const committedComputedRootSlots = this.committedComputedRootSlots;
         for (let i = 0; i < committedSourceComputeds.length; i++) {
-            if (oimGetAllRootSlots(committedSourceComputeds[i]) !== committedComputedRootSlots[i]) return true;
+            if (getOIMRootSlots(committedSourceComputeds[i]) !== committedComputedRootSlots[i]) return true;
         }
         return false;
     }
 
     public trackReplacedRootSlots(): boolean {
         if (!this.isAnyComputedRootSlotsReplaced()) return false;
-        this.trackAllRootSlots();
+        this.trackRootSlots();
         return true;
     }
 
@@ -69,57 +69,57 @@ export class OIMSourceTracker implements IOIMSourceTracker {
         return this.slotSourceList.getTrackedSources();
     }
 
-    public getTrackedAllRootColumnGroups(): readonly (TOIMColumnGroup | undefined)[] {
-        return this.isTrackedAllRootSlotsChanged ? this.trackedAllRootColumnGroups : this.committedAllRootColumnGroups;
+    public getTrackedRootColumnGroups(): readonly (TOIMColumnGroup | undefined)[] {
+        return this.isTrackedRootSlotsChanged ? this.trackedRootColumnGroups : this.committedRootColumnGroups;
     }
 
     public getTrackedSourceComputeds(): readonly TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>[] {
         return this.computedSourceList?.getTrackedSources() ?? OIM_FROZEN_EMPTY_COMPUTED_SLOTS;
     }
 
-    public getTrackedAllRootSlots(): readonly TOIMSlot[] {
-        return this.isTrackedAllRootSlotsChanged ? this.trackedAllRootSlots : this.committedAllRootSlots;
+    public getTrackedRootSlots(): readonly TOIMSlot[] {
+        return this.isTrackedRootSlotsChanged ? this.trackedRootSlots : this.committedRootSlots;
     }
 
     public commitTrackedSources(): void {
         this.slotSourceList.commitTrackedSources();
         this.computedSourceList?.commitTrackedSources();
-        if (!this.isTrackedAllRootSlotsChanged) return;
-        const committedAllRootSlots = this.committedAllRootSlots;
-        this.committedAllRootSlots = this.trackedAllRootSlots;
-        this.trackedAllRootSlots = committedAllRootSlots;
-        const committedAllRootColumnGroups = this.committedAllRootColumnGroups;
-        this.committedAllRootColumnGroups = this.trackedAllRootColumnGroups;
-        this.trackedAllRootColumnGroups = committedAllRootColumnGroups;
+        if (!this.isTrackedRootSlotsChanged) return;
+        const committedRootSlots = this.committedRootSlots;
+        this.committedRootSlots = this.trackedRootSlots;
+        this.trackedRootSlots = committedRootSlots;
+        const committedRootColumnGroups = this.committedRootColumnGroups;
+        this.committedRootColumnGroups = this.trackedRootColumnGroups;
+        this.trackedRootColumnGroups = committedRootColumnGroups;
         const committedComputedRootSlots = this.committedComputedRootSlots;
         this.committedComputedRootSlots = this.trackedComputedRootSlots;
         this.trackedComputedRootSlots = committedComputedRootSlots;
-        this.isTrackedAllRootSlotsChanged = false;
+        this.isTrackedRootSlotsChanged = false;
     }
 
-    private trackAllRootSlots(): void {
+    private trackRootSlots(): void {
         const sourceSlots = this.slotSourceList.getTrackedSources();
         const sourceSlotColumnGroups = this.slotSourceList.getTrackedColumnGroups();
         const sourceComputeds = this.getTrackedSourceComputeds();
-        const trackedAllRootSlots = this.trackedAllRootSlots;
-        const trackedAllRootColumnGroups = this.trackedAllRootColumnGroups;
+        const trackedRootSlots = this.trackedRootSlots;
+        const trackedRootColumnGroups = this.trackedRootColumnGroups;
         const trackedComputedRootSlots = this.trackedComputedRootSlots;
         if (trackedComputedRootSlots.length !== sourceComputeds.length) trackedComputedRootSlots.length = sourceComputeds.length;
         let rootSlotCount = 0;
         for (let i = 0; i < sourceSlots.length; i++) {
-            trackedAllRootColumnGroups[rootSlotCount] = sourceSlotColumnGroups[i];
-            trackedAllRootSlots[rootSlotCount++] = sourceSlots[i];
+            trackedRootColumnGroups[rootSlotCount] = sourceSlotColumnGroups[i];
+            trackedRootSlots[rootSlotCount++] = sourceSlots[i];
         }
         for (let i = 0; i < sourceComputeds.length; i++) {
-            const computedRootSlots = oimGetAllRootSlots(sourceComputeds[i]);
+            const computedRootSlots = getOIMRootSlots(sourceComputeds[i]);
             trackedComputedRootSlots[i] = computedRootSlots;
             for (let j = 0; j < computedRootSlots.length; j++) {
-                trackedAllRootColumnGroups[rootSlotCount] = undefined;
-                trackedAllRootSlots[rootSlotCount++] = computedRootSlots[j];
+                trackedRootColumnGroups[rootSlotCount] = undefined;
+                trackedRootSlots[rootSlotCount++] = computedRootSlots[j];
             }
         }
-        if (trackedAllRootSlots.length !== rootSlotCount) trackedAllRootSlots.length = rootSlotCount;
-        if (trackedAllRootColumnGroups.length !== rootSlotCount) trackedAllRootColumnGroups.length = rootSlotCount;
-        this.isTrackedAllRootSlotsChanged = true;
+        if (trackedRootSlots.length !== rootSlotCount) trackedRootSlots.length = rootSlotCount;
+        if (trackedRootColumnGroups.length !== rootSlotCount) trackedRootColumnGroups.length = rootSlotCount;
+        this.isTrackedRootSlotsChanged = true;
     }
 }

@@ -2,7 +2,7 @@ import type { IOIMSlotStoreService } from '../store/interfaces/IOIMSlotStoreServ
 import type { TOIMBucketSlot } from '../bucket/types/TOIMBucketSlot';
 import type { TOIMBucketSlotsArrayStore } from '../bucket/array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMEntitySlot } from '../entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../column/types/TOIMColumnName';
 import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
 import type { OIMBucketContentService } from '../bucket/OIMBucketContentService';
 import type { TOIMIndexKey } from './types/TOIMIndexKey';
@@ -10,13 +10,13 @@ import type { TOIMIndexKeyOptions } from './types/TOIMIndexKeyOptions';
 import type { TOIMSlotCollectionIndexServiceFactoryOptions } from './types/TOIMSlotCollectionIndexServiceFactoryOptions';
 import { OIMSlotCollectionIndexService } from './OIMSlotCollectionIndexService';
 import { OIMPositionalArrayBucketContentService } from '../bucket/OIMPositionalArrayBucketContentService';
-import { oimResolveSlotStoreService } from '../store/utils/oimResolveSlotStoreService';
+import { resolveOIMSlotStoreService } from '../store/utils/resolveOIMSlotStoreService';
 import { OIMDefaults } from '../db/OIMDefaults';
-import { oimResolveSlotCollectionIndexServiceOptions } from './utils/oimResolveSlotCollectionIndexServiceOptions';
+import { resolveOIMSlotCollectionIndexServiceOptions } from './utils/resolveOIMSlotCollectionIndexServiceOptions';
 
 export function createOIMSlotCollectionIndexService<
     TEntity extends object, TSourceKey extends NonNullable<unknown>,
-    const TColumns extends readonly TOIMEntityColumnName<TEntity>[] = readonly TOIMEntityColumnName<TEntity>[],
+    const TColumns extends readonly TOIMColumnName<TEntity>[] = readonly TOIMColumnName<TEntity>[],
     TKey extends TOIMStoreKey = [TOIMIndexKey<TEntity, TColumns>] extends [TOIMStoreKey]
         ? Extract<TOIMIndexKey<TEntity, TColumns>, TOIMStoreKey> : never,
     TSourceStore = unknown,
@@ -35,7 +35,7 @@ export function createOIMSlotCollectionIndexService<
 >;
 export function createOIMSlotCollectionIndexService<
     TEntity extends object, TSourceKey extends NonNullable<unknown>,
-    const TColumns extends readonly TOIMEntityColumnName<TEntity>[] = readonly TOIMEntityColumnName<TEntity>[],
+    const TColumns extends readonly TOIMColumnName<TEntity>[] = readonly TOIMColumnName<TEntity>[],
     TKey extends TOIMStoreKey | readonly TOIMStoreKey[] = TOIMStoreKey,
     TSourceStore = unknown,
     TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity, TSourceKey>>,
@@ -50,7 +50,7 @@ export function createOIMSlotCollectionIndexService<
     } & TOIMIndexKeyOptions<TKey, TEntity, TColumns>,
 ): OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TBucketContentService, TOIMBucketSlot<TSlots, TKey>, TStore>;
 export function createOIMSlotCollectionIndexService<
-    TEntity extends object, TSourceKey extends NonNullable<unknown>, TColumns extends readonly TOIMEntityColumnName<TEntity>[],
+    TEntity extends object, TSourceKey extends NonNullable<unknown>, TColumns extends readonly TOIMColumnName<TEntity>[],
     TKey extends TOIMStoreKey | readonly TOIMStoreKey[], TSourceStore, TSlots,
     TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TSlots, TKey>, TStore,
 >(
@@ -59,10 +59,10 @@ export function createOIMSlotCollectionIndexService<
         bucketSlotStoreService?: IOIMSlotStoreService<TKey, TOIMBucketSlot<TSlots, TKey>, TStore> | undefined;
     } & TOIMIndexKeyOptions<TKey, TEntity, TColumns>,
 ): OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TBucketContentService, TOIMBucketSlot<TSlots, TKey>, TStore> {
-    return new OIMSlotCollectionIndexService(oimResolveSlotCollectionIndexServiceOptions(
+    return new OIMSlotCollectionIndexService(resolveOIMSlotCollectionIndexServiceOptions(
         options.defaults ?? OIMDefaults.INSTANCE,
         options,
-        oimResolveSlotStoreService(options.bucketSlotStoreService),
+        resolveOIMSlotStoreService(options.bucketSlotStoreService),
         options.slotContentService
             ?? new OIMPositionalArrayBucketContentService<
                 TOIMEntitySlot<TEntity, TSourceKey>, TKey

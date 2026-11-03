@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { oimSameKeySequence } from '@oimdb/core';
+import { isOIMSameKeySequence } from '@oimdb/core';
 import type { OIMSlotCollectionService, TOIMIndexableSlot, TOIMStoreSlot } from '@oimdb/core';
 
 export function useOIMSlotsByKeys<TKey extends NonNullable<unknown>, TSlot extends TOIMIndexableSlot<TKey>, TStore = unknown>(
@@ -8,7 +8,7 @@ export function useOIMSlotsByKeys<TKey extends NonNullable<unknown>, TSlot exten
 ): readonly TSlot[] {
     const settledKeys = useRef(keys);
     const previousKeys = settledKeys.current;
-    if (!oimSameKeySequence(previousKeys, keys)) settledKeys.current = keys;
+    if (!isOIMSameKeySequence(previousKeys, keys)) settledKeys.current = keys;
     const keysToHold = settledKeys.current;
 
     const [, resolveAgain] = useState(0);

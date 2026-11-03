@@ -3,8 +3,8 @@ import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentServ
 import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMScalarKeyTreeWalk } from '../../key/OIMScalarKeyTreeWalk';
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
-import { oimSameSlotSequence } from '../../bucket/utils/oimSameSlotSequence';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSameSlotSequence } from '../../bucket/utils/isOIMSameSlotSequence';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
@@ -130,7 +130,7 @@ describe('a chain is a key once', () => {
         const onMonday = bucketFor(chain('spades', 'mon'));
         const rebuilt = [segment(decksService, decks,'spades'), segment(daysService, days,'mon')];
 
-        expect(oimSameSlotSequence(onMonday.key, rebuilt)).toBe(true);
+        expect(isOIMSameSlotSequence(onMonday.key, rebuilt)).toBe(true);
         expect(indexService.getSlotByKey(index,rebuilt)).toBe(onMonday);
 
         // The three ways a chain can fail to be this one.
@@ -139,7 +139,7 @@ describe('a chain is a key once', () => {
             chain('hearts', 'mon'),
             [segment(decksService, decks,'spades')],
         ]) {
-            expect(oimSameSlotSequence(onMonday.key, other)).toBe(false);
+            expect(isOIMSameSlotSequence(onMonday.key, other)).toBe(false);
             expect(indexService.getSlotByKey(index,other)).not.toBe(onMonday);
         }
     });
@@ -162,7 +162,7 @@ describe('a chain is a key once', () => {
  * FALSE here: "the comparison and the descent cannot disagree, because a `Map`
  * files by SameValueZero, which for objects IS reference equality, and no object
  * is `NaN`." A value segment can be `NaN`, so a positional comparison written
- * with `!==` — which is what `oimSameSlotSequence` is, and is entitled to be — answers "a
+ * with `!==` — which is what `isOIMSameSlotSequence` is, and is entitled to be — answers "a
  * different address" for the address the tree is looking at. That is the SCALAR
  * defect, and it shipped once: a key compared that way orphaned a bucket.
  *
@@ -177,7 +177,7 @@ describe('a chain is a key once', () => {
  */
 describe('a chain of scalars is a key once', () => {
     /**
-     * `oimSameSlotSequence`' body, spelled out. It cannot be CALLED with a scalar chain —
+     * `isOIMSameSlotSequence`' body, spelled out. It cannot be CALLED with a scalar chain —
      * its element type refuses one, and `a-segment-that-is-not-an-object.type-test.ts`
      * is what keeps that true — so the rule it applies is written here instead,
      * to show what this arm would have concluded under it.
@@ -230,7 +230,7 @@ describe('a chain of scalars is a key once', () => {
         expect(rowsService.getSlotByKey(rows,['spades'])).toBe(prefixSlot);
         prefixSlot.owner.unholdSlot(prefixSlot);
 
-        expect(oimIsSlotReleased(prefixSlot)).toBe(true);
+        expect(isOIMSlotReleased(prefixSlot)).toBe(true);
         expect(rowsService.getSlotCount(rows)).toBe(3);
         expect(rowsService.getSlotByKey(rows,['spades', 'mon'])).toBe(pair);
     });
@@ -267,7 +267,7 @@ describe('a chain of scalars is a key once', () => {
      * server sent, from a division whose denominator was missing — nobody writes
      * it on purpose, which is exactly why an address containing one has to
      * behave. The `Map` under each level files it like any other value, so the
-     * descent finds the row; and the rule `oimSameSlotSequence` is entitled to use over identities
+     * descent finds the row; and the rule `isOIMSameSlotSequence` is entitled to use over identities
      * — reference equality, asserted here as the bare fact rather than by calling
      * it, since its element type refuses a scalar — says the opposite.
      */
@@ -294,13 +294,13 @@ describe('a chain of scalars is a key once', () => {
         expect(rowsService.getSlotCount(rows)).toBe(2);
 
         rowsService.slotContentService.clearSlotContent(monday);
-        expect(oimIsSlotReleased(monday)).toBe(true);
+        expect(isOIMSlotReleased(monday)).toBe(true);
         // The shared prefix is still standing, because the other key needs it.
         expect(rowsService.getSlotByKey(rows,['spades', 'tue'])).toBe(tuesday);
         expect(rowsService.getSlotCount(rows)).toBe(1);
 
         rowsService.slotContentService.clearSlotContent(tuesday);
-        expect(oimIsSlotReleased(tuesday)).toBe(true);
+        expect(isOIMSlotReleased(tuesday)).toBe(true);
         expect(rowsService.getSlotCount(rows)).toBe(0);
     });
 });

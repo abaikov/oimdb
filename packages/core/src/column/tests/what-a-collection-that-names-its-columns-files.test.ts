@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMColumnGroup } from '../utils/createOIMColumnGroup';
@@ -23,10 +23,10 @@ describe('what a collection that names its columns files', () => {
         const { db, cardsService, slot } = createFixture();
         let rankRuns = 0;
         let groupRuns = 0;
-        OIMEffectService.INSTANCE.createEffect(db, () => { rankRuns++; }, [cardsService.columnSlotService.holdColumn(slot, 'rank')]);
+        OIMEffectService.INSTANCE.createEffect(db, () => { rankRuns++; }, [cardsService.columnSlotService.holdColumnSlot(slot, 'rank')]);
         OIMEffectService.INSTANCE.createEffect(db, () => {
             groupRuns++;
-        }, [cardsService.columnSlotService.holdColumnGroup(slot, shownColumns)]);
+        }, [cardsService.columnSlotService.holdColumnGroupSlot(slot, shownColumns)]);
         db.flush();
         cardsService.slotContentService.updateEntity(slot, { note: 'seen' });
         db.flush();
@@ -40,7 +40,7 @@ describe('what a collection that names its columns files', () => {
     it('refuses a slot for a column it was not given', () => {
         const { cardsService, slot } = createFixture();
         // @ts-expect-error 'note' is not among the columns
-        expect(() => cardsService.columnSlotService.holdColumn(slot, 'note')).toThrow('"note" is not among the columns');
+        expect(() => cardsService.columnSlotService.holdColumnSlot(slot, 'note')).toThrow('"note" is not among the columns');
     });
 
     it('refuses at construction a group that carries a column it was not given', () => {
@@ -53,18 +53,18 @@ describe('what a collection that names its columns files', () => {
 
     it('refuses a slot for a group it was not given', () => {
         const { cardsService, slot } = createFixture();
-        expect(() => cardsService.columnSlotService.holdColumnGroup(slot, createOIMColumnGroup(['rank'])))
+        expect(() => cardsService.columnSlotService.holdColumnGroupSlot(slot, createOIMColumnGroup(['rank'])))
             .toThrow('Name it in `columnGroups`');
     });
 
     it('gives a column slot back and leaves the row free to go', () => {
         const { db, cardsService, slot } = createFixture();
-        const rankSlot = cardsService.columnSlotService.holdColumn(slot, 'rank');
-        const groupSlot = cardsService.columnSlotService.holdColumnGroup(slot, createOIMColumnGroup(['label', 'rank']));
-        cardsService.columnSlotService.unholdColumn(rankSlot);
-        cardsService.columnSlotService.unholdColumn(groupSlot);
+        const rankSlot = cardsService.columnSlotService.holdColumnSlot(slot, 'rank');
+        const groupSlot = cardsService.columnSlotService.holdColumnGroupSlot(slot, createOIMColumnGroup(['label', 'rank']));
+        cardsService.columnSlotService.unholdColumnSlot(rankSlot);
+        cardsService.columnSlotService.unholdColumnSlot(groupSlot);
         db.flush();
-        expect(oimIsSlotReleased(rankSlot) && oimIsSlotReleased(groupSlot)).toBe(true);
+        expect(isOIMSlotReleased(rankSlot) && isOIMSlotReleased(groupSlot)).toBe(true);
         expect(slot.columnSlotStore).toBeUndefined();
     });
 });

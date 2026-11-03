@@ -1,5 +1,5 @@
 import { OIMDefaults } from '../../index';
-import { OIMDB, OIMEffectService, OIMThrowAtOnceErrorPolicy, OIMSlotAfterWriteReleasePolicy, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, OIMThrowAtOnceErrorPolicy, OIMSlotAfterWriteReleasePolicy, isOIMSlotReleased } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
@@ -22,6 +22,6 @@ describe('a release asked for inside a frame', () => {
 
         expect(() => { db.flush(); }).not.toThrow();
         expect(a.holdCount).toBe(0);
-        expect(oimIsSlotReleased(a)).toBe(true);
+        expect(isOIMSlotReleased(a)).toBe(true);
     });
 });

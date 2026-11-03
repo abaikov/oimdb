@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../createOIMComputedService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
@@ -18,7 +18,7 @@ const createFixture =() => {
             return { sourceSlots: [slot, slot] };
         },
         derive: computedSlot => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) * 2,
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const doubled = doubledComputedService.createStoreSlot(db);
     return { db, cardsService, cards, doubledService: doubledComputedService, doubled };
@@ -39,7 +39,7 @@ describe('a derivation that names one ROW twice', () => {
         derived.owner.unholdSlot(derived);
 
         expect(card.holdCount).toBe(0);
-        expect(oimIsSlotReleased(derived)).toBe(true);
+        expect(isOIMSlotReleased(derived)).toBe(true);
         expect(doubledService.getSlotCount(doubled)).toBe(0);
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(card);
     });
@@ -67,7 +67,7 @@ describe('a derivation that names one DERIVATION twice', () => {
         const readersComputedService = createOIMComputedService<string, number>({
             createSources: () => ({ sourceComputeds: [base, base] }),
             derive: () => readValueWithoutTracking(base) * 2,
-            sameValueGuard: oimSameValueZeroGuard,
+            sameValueGuard: isOIMSameValueZero,
         });
         const readers = readersComputedService.createStoreSlot(db);
         const reader = readersComputedService.holdSlotByKey(readers, 'r');
@@ -81,7 +81,7 @@ describe('a derivation that names one DERIVATION twice', () => {
         reader.owner.unholdSlot(reader);
 
         expect(base.holdCount).toBe(0);
-        expect(oimIsSlotReleased(base)).toBe(true);
+        expect(isOIMSlotReleased(base)).toBe(true);
         expect(doubledService.getSlotCount(doubled)).toBe(0);
         expect(cardsService.getSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one', rank: 3 });
     });

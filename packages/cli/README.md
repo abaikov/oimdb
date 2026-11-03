@@ -29,7 +29,7 @@ state cannot be read. Their output is exactly what the `@oimdb/mcp` tools `oimdb
 | *(none)* | a running `oimdb serve`, at `http://localhost:7433` (or `OIMDB_UI_PORT`) |
 | `--url <url>` | a running `oimdb serve` elsewhere |
 | `--model <module>` | a module that builds the model in this process (or `OIMDB_MODEL_MODULE`) |
-| `--cdp [url]` | Chrome launched with `--remote-debugging-port=9222` (or `OIMDB_CDP_URL`); no page code needed beyond `window.__OIMDB_DEV__ = oimDevRegistry` |
+| `--cdp [url]` | Chrome launched with `--remote-debugging-port=9222` (or `OIMDB_CDP_URL`); no page code needed beyond `window.__OIMDB_DEV__ = OIM_DEV_REGISTRY` |
 
 ### A live page: `serve`, then read
 
@@ -44,28 +44,28 @@ The page connects to the bridge from its debug entry point:
 // src/debug.ts
 import './store/users.debug';
 import './store/tasks.debug';
-import { oimDevRegistry } from '@oimdb/devtools';
+import { OIM_DEV_REGISTRY } from '@oimdb/devtools';
 
 if (typeof window !== 'undefined') {
-    (window as unknown as Record<string, unknown>).__OIMDB_DEV__ = oimDevRegistry;
-    oimDevRegistry.connect(); // connects to ws://localhost:7432
+    (window as unknown as Record<string, unknown>).__OIMDB_DEV__ = OIM_DEV_REGISTRY;
+    OIM_DEV_REGISTRY.connect(); // connects to ws://localhost:7432
 }
 ```
 
 ### A model module, no browser
 
-The module builds the model in Node and exports an `oimDevRegistry` (or a default export, or a zero-arg factory
-that returns one). Its services are built with `defaults: oimDevDefaults`:
+The module builds the model in Node and exports an `OIM_DEV_REGISTRY` (or a default export, or a zero-arg factory
+that returns one). Its services are built with `defaults: OIM_DEV_DEFAULTS`:
 
 ```ts
 // oimdb-model.js  (built JS, or run the server under a TS loader)
 import { OIMDB, type TOIMEntitySlot, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
-import { OIMDevRegistry, oimDevDefaults } from '@oimdb/devtools';
+import { OIM_DEV_REGISTRY, OIM_DEV_DEFAULTS } from '@oimdb/devtools';
 
 type TUser = { id: string; name: string; role: string };
 
 const db = new OIMDB();
-const usersService = createOIMSlotCollectionService({ defaults: oimDevDefaults, slotContentService: createOIMEntityContentService<TUser>() });
+const usersService = createOIMSlotCollectionService({ defaults: OIM_DEV_DEFAULTS, slotContentService: createOIMEntityContentService<TUser>() });
 const users = usersService.createStoreSlot(db);
 // A bucket's slots are the caller's — a write to a user moves the value and
 // files nothing, so whoever writes the user also calls
@@ -73,9 +73,9 @@ const users = usersService.createStoreSlot(db);
 const usersByRoleService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const usersByRole = usersByRoleService.createStoreSlot(db);
 
-export const oimDevRegistry = new OIMDevRegistry();
+export { OIM_DEV_REGISTRY };
 // The bucket collection and its store slot — you constructed them, so you hand them over.
-oimDevRegistry.collection('users', usersService, users, {
+OIM_DEV_REGISTRY.collection('users', usersService, users, {
     indexes: { byRole: { bucketCollectionService: usersByRoleService, bucketStoreSlot: usersByRole } },
 });
 ```

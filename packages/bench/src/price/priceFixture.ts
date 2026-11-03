@@ -2,7 +2,7 @@
 import { OIMDB, OIMSlotMapStoreService, OIMSlotOwner, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type {
     OIMPushColumnSlotOwner, OIMWritableSlotCollectionService, OIMEntityContentService,
-    TOIMColumnSlot, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey, IOIMEntityWriter,
+    TOIMColumnSlot, TOIMColumnName, TOIMEntitySlot, TOIMStoreKey, IOIMEntityWriter,
 } from '../../../core/src/index';
 import { priceDataset } from './priceDataset';
 import type { TPriceDataRow } from './TPriceDataRow';
@@ -17,8 +17,8 @@ export class PriceSlotOwner extends OIMSlotOwner {
 
 export type TPriceEntityService<TEntity extends object> = OIMWritableSlotCollectionService<
     TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>>, TEntity,
-    OIMEntityContentService<TEntity, TOIMStoreKey, TOIMEntityColumnName<TEntity>>,
-    TOIMEntityColumnName<TEntity>, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
+    OIMEntityContentService<TEntity, TOIMStoreKey, TOIMColumnName<TEntity>>,
+    TOIMColumnName<TEntity>, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
 >;
 
 export const priceLoadedCollection = <TEntity extends { id: string }>(

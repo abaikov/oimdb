@@ -1,4 +1,4 @@
-import { OIMDB, OIMEffectService, OIMSlotAfterWriteReleasePolicy, oimMintAfterWriteSlotReleaseWheel } from '../../index';
+import { OIMDB, OIMEffectService, OIMSlotAfterWriteReleasePolicy, mintOIMAfterWriteSlotReleaseWheel } from '../../index';
 import type { TOIMDisposer } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -28,7 +28,7 @@ const countingClock = () => {
 };
 
 const flushAfterWrite = (db: OIMDB): void => {
-    oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
+    mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
 };
 
 /** The inactivity window: a subscribed identity is re-filed rather than condemned. */

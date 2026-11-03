@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel } from '../../index';
+import { OIMDB, OIMSlotAfterIdleReleasePolicy, mintOIMAfterIdleSlotReleaseWheel } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -28,7 +28,7 @@ const worldWithTwoWindows = (longMs: number, shortMs: number) => {
         live: liveService.createStoreSlot(db),
         at: (value: number): void => { ms = value; },
         collect: (): void => {
-            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+            mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
         },
     };
 };

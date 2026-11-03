@@ -17,7 +17,7 @@ type TDeckState = TOIMReduxDefaultCollectionState<TDeck, string>;
 
 /** The slots a linked-index bucket holds, by key, or `[]` for no bucket. */
 function slotKeysOf(cardsByDeckService: TBucketService<TCard>, cardsByDeck: TBucketStoreSlot<TCard>, key: string): unknown[] {
-    const bucket = cardsByDeckService.findSlotByKey(cardsByDeck, key);
+    const bucket = cardsByDeckService.peekSlotByKey(cardsByDeck, key);
     if (bucket === undefined) return [];
     return Array.from(cardsByDeckService.slotContentService.getBucketMemberSlots(bucket)).map(slot => slot.key);
 }

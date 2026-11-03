@@ -63,16 +63,17 @@ Reference: [Subscribing is building an effect](/docs/core/reading-subscribing#su
 
 ## React only to one field
 
-Take: `cardService.holdColumn(slot, columnName)` for the column slot, and
-`effectService.createEffect(db, [columnSlot], [], body)` over it; give both back with
-`effectService.disposeEffect(effect)` and `cardService.unholdColumn(columnSlot)`.
-`effectService.createEffect(db, [slot], [], …)` on a wide entity that is written often
+Take: `slot.holdColumnSlot(columnName)` for the column slot, and
+`effectService.createEffect(db, body, [columnSlot])` over it; give both back with
+`effectService.disposeEffect(effect)` and `columnSlot.unholdSlot()`. For one slot alone,
+`slot.watch(body, [columnName])` does the same in one call and returns the disposer.
+`effectService.createEffect(db, body, [slot])` on a wide entity that is written often
 runs its body on every column.
 
 ```ts
 const kingSlot = cardService.writeSlotContentByKey(cards, 'k', { id: 'k', deckId: 'hearts', title: 'King', rank: 13 });
 
-const rankColumn = kingSlot.holdColumn('rank');
+const rankColumn = kingSlot.holdColumnSlot('rank');
 const rankEffect = effectService.createEffect(db, () => {
     render(kingSlot.entity?.rank);
 }, [rankColumn]);
@@ -87,10 +88,10 @@ rankColumn.unholdSlot();
 
 Why this way: a column slot is its own identity, filed under its carrier
 slot, and a write marks only the column slots of the columns it changed — the
-title update above does not wake the body. The column slot holds no value; what
-moved is read from the entity slot you already have. The column name is checked
+title update above does not wake the body. The column slot's `value` is the field it
+stands for (`rankColumn.value` is the entity's `rank`), so the body can read either it or the entity slot. The column name is checked
 against the collection's column-name type: `createOIMSlotCollectionService` sets it to
-`TOIMEntityColumnName<TEntity>`, so a misspelt name does not compile. While the carrier has a column slot, the
+`TOIMColumnName<TEntity>`, so a misspelt name does not compile. While the carrier has a column slot, the
 carrier is kept.
 
 Reference: [Subscribing to one column](/docs/core/reading-subscribing#subscribing-to-one-column).
@@ -234,7 +235,7 @@ const queenEffect = effectService.createEffect(db, () => {
 }, [queen]);
 
 const stopArchiving = channelService.subscribeAfterEachFlush(channelSlot, () => {
-    const archived = [...toArchive].flatMap((key) => cardService.findSlotByKey(cards, key) ?? []);
+    const archived = [...toArchive].flatMap((key) => cardService.peekSlotByKey(cards, key) ?? []);
     cardService.writeInBatch(cards, () => { for (const entitySlot of archived) entitySlot.clearSlotContent(); });
     toArchive.clear();
 });

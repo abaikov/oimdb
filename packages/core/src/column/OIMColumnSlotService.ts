@@ -2,7 +2,7 @@ import type { OIMColumnSlotOwner } from './OIMColumnSlotOwner';
 import type { TOIMColumnGroup } from './types/TOIMColumnGroup';
 import type { TOIMKeyedSlot } from '../slot/types/TOIMKeyedSlot';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
-import { oimGetChannelSlot } from '../slot/utils/oimGetChannelSlot';
+import { peekOIMChannelSlot } from '../slot/utils/peekOIMChannelSlot';
 
 export class OIMColumnSlotService<
     TSlot extends TOIMSlot, TColumnName extends string, TColumnSlot extends TOIMKeyedSlot<string>,
@@ -14,31 +14,31 @@ export class OIMColumnSlotService<
         this.columnSlotOwner = columnSlotOwner;
     }
 
-    public getColumn(slot: TSlot, columnName: TColumnName): TColumnSlot {
-        return this.columnSlotOwner.getColumn(slot, columnName, oimGetChannelSlot(slot).collectorSlot.unusedSlotCollectorSlot);
+    public getColumnSlot(slot: TSlot, columnName: TColumnName): TColumnSlot {
+        return this.columnSlotOwner.getColumnSlot(slot, columnName, peekOIMChannelSlot(slot).collectorSlot.unusedSlotCollectorSlot);
     }
 
-    public holdColumn(slot: TSlot, columnName: TColumnName): TColumnSlot {
-        return this.columnSlotOwner.holdColumn(slot, columnName);
+    public holdColumnSlot(slot: TSlot, columnName: TColumnName): TColumnSlot {
+        return this.columnSlotOwner.holdColumnSlot(slot, columnName);
     }
 
-    public getAnyColumn(slot: TSlot): TColumnSlot {
-        return this.columnSlotOwner.getAnyColumn(slot, oimGetChannelSlot(slot).collectorSlot.unusedSlotCollectorSlot);
+    public getAnyColumnSlot(slot: TSlot): TColumnSlot {
+        return this.columnSlotOwner.getAnyColumnSlot(slot, peekOIMChannelSlot(slot).collectorSlot.unusedSlotCollectorSlot);
     }
 
-    public holdAnyColumn(slot: TSlot): TColumnSlot {
-        return this.columnSlotOwner.holdAnyColumn(slot);
+    public holdAnyColumnSlot(slot: TSlot): TColumnSlot {
+        return this.columnSlotOwner.holdAnyColumnSlot(slot);
     }
 
     public getColumnGroupSlot(slot: TSlot, columnGroup: TOIMColumnGroup): TColumnSlot {
-        return this.columnSlotOwner.getColumnGroupSlot(slot, columnGroup, oimGetChannelSlot(slot).collectorSlot.unusedSlotCollectorSlot);
+        return this.columnSlotOwner.getColumnGroupSlot(slot, columnGroup, peekOIMChannelSlot(slot).collectorSlot.unusedSlotCollectorSlot);
     }
 
-    public holdColumnGroup(slot: TSlot, columnGroup: TOIMColumnGroup): TColumnSlot {
-        return this.columnSlotOwner.holdColumnGroup(slot, columnGroup);
+    public holdColumnGroupSlot(slot: TSlot, columnGroup: TOIMColumnGroup): TColumnSlot {
+        return this.columnSlotOwner.holdColumnGroupSlot(slot, columnGroup);
     }
 
-    public unholdColumn(columnSlot: TColumnSlot): void {
+    public unholdColumnSlot(columnSlot: TColumnSlot): void {
         this.columnSlotOwner.unholdSlot(columnSlot);
     }
 }

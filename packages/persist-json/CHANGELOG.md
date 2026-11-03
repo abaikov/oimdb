@@ -3,6 +3,12 @@
 All notable changes to `@oimdb/persist-json` are recorded here. This file starts at 4.1.0; releases
 before it were not changelogged.
 
+## 4.1.2
+
+### Changed
+
+- README uses the 4.9.0 names.
+
 ## 4.1.1
 
 ### Changed

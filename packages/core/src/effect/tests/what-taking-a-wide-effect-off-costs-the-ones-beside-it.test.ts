@@ -9,8 +9,8 @@ type TRow = { id: string; n: number };
 
 const countRootReads = (effect: TOIMEffect): (() => number) => {
     let reads = 0;
-    const roots = effect.allRootSlots;
-    Object.defineProperty(effect, 'allRootSlots', {
+    const roots = effect.rootSlots;
+    Object.defineProperty(effect, 'rootSlots', {
         value: new Proxy(roots as TOIMSlot[], {
             get(target, property) {
                 if (typeof property === 'string' && /^\d+$/.test(property)) reads++;

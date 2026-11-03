@@ -224,7 +224,7 @@ the stored object, so a reference you kept shows the new value too.
 declare function saveTitle(cardId: string, title: string): Promise<void>;
 
 async function renameCard(cardId: string, title: string): Promise<void> {
-  const cardSlot = cardService.findSlotByKey(cards, cardId);
+  const cardSlot = cardService.peekSlotByKey(cards, cardId);
   const current = cardSlot?.entity;
   if (cardSlot === undefined || current === undefined) return;
   const previousTitle = current.title;
@@ -243,7 +243,7 @@ Why this way: a patch moves only the columns it names, so the rollback
 undoes this update and nothing else — a server push that changed `rank` while the
 request was in flight survives it, which `writeSlotContentByKey(previous)` would not:
 a whole-value write brings the entity back to exactly the old value and takes
-away anything that arrived since. `findSlotByKey` mints nothing when the key resolves to nothing, and the
+away anything that arrived since. `peekSlotByKey` mints nothing when the key resolves to nothing, and the
 rollback checks that the entity is still there, so an entity deleted during the request is not brought back by
 it. The slot is the identity the update landed on; it stays filed while it holds a value. Each write is delivered
 on the next frame (the delivery of every write since the previous one; see the
@@ -271,11 +271,11 @@ function applyServerMessages(messages: readonly CardsMessage[]): void {
       if (message.type === 'upsert') {
         for (const card of message.cards) cardService.writeSlotContentByKey(cards, card.id, card);
       } else if (message.type === 'patch') {
-        const patched = cardService.findSlotByKey(cards, message.id);
+        const patched = cardService.peekSlotByKey(cards, message.id);
         if (patched !== undefined) patched.updateEntity(message.patch);
       } else {
         for (const id of message.ids) {
-          const deleted = cardService.findSlotByKey(cards, id);
+          const deleted = cardService.peekSlotByKey(cards, id);
           if (deleted !== undefined) deleted.clearSlotContent();
         }
       }
@@ -292,7 +292,7 @@ socket.addEventListener('message', (event) => {
 Why this way: the whole message list is one batch, so an index on the collection hears it in one call when
 the batch closes, and the next flush delivers each identity once. A re-sent entity that changes no column wakes
 nobody, because the writer compares each column and a write with nothing moved returns before it reaches the
-channel. A patch for a key the client never loaded is dropped: `findSlotByKey` mints nothing for a missing key.
+channel. A patch for a key the client never loaded is dropped: `peekSlotByKey` mints nothing for a missing key.
 
 Reference: [Batches](/docs/core/channel#batches),
 [Which write to take](/docs/core/writing#which-door-to-take).

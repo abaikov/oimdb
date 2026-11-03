@@ -1,5 +1,5 @@
 import { OIMDefaults } from '../../index';
-import { OIMChannelService, OIMDB, OIMEffectService, OIMSlotAfterWriteReleasePolicy, oimIsSlotReleased } from '../../index';
+import { OIMChannelService, OIMDB, OIMEffectService, OIMSlotAfterWriteReleasePolicy, isOIMSlotReleased } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -30,7 +30,7 @@ describe('a flush the unused-slot collector starts inside its own', () => {
 
         cardsService.writeSlotContentByKey(cards, 'y', { id: 'y' });
 
-        expect(oimIsSlotReleased(watched)).toBe(false);
+        expect(isOIMSlotReleased(watched)).toBe(false);
         expect(watched.holdCount).toBe(holdsOfTheSubscription);
     });
 });

@@ -3,7 +3,7 @@ import { OIM_FROZEN_EMPTY_SLOTS } from '@oimdb/core';
 import type {
     OIMSingleSlotService, TOIMComputedContentSlot, TOIMDisposer, TOIMSlot, TOIMSingleSlotStore, TOIMStoreSlot,
 } from '@oimdb/core';
-import { oimSubscribeHeldSlot } from './oimSubscribeHeldSlot';
+import { subscribeOIMHeldSlot } from './subscribeOIMHeldSlot';
 import { useOIMDB } from './useOIMDB';
 import { OIMSnapshotVersion } from './OIMSnapshotVersion';
 import { useOIMSnapshotVersion } from './useOIMSnapshotVersion';
@@ -27,7 +27,7 @@ export function useOIMSingleSlot<TSlot extends TOIMSlot>(
             snapshotVersion,
             subscribe: (onStoreChange: () => void): TOIMDisposer => {
                 const holdingSlot = singleSlotService.holdSingleSlot(singleSlotStoreSlot);
-                const effectDisposer = oimSubscribeHeldSlot(db, hookName, snapshotVersion, holdingSlot, sourcesOfSlot, onStoreChange);
+                const effectDisposer = subscribeOIMHeldSlot(db, hookName, snapshotVersion, holdingSlot, sourcesOfSlot, onStoreChange);
                 subscribedSlot = holdingSlot;
                 return () => {
                     subscribedSlot = undefined;

@@ -55,7 +55,7 @@ describe('a name only the prototype supplies does not keep a column, on a collec
         const db = new OIMDB();
         const cardsService = cardsOn();
         const cards = cardsService.createStoreSlot(db);
-        // A stored column called `toString`: `oimIsProtoKey` flags `__proto__`
+        // A stored column called `toString`: `isOIMProtoKey` flags `__proto__`
         // and nothing else, so this is an ordinary column of the row.
         cardsService.writeSlotContentByKey(cards, ((card: TCard) => card.id)({ id: 'c1', toString: 'x' } as unknown as TCard), { id: 'c1', toString: 'x' } as unknown as TCard);
         db.flush();

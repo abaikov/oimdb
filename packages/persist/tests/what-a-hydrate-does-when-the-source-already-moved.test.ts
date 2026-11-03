@@ -395,7 +395,7 @@ describe('hydrate against an effect-driven source written while the read is in f
         await hydrating;
 
         expect(persistOperations).toEqual(['hydrate']);
-        expect(singleEntityService.findSingleSlot(singleEntityStoreSlot)?.entity).toEqual({ theme: 'typed' });
+        expect(singleEntityService.peekSingleSlot(singleEntityStoreSlot)?.entity).toEqual({ theme: 'typed' });
     });
 
     it('refuses on a bucket source when a member nothing else holds is written', async () => {
@@ -435,6 +435,6 @@ describe('hydrate against an effect-driven source written while the read is in f
         await hydrating;
 
         expect(persistOperations).toEqual(['hydrate']);
-        expect(userEntityService.findSlotByKey(userEntityStoreSlot, 'u1')?.entity?.name).toBe('Typed');
+        expect(userEntityService.peekSlotByKey(userEntityStoreSlot, 'u1')?.entity?.name).toBe('Typed');
     });
 });

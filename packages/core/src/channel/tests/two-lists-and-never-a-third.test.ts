@@ -14,7 +14,7 @@ const updateEntityByKey = (
     cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<Card>>>['createStoreSlot']>,
     key: string, patch: Partial<Card>,
 ): void => {
-    const slot = cardsService.findSlotByKey(cards, key);
+    const slot = cardsService.peekSlotByKey(cards, key);
     if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
 };
 

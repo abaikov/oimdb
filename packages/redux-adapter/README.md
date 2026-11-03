@@ -289,8 +289,8 @@ of the Redux state.** They throw at the write that would lose one of them, becau
 write can tell it was lost. `@oimdb/core` files entities and buckets in `Map`s, where `1` and
 `'1'` are two addresses; `entities` is a plain object, where they are one property name.
 
-`oimDefaultCollectionMapper` refuses two entities whose pks share a name, and
-`oimDefaultKeyedIndexMapper` refuses two buckets whose keys do. Without the refusal, each would lose this:
+`mapOIMCollection` refuses two entities whose pks share a name, and
+`mapOIMKeyedIndex` refuses two buckets whose keys do. Without the refusal, each would lose this:
 
 - **Collection.** `ids` lists both, but `entities` can hold only one, so `ids.length` and
   `Object.keys(entities).length` disagree and `entities[pk]` for one of the two ids hands
@@ -333,7 +333,7 @@ The child-reducer extractors take the same arguments as the mappers, after the t
 `extractIndexState(prevState, nextState, keyedIndex)`,
 `extractGlobalIndexState(prevState, nextState, globalIndex)`.
 
-`oimDiffEntityKeys(oldEntities: object, newEntities: object)` returns
+`diffOIMEntityKeys(oldEntities: object, newEntities: object)` returns
 `TOIMReduxEntityKeysDiff<string>`. The keys are **strings** on purpose: a plain object
 files `1` and `'1'` at one and the same place, so a result typed by the caller's key would
 be a claim that the runtime cannot keep. A consumer that believed it would feed a stringified key to

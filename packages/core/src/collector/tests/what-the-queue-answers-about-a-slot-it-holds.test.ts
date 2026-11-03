@@ -1,8 +1,8 @@
 import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
 import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
 import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE } from '../constants/OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE';
-import { oimGetReleaseDueAfterIdleMs } from '../../slot/utils/oimGetReleaseDueAfterIdleMs';
-import { oimSetReleaseDueAfterIdleMs } from '../../slot/utils/oimSetReleaseDueAfterIdleMs';
+import { peekOIMReleaseDueAfterIdleMs } from '../../slot/utils/peekOIMReleaseDueAfterIdleMs';
+import { setOIMReleaseDueAfterIdleMs } from '../../slot/utils/setOIMReleaseDueAfterIdleMs';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 
 const slotDueAt = (dueMs: number): TOIMSlot => {
@@ -16,8 +16,8 @@ const createSlotReleaseWheel = (clock: { nowMs: number }): OIMSlotReleaseWheel =
     getNowMs: () => clock.nowMs,
     timer: () => () => undefined,
     errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
-    getReleaseDueMs: oimGetReleaseDueAfterIdleMs,
-    setReleaseDueMs: oimSetReleaseDueAfterIdleMs,
+    getReleaseDueMs: peekOIMReleaseDueAfterIdleMs,
+    setReleaseDueMs: setOIMReleaseDueAfterIdleMs,
     releaseScheduledSlotFlag: OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE,
 });
 

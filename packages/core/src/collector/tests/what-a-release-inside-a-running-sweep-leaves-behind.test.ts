@@ -1,7 +1,7 @@
 import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
-import { oimGetReleaseDueAfterWriteMs } from '../../slot/utils/oimGetReleaseDueAfterWriteMs';
-import { oimSetReleaseDueAfterWriteMs } from '../../slot/utils/oimSetReleaseDueAfterWriteMs';
-import { oimSliceOfMs } from '../utils/oimSliceOfMs';
+import { peekOIMReleaseDueAfterWriteMs } from '../../slot/utils/peekOIMReleaseDueAfterWriteMs';
+import { setOIMReleaseDueAfterWriteMs } from '../../slot/utils/setOIMReleaseDueAfterWriteMs';
+import { getOIMSliceOfMs } from '../utils/getOIMSliceOfMs';
 import { OIM_SLICE_LENGTH_MS } from '../constants/OIM_SLICE_LENGTH_MS';
 import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
 import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE } from '../constants/OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE';
@@ -9,7 +9,7 @@ import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
-import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
+import { markOIMSlotReleased } from '../../slot/utils/markOIMSlotReleased';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
 import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
@@ -50,8 +50,8 @@ const createFixture =() => {
         getNowMs: () => ms,
         timer: () => () => undefined,
         errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
-        getReleaseDueMs: oimGetReleaseDueAfterWriteMs,
-        setReleaseDueMs: oimSetReleaseDueAfterWriteMs,
+        getReleaseDueMs: peekOIMReleaseDueAfterWriteMs,
+        setReleaseDueMs: setOIMReleaseDueAfterWriteMs,
         releaseScheduledSlotFlag: OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE,
     });
     return { slotReleaseWheel, at: (value: number): void => { ms = value; }, nowMs: (): number => ms };
@@ -67,7 +67,7 @@ const releaseDueUpToSliceNumber = (slotReleaseWheel: OIMSlotReleaseWheel, upToSl
 
 const cascadeOnto = (slotReleaseWheel: OIMSlotReleaseWheel, taken: TOIMEditable<TOIMSlot>): void => {
     slotReleaseWheel.cancelSlotRelease(taken);
-    oimMarkSlotReleased(taken);
+    markOIMSlotReleased(taken);
 };
 
 describe('an identity a cascade releases while the sweep is still walking', () => {
@@ -82,7 +82,7 @@ describe('an identity a cascade releases while the sweep is still walking', () =
         scheduleSlotRelease(fixture.slotReleaseWheel, cascaded);
 
         fixture.at(START + 2 * WINDOW);
-        releaseDueUpToSliceNumber(fixture.slotReleaseWheel, oimSliceOfMs(fixture.nowMs()));
+        releaseDueUpToSliceNumber(fixture.slotReleaseWheel, getOIMSliceOfMs(fixture.nowMs()));
 
         expect(fixture.slotReleaseWheel.isSlotReleaseScheduled(cascaded)).toBe(false);
         expect(askedAboutCascaded).toBe(0);
@@ -99,10 +99,10 @@ describe('an identity a cascade releases while the sweep is still walking', () =
         scheduleSlotRelease(fixture.slotReleaseWheel, condemned);
         scheduleSlotRelease(fixture.slotReleaseWheel, cascaded);
         expect(fixture.slotReleaseWheel.getNextSliceNumber())
-            .toBe(oimSliceOfMs(START + WINDOW));
+            .toBe(getOIMSliceOfMs(START + WINDOW));
 
         fixture.at(START + 2 * OIM_SLICE_LENGTH_MS);
-        releaseDueUpToSliceNumber(fixture.slotReleaseWheel, oimSliceOfMs(fixture.nowMs()));
+        releaseDueUpToSliceNumber(fixture.slotReleaseWheel, getOIMSliceOfMs(fixture.nowMs()));
 
         expect(fixture.slotReleaseWheel.isSlotReleaseScheduled(cascaded)).toBe(false);
         expect(askedAboutCascaded).toBe(0);
@@ -114,7 +114,7 @@ describe('an identity that was already released when the pass reached it', () =>
     it('is asked nothing, and does not stop the pass reaching the identities behind it', () => {
         const fixture = createFixture();
         const released = anIdentity();
-        oimMarkSlotReleased(released);
+        markOIMSlotReleased(released);
         const behind = anIdentity();
         let askedAboutBehind = 0;
         behind.owner = ownerThatWhenAsked(() => { askedAboutBehind++; });
@@ -122,7 +122,7 @@ describe('an identity that was already released when the pass reached it', () =>
         scheduleSlotRelease(fixture.slotReleaseWheel, behind);
 
         fixture.at(START + 2 * WINDOW);
-        releaseDueUpToSliceNumber(fixture.slotReleaseWheel, oimSliceOfMs(fixture.nowMs()));
+        releaseDueUpToSliceNumber(fixture.slotReleaseWheel, getOIMSliceOfMs(fixture.nowMs()));
 
         expect(askedAboutBehind).toBe(1);
         expect(fixture.slotReleaseWheel.getNextSliceNumber()).toBeUndefined();

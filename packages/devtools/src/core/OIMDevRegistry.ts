@@ -3,7 +3,7 @@ import {
     type IOIMChannelMap,
     type IOIMStoreSlotListener,
     type OIMSingleComputedService,
-    type TOIMComputedContentSlot,
+    type TOIMComputedCarrierSlot,
     type TOIMSingleSlotStore,
     type OIMSlotCollectionService,
     type TOIMBucketSlot,
@@ -70,7 +70,7 @@ export class OIMDevRegistry implements IOIMStoreSlotListener {
     public computed<TValue>(
         name: string,
         computedService: OIMSingleComputedService<TValue>,
-        computedStoreSlot: TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue>,
+        computedStoreSlot: TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedCarrierSlot<TValue>>, TValue, TOIMComputedCarrierSlot<TValue>>,
     ): this {
         const computedStoreSlotWeakRef = new WeakRef(computedStoreSlot);
         this.computedEntries.set(name, () => {

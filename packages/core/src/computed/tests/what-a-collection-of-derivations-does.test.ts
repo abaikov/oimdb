@@ -2,9 +2,9 @@ import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../createOIMComputedService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
@@ -13,7 +13,7 @@ import { readValueWithoutTracking } from '../../../tests/support/readValueWithou
 type Card = { id: string; title: string; rank: number };
 
 const createNumberService = () => {
-    const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+    const computedService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
     const collectionService = computedService;
     type TStoreSlot = Parameters<typeof collectionService.getSingleSlot>[0];
     return {
@@ -41,7 +41,7 @@ const createFixture =() => {
             return { sourceSlots: [cardsService.getSlotByKey(cards, id)] };
         },
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const ranks = computedService.createStoreSlot(db);
     const flushUnusedSlots = (): void => OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
@@ -68,7 +68,7 @@ describe('one derivation per key, and the key is how it is found again', () => {
         const rank = ranksService.holdSlotByKey(ranks, 'a');
         // Minted by `hold` inside the build, which is a door.
         expect(cardsService.getSlotCount(cards)).toBe(1);
-        expect(oimIsSlotEmpty(cardsService.getSlotByKey(cards, 'a'))).toBe(true);
+        expect(isOIMSlotEmpty(cardsService.getSlotByKey(cards, 'a'))).toBe(true);
 
         let seen = 0;
         effectService.createEffect(db, () => { seen = readValueWithoutTracking(rank); }, [], [rank]);
@@ -112,7 +112,7 @@ describe('a derivation is kept by a hold or a dependent, and by nothing it conta
 
         effectService.disposeEffect(effect);
         expect(ranksService.getSlotCount(ranks)).toBe(0);
-        expect(oimIsSlotReleased(source)).toBe(true);
+        expect(isOIMSlotReleased(source)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 });

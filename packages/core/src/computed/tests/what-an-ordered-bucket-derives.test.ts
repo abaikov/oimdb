@@ -6,7 +6,7 @@ import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCo
 import { createOIMBucketMemoComputedService } from '../createOIMBucketMemoComputedService';
 import { createOIMSortedComputedService } from '../createOIMSortedComputedService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
@@ -37,7 +37,7 @@ const createFixture = () => {
         cardsService.writeInBatch(cards, () => (cardsToPut.map(card => ({ ...card, deck: 'deck' }))).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     };
     const updateEntityByKey = (key: string, patch: Partial<Card>): void => {
-        const slot = cardsService.findSlotByKey(cards, key);
+        const slot = cardsService.peekSlotByKey(cards, key);
         if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
     };
     return {
@@ -87,7 +87,7 @@ describe('the order of a key is derived, and the read is what derives it', () =>
         const { byDeck, byDeckService, ordersService, orders, put } = createFixture();
         const heldSlot = ordersService.holdSlotByKey(orders, 'deck');
         const bucketSlot = byDeckService.getSlotByKey(byDeck, 'deck');
-        const bucketRankColumnSlot = byDeckService.getBucketColumnByKey(byDeck, 'deck', 'rank');
+        const bucketRankColumnSlot = byDeckService.getBucketColumnSlotByKey(byDeck, 'deck', 'rank');
 
         expect(heldSlot.sourceSlots.length).toBe(2);
         expect(heldSlot.sourceSlots[0]).toBe(bucketSlot);
@@ -209,8 +209,8 @@ describe('what a derivation lets go of', () => {
         rankedService.slotContentService.clearSlotContent(bucket);
         heldSlot.owner.unholdSlot(heldSlot);
 
-        expect(oimIsSlotReleased(heldSlot)).toBe(true);
-        expect(oimIsSlotReleased(bucket)).toBe(true);
+        expect(isOIMSlotReleased(heldSlot)).toBe(true);
+        expect(isOIMSlotReleased(bucket)).toBe(true);
         expect(orderService.getSlotCount(order)).toBe(0);
         expect(rankedService.getSlotCount(ranked)).toBe(0);
     });

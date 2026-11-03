@@ -3,7 +3,7 @@ import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCo
 import { OIMChannelService } from '../../channel/OIMChannelService';
 import { OIMSetBucketContentService } from '../OIMSetBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -36,7 +36,7 @@ describe('what a give-back sees of rows filed in the same change', () => {
         deck.owner.unholdSlot(deck);
         fixture.db.flush();
 
-        expect(oimIsSlotReleased(deck)).toBe(false);
+        expect(isOIMSlotReleased(deck)).toBe(false);
         expect(fixture.byDeckService.slotContentService.getBucketMemberSlotCount(deck)).toBe(2);
     });
 
@@ -48,7 +48,7 @@ describe('what a give-back sees of rows filed in the same change', () => {
         deck.owner.unholdSlot(deck);
         fixture.db.flush();
 
-        expect(fixture.cardsService.findSlotByKey(fixture.cards, 'c0')?.entity).toEqual({ id: 'c0', deck: 'd' });
+        expect(fixture.cardsService.peekSlotByKey(fixture.cards, 'c0')?.entity).toEqual({ id: 'c0', deck: 'd' });
         expect(fixture.byDeckService.hasSlotContentByKey(fixture.byDeck, 'd')).toBe(true);
     });
 
@@ -60,7 +60,7 @@ describe('what a give-back sees of rows filed in the same change', () => {
         deck.owner.unholdSlot(deck);
         fixture.db.flush();
 
-        expect(oimIsSlotReleased(deck)).toBe(true);
+        expect(isOIMSlotReleased(deck)).toBe(true);
         expect(fixture.byDeckService.hasSlotContentByKey(fixture.byDeck, 'd')).toBe(false);
     });
 

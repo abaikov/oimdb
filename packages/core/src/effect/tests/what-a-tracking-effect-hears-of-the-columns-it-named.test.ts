@@ -32,7 +32,7 @@ describe('what a tracking effect hears of the columns it named', () => {
         const card = cardSlots[0];
         let runs = 0;
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
-            void card.readEntity(rendered);
+            void card.getEntity(rendered);
             runs++;
         });
         write(() => content.updateEntityColumn(card, 'note', 'unseen'));
@@ -51,7 +51,7 @@ describe('what a tracking effect hears of the columns it named', () => {
         const card = cardSlots[0];
         let runs = 0;
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
-            void card.readEntity(rendered);
+            void card.getEntity(rendered);
             runs++;
         });
         write(() => {
@@ -66,7 +66,7 @@ describe('what a tracking effect hears of the columns it named', () => {
         const card = cardSlots[1];
         let runs = 0;
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
-            void card.readEntity(rendered);
+            void card.getEntity(rendered);
             runs++;
         });
         write(() => cardService.writeSlotContentByKey(cards, 'r1', { id: 'r1', rank: 1, label: 'l1', note: 'only the note' }));
@@ -83,7 +83,7 @@ describe('what a tracking effect hears of the columns it named', () => {
         let filteredRuns = 0;
         let wholeRuns = 0;
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
-            void card.readEntity(rendered);
+            void card.getEntity(rendered);
             filteredRuns++;
         });
         OIMEffectService.INSTANCE.createEffect(db, () => { wholeRuns++; }, [card]);
@@ -97,10 +97,10 @@ describe('what a tracking effect hears of the columns it named', () => {
         const { db, cardSlots, rendered } = createFixture();
         const card = cardSlots[3];
         const first = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
-            void card.readEntity(rendered);
+            void card.getEntity(rendered);
         });
         const second = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
-            void card.readEntity(rendered);
+            void card.getEntity(rendered);
         });
         expect(isOnFilteredPath(card)).toBe(true);
         OIMEffectService.INSTANCE.disposeEffect(first);
@@ -119,7 +119,7 @@ describe('what a tracking effect hears of the columns it named', () => {
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
             const offset = offsetSlot.entity?.offset ?? 0;
             const labels: string[] = [];
-            for (let at = offset; at < offset + 3; at++) labels.push(cardSlots[at].readEntity(rendered)?.label ?? '');
+            for (let at = offset; at < offset + 3; at++) labels.push(cardSlots[at].getEntity(rendered)?.label ?? '');
             shown.push(labels);
         });
         write(() => offsetService.slotContentService.updateEntityColumn(offsetSlot, 'offset', 2));
@@ -139,8 +139,8 @@ describe('what a tracking effect hears of the columns it named', () => {
         const noteOnly = createOIMColumnGroup<keyof TCard>(['note']);
         let runs = 0;
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
-            void card.readEntity(rendered);
-            void card.readEntity(noteOnly);
+            void card.getEntity(rendered);
+            void card.getEntity(noteOnly);
             runs++;
         });
         write(() => content.updateEntityColumn(card, 'note', 'heard'));

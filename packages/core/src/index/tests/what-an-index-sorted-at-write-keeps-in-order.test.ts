@@ -81,7 +81,7 @@ const run = (seed: number, steps: number): void => {
             const bucketSlot = bucketSlots.get(deck)!;
             for (let i = 0; i < expectedIds.length; i++) {
                 expect(byDeckService.slotContentService.getBucketMemberSlotAt(bucketSlot, i)?.key).toBe(expectedIds[i]);
-                expect(byDeckService.slotContentService.getBucketMemberSlotPosition(bucketSlot, cardsService.findSlotByKey(cards, expectedIds[i])!)).toBe(i);
+                expect(byDeckService.slotContentService.getBucketMemberSlotPosition(bucketSlot, cardsService.peekSlotByKey(cards, expectedIds[i])!)).toBe(i);
             }
             expect(byDeckService.slotContentService.getBucketMemberSlotAt(bucketSlot, expectedIds.length)).toBeUndefined();
             expect({ seed, step, deck, woken: takeWoken(deck) }).toEqual({ seed, step, deck, woken: wakingDecks.has(deck) ? 1 : 0 });
@@ -104,7 +104,7 @@ const run = (seed: number, steps: number): void => {
         } else if (choice < 0.25) {
             const id = pick(liveIds);
             const card = model.get(id)!;
-            const cardSlot = cardsService.findSlotByKey(cards, id);
+            const cardSlot = cardsService.peekSlotByKey(cards, id);
             if (cardSlot !== undefined) cardsService.slotContentService.clearSlotContent(cardSlot);
             model.delete(id);
             leave(card.deck, id);
@@ -113,7 +113,7 @@ const run = (seed: number, steps: number): void => {
             const id = pick(liveIds);
             const card = model.get(id)!;
             const deck = pick(DECKS.filter(candidate => candidate !== card.deck));
-            const cardSlot = cardsService.findSlotByKey(cards, id);
+            const cardSlot = cardsService.peekSlotByKey(cards, id);
             if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, { deck });
             model.set(id, { ...card, deck });
             leave(card.deck, id);
@@ -133,13 +133,13 @@ const run = (seed: number, steps: number): void => {
         } else if (choice < 0.68) {
             const id = pick(liveIds);
             const card = model.get(id)!;
-            const cardSlot = cardsService.findSlotByKey(cards, id);
+            const cardSlot = cardsService.peekSlotByKey(cards, id);
             if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, { rank: card.rank });
         } else if (choice < 0.8) {
             const id = pick(liveIds);
             const card = model.get(id)!;
             const label = `${card.label}x`;
-            const cardSlot = cardsService.findSlotByKey(cards, id);
+            const cardSlot = cardsService.peekSlotByKey(cards, id);
             if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, { label });
             model.set(id, { ...card, label });
         } else if (choice < 0.9) {
@@ -208,9 +208,9 @@ describe('an index sorted at write time', () => {
             { id: 'c', deck: 'd0', rank: 3, score: 0, label: '' },
         ]);
 
-        const a = cardsService.findSlotByKey(cards, 'a');
+        const a = cardsService.peekSlotByKey(cards, 'a');
         if (a !== undefined) cardsService.slotContentService.updateEntity(a, { rank: 5 });
-        const c = cardsService.findSlotByKey(cards, 'c');
+        const c = cardsService.peekSlotByKey(cards, 'c');
         if (c !== undefined) cardsService.slotContentService.updateEntity(c, { rank: 0 });
         db.flush();
 
@@ -225,7 +225,7 @@ describe('an index sorted at write time', () => {
             { id: 'c', deck: 'd1', rank: 2, score: 0, label: '' },
         ]);
 
-        const a = cardsService.findSlotByKey(cards, 'a');
+        const a = cardsService.peekSlotByKey(cards, 'a');
         if (a !== undefined) cardsService.slotContentService.updateEntity(a, { deck: 'd1' });
         db.flush();
 
@@ -242,7 +242,7 @@ describe('an index sorted at write time', () => {
             { id: 'c', deck: 'd0', rank: 2, score: 0, label: '' },
         ]);
 
-        const b = cardsService.findSlotByKey(cards, 'b');
+        const b = cardsService.peekSlotByKey(cards, 'b');
         if (b !== undefined) cardsService.slotContentService.clearSlotContent(b);
         db.flush();
 
@@ -255,7 +255,7 @@ describe('an index sorted at write time', () => {
             { id: 'b', deck: 'd0', rank: 1, score: 0, label: '' },
         ]);
 
-        const a = cardsService.findSlotByKey(cards, 'a');
+        const a = cardsService.peekSlotByKey(cards, 'a');
         if (a !== undefined) cardsService.slotContentService.updateEntity(a, { label: 'changed' });
         db.flush();
 
@@ -268,10 +268,10 @@ describe('an index sorted at write time', () => {
             { id: 'a', deck: 'd0', rank: 1, score: 0, label: '' },
             { id: 'b', deck: 'd0', rank: 1, score: 0, label: '' },
         ]);
-        byDeckService.holdBucketColumnByKey(byDeck, 'd0', 'label');
+        byDeckService.holdBucketColumnSlotByKey(byDeck, 'd0', 'label');
         db.flush();
 
-        const a = cardsService.findSlotByKey(cards, 'a');
+        const a = cardsService.peekSlotByKey(cards, 'a');
         if (a !== undefined) cardsService.slotContentService.updateEntity(a, { label: 'changed' });
         db.flush();
 

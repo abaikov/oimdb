@@ -1,7 +1,7 @@
 import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, OIMSetBucketContentService } from '../../index';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
@@ -58,17 +58,17 @@ describe('a set-driven bucket under no key', () => {
         const effect = effectService.createEffect(db, () => undefined, [deckSlot]);
         deckContentService.writeSlotContent(deckSlot, [slot('a')]);
         db.flush();
-        expect(oimIsSlotReleased(deckSlot)).toBe(false);
+        expect(isOIMSlotReleased(deckSlot)).toBe(false);
         expect(deckService.getSingleSlot(deck)).toBe(deckSlot);
         deckContentService.clearSlotContent(deckSlot);
         effectService.disposeEffect(effect);
         db.flush();
 
-        expect(oimIsSlotReleased(deckSlot)).toBe(true);
+        expect(isOIMSlotReleased(deckSlot)).toBe(true);
         const nextDeckSlot = deckService.getSingleSlot(deck);
         expect(nextDeckSlot).not.toBe(deckSlot);
-        expect(oimIsSlotReleased(nextDeckSlot)).toBe(false);
-        expect(oimIsSlotEmpty(nextDeckSlot)).toBe(true);
+        expect(isOIMSlotReleased(nextDeckSlot)).toBe(false);
+        expect(isOIMSlotEmpty(nextDeckSlot)).toBe(true);
         expect(deckContentService.getBucketMemberSlotCount(nextDeckSlot)).toBe(0);
         deckContentService.writeSlotContent(nextDeckSlot, [slot('b')]);
         expect(idsOf(deckContentService.getBucketMemberSlots(nextDeckSlot))).toEqual(['b']);
@@ -97,6 +97,6 @@ describe('an array-driven bucket under no key', () => {
         expect(idsOf(deckContentService.removeBucketMemberSlotRange(deckService.getSingleSlot(deck), 0, 2))).toEqual(['b', 'a']);
         expect(deckContentService.getBucketMemberSlotCount(deckService.getSingleSlot(deck))).toBe(0);
         expect(deckService.getSingleSlot(deck)).toBe(deckSlot);
-        expect(oimIsSlotReleased(deckSlot)).toBe(false);
+        expect(isOIMSlotReleased(deckSlot)).toBe(false);
     });
 });

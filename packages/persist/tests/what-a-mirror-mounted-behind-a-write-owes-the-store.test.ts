@@ -63,7 +63,7 @@ describe('autosave started behind an edit of the open batch', () => {
         await tick();
 
         expect(testPersistBackend.readWrittenDeltaUpsertAndDeletedKeys()).toEqual([{ upserts: ['u1'], deletedKeys: [] }]);
-        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'u1')?.entity?.name).toBe('Ada Lovelace');
+        expect(entityCollectionService.peekSlotByKey(entityStoreSlot, 'u1')?.entity?.name).toBe('Ada Lovelace');
     });
 });
 

@@ -77,9 +77,9 @@ describe('what an upsert that drops columns costs', () => {
 
     it.each(writers)('%s: wakes the columns that changed or left, and not the one that stayed', (_, createWriter) => {
         const { db, rowsService, rows, slot } = createRow(createWriter());
-        const a = rowsService.columnSlotService.holdColumn(slot, 'a');
-        const b = rowsService.columnSlotService.holdColumn(slot, 'b');
-        const c = rowsService.columnSlotService.holdColumn(slot, 'c');
+        const a = rowsService.columnSlotService.holdColumnSlot(slot, 'a');
+        const b = rowsService.columnSlotService.holdColumnSlot(slot, 'b');
+        const c = rowsService.columnSlotService.holdColumnSlot(slot, 'c');
         const before = [a.changedAtRevision, b.changedAtRevision, c.changedAtRevision];
 
         rowsService.writeSlotContentByKey(rows, 'r', { id: 'r', a: 10, b: 2 });

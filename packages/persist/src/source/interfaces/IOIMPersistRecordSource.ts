@@ -10,7 +10,7 @@ export interface IOIMPersistRecordSource<TKey extends NonNullable<unknown>, TEnt
         onEntitySlotChanged: (entitySlot: TOIMEntitySlot<TEntity, TKey>) => void,
     ): TOIMDisposer;
     readRecordsDelta(entitySlots: ReadonlySet<TOIMEntitySlot<TEntity, TKey>>): TOIMPersistRecordsDelta<TKey, TEntity>;
-    findEntitySlotsByKeys(keys: readonly TKey[]): ReadonlySet<TOIMEntitySlot<TEntity, TKey>>;
+    peekEntitySlotsByKeys(keys: readonly TKey[]): ReadonlySet<TOIMEntitySlot<TEntity, TKey>>;
     markEntitySlotChanges(entitySlots: Iterable<TOIMEntitySlot<TEntity, TKey>>): IOIMPersistSourceChangeMark;
     loadRecords(persistRecords: TOIMPersistRecords<TKey, TEntity>): void;
     unloadKeys(keys: readonly TKey[]): void;

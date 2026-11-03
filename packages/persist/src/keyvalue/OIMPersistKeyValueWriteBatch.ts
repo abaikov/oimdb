@@ -4,10 +4,10 @@ import type { IOIMPersistKeyValueStorage } from './interfaces/IOIMPersistKeyValu
 import type { TOIMPersistKeyValueSerializer } from './types/TOIMPersistKeyValueSerializer';
 import type { TOIMPersistKeyValueStorageKeyChange } from './types/TOIMPersistKeyValueStorageKeyChange';
 import type { TOIMPersistKeyValueWriteBatchOptions } from './types/TOIMPersistKeyValueWriteBatchOptions';
-import { oimDeletePath } from './utils/oimDeletePath';
-import { oimSetPath } from './utils/oimSetPath';
+import { deleteOIMPath } from './utils/deleteOIMPath';
+import { setOIMPath } from './utils/setOIMPath';
 
-const oimIsRoot = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object';
+const isOIMRoot = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object';
 
 const createStorageKeyChange = (isRemoved: boolean, hasWrittenValue: boolean, writtenValue: unknown): TOIMPersistKeyValueStorageKeyChange => ({
     isRemoved,
@@ -43,13 +43,13 @@ export class OIMPersistKeyValueWriteBatch implements IOIMPersistWriteBatch {
             storageKeyChange.writtenValue = {};
         }
         storageKeyChange.hasPathWrites = true;
-        storageKeyChange.rootChanges.addWriteBatchChange(root => { oimSetPath(root, path, this.copyValue(value)); });
+        storageKeyChange.rootChanges.addWriteBatchChange(root => { setOIMPath(root, path, this.copyValue(value)); });
     }
 
     public deleteValueAtPath(storageKey: string, path: readonly string[]): void {
         const storageKeyChange = this.getStorageKeyChange(storageKey);
         if (storageKeyChange.isRemoved) return;
-        storageKeyChange.rootChanges.addWriteBatchChange(root => { oimDeletePath(root, path); });
+        storageKeyChange.rootChanges.addWriteBatchChange(root => { deleteOIMPath(root, path); });
     }
 
     public async commit(): Promise<void> {
@@ -84,8 +84,8 @@ export class OIMPersistKeyValueWriteBatch implements IOIMPersistWriteBatch {
         const currentValue = storageKeyChange.hasWrittenValue
             ? storageKeyChange.writtenValue
             : storedItem === undefined ? undefined : this.persistKeyValueSerializer.deserialize(storedItem);
-        if (!oimIsRoot(currentValue) && !storageKeyChange.hasPathWrites) return;
-        const root = !oimIsRoot(currentValue)
+        if (!isOIMRoot(currentValue) && !storageKeyChange.hasPathWrites) return;
+        const root = !isOIMRoot(currentValue)
             ? {}
             : storageKeyChange.hasWrittenValue ? this.copyValue(currentValue) as Record<string, unknown> : currentValue;
         storageKeyChange.rootChanges.applyWriteBatchChanges(root);

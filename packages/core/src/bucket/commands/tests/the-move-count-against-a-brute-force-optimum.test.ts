@@ -1,5 +1,5 @@
 
-import { oimOrderedListCommandsOfTransition } from '../utils/oimOrderedListCommandsOfTransition';
+import { getOIMOrderedListCommands } from '../utils/getOIMOrderedListCommands';
 import type { TOIMEntitySlot } from '../../../index';
 import { applyOrderedListCommands, sameEntitySlotSequence } from '../../../../tests/support/orderedListConsumer';
 
@@ -198,7 +198,7 @@ describe('the move count is the optimum, not merely a low one', () => {
                 const prev = shuffled([...common, ...leaving], random);
                 const next = shuffled([...common, ...arriving], random);
 
-                const commands = oimOrderedListCommandsOfTransition(prev, next);
+                const commands = getOIMOrderedListCommands(prev, next);
 
                 const moves = commands.filter(command => command.type === 'move').length;
                 const removals = commands.filter(command => command.type === 'remove').length;
@@ -215,7 +215,7 @@ describe('the move count is the optimum, not merely a low one', () => {
                 if (moves !== minimum) {
                     throw new Error(
                         `${where}: emitted ${moves} move(s) where the fewest possible is ${minimum}. ` +
-                        'oimOrderedListCommandsOfTransition calls this count the mathematical optimum, and this case is ' +
+                        'getOIMOrderedListCommands calls this count the mathematical optimum, and this case is ' +
                         'what entitles it to the word.',
                     );
                 }
@@ -261,7 +261,7 @@ describe('the move count is the optimum, not merely a low one', () => {
         const prev = slots.slice();
         const next = [...slots.slice(1), slots[0]];
 
-        const commands = oimOrderedListCommandsOfTransition(prev, next);
+        const commands = getOIMOrderedListCommands(prev, next);
 
         expect(commands).toHaveLength(1);
         expect(commands[0].type).toBe('move');

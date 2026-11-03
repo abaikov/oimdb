@@ -27,8 +27,8 @@ import type { TOIMStoreKey } from '@oimdb/core';
 import {
     OIMReduxAdapter,
     EOIMReduxReducerActionType,
-    oimDefaultCollectionMapper,
-    oimDefaultKeyedIndexMapper,
+    mapOIMCollection,
+    mapOIMKeyedIndex,
 } from '../src';
 import type { TBucketService, TBucketStoreSlot } from './support/engine';
 import {
@@ -44,7 +44,7 @@ import {
 function slotKeysOf<TEntity extends object>(
     bucketService: TBucketService<TEntity>, bucketStoreSlot: TBucketStoreSlot<TEntity>, key: TOIMStoreKey,
 ): unknown[] {
-    const bucket = bucketService.findSlotByKey(bucketStoreSlot, key);
+    const bucket = bucketService.peekSlotByKey(bucketStoreSlot, key);
     if (bucket === undefined) return [];
     return Array.from(bucketService.slotContentService.getBucketMemberSlots(bucket)).map(slot => slot.key);
 }
@@ -330,7 +330,7 @@ describe('a keyed index holding both scalar forms of one address', () => {
         expect(byGroupService.getSlotCount(byGroup)).toBe(2);
 
         expect(() =>
-            oimDefaultKeyedIndexMapper<TOIMStoreKey, number, TUser>(
+            mapOIMKeyedIndex<TOIMStoreKey, number, TUser>(
                 keyedIndex,
                 new Set<TOIMStoreKey>(),
                 undefined,
@@ -346,7 +346,7 @@ describe('a keyed index holding both scalar forms of one address', () => {
         const state: TMixedIndexState = { entities: { '1': { id: '1', ids: [2] } } };
 
         expect(() =>
-            oimDefaultKeyedIndexMapper<TOIMStoreKey, number, TUser>(
+            mapOIMKeyedIndex<TOIMStoreKey, number, TUser>(
                 keyedIndex,
                 new Set<TOIMStoreKey>([1]),
                 state,
@@ -362,7 +362,7 @@ describe('a keyed index holding both scalar forms of one address', () => {
         // The guard compares the entry's raw `id` with the key being written, so
         // the ordinary case — a key rewriting the entry it owns — goes through.
         // Without that comparison every incremental update would throw.
-        const next = oimDefaultKeyedIndexMapper<TOIMStoreKey, number, TUser>(
+        const next = mapOIMKeyedIndex<TOIMStoreKey, number, TUser>(
             keyedIndex,
             new Set<TOIMStoreKey>(['1']),
             state,
@@ -407,7 +407,7 @@ describe('a collection holding both scalar forms of one primary key', () => {
         expect(usersService.getSlotCount(users)).toBe(2);
 
         expect(() =>
-            oimDefaultCollectionMapper<TMixedUser, TOIMStoreKey>(
+            mapOIMCollection<TMixedUser, TOIMStoreKey>(
                 usersService,
                 users,
                 new Set<TOIMStoreKey>(),
@@ -427,7 +427,7 @@ describe('a collection holding both scalar forms of one primary key', () => {
         };
 
         expect(() =>
-            oimDefaultCollectionMapper<TMixedUser, TOIMStoreKey>(
+            mapOIMCollection<TMixedUser, TOIMStoreKey>(
                 usersService,
                 users,
                 new Set<TOIMStoreKey>([1]),
@@ -448,7 +448,7 @@ describe('a collection holding both scalar forms of one primary key', () => {
         // key being written, so the ordinary case — a key rewriting the entry it
         // owns — goes through. Without that comparison every incremental update
         // would throw.
-        const next = oimDefaultCollectionMapper<TMixedUser, TOIMStoreKey>(
+        const next = mapOIMCollection<TMixedUser, TOIMStoreKey>(
             usersService,
             users,
             new Set<TOIMStoreKey>(['1']),
@@ -474,7 +474,7 @@ describe('a collection holding both scalar forms of one primary key', () => {
             ids: ['1'],
         };
 
-        const next = oimDefaultCollectionMapper<TMixedUser, TOIMStoreKey>(
+        const next = mapOIMCollection<TMixedUser, TOIMStoreKey>(
             usersService,
             users,
             new Set<TOIMStoreKey>([1]),

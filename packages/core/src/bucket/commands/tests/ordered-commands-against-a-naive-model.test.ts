@@ -1,4 +1,4 @@
-import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, oimOrderedListCommandsOfTransition } from '../../../index';
+import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, getOIMOrderedListCommands } from '../../../index';
 import type { TOIMEntitySlot, TOIMOrderedListCommand, TOIMBucketSlotsArrayStore, TOIMSlot } from '../../../index';
 import { assertConsistent, entitiesUnderTest } from '../../../../tests/support/assertConsistent';
 import type { TBucketsUnderTest } from '../../../../tests/support/assertConsistent';
@@ -93,7 +93,7 @@ const run = (seed: number, steps: number): void => {
     const bucket = singleBucketService.getSingleSlot(singleBucket);
 
     const updateByKey = (key: string, patch: Partial<TCard>): void => {
-        const slot = cardsService.findSlotByKey(cards, key);
+        const slot = cardsService.peekSlotByKey(cards, key);
         if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
     };
 
@@ -120,7 +120,7 @@ const run = (seed: number, steps: number): void => {
     /**
      * WHAT A CONSUMER OF THE DIFF WRITES, and there is nothing else to it: an
      * effect over the bucket, the list this stream believes it last handed out,
-     * and one `oimOrderedListCommandsOfTransition` call between them.
+     * and one `getOIMOrderedListCommands` call between them.
      */
     const follow = (name: string, maxCommandsPerSlot: number | undefined): void => {
         const follower: TFollower = {
@@ -137,7 +137,7 @@ const run = (seed: number, steps: number): void => {
             // Recorded whether or not it is empty: an effect that ran is a
             // consumer that was woken, and the silence asserted below is about
             // the wake-up, not about the script it produced.
-            follower.deliveries.push(oimOrderedListCommandsOfTransition(shown, settled, maxCommandsPerSlot));
+            follower.deliveries.push(getOIMOrderedListCommands(shown, settled, maxCommandsPerSlot));
             shown = settled;
         }, [bucket]);
         shown =Array.from(membersService.getBucketMemberSlots(singleBucketService.getSingleSlot(singleBucket)));
@@ -177,7 +177,7 @@ const run = (seed: number, steps: number): void => {
             // population nor the bucket's slots.
         } else if (choice < 0.72) {
             what = `remove ${id}`;
-            const removedSlot = cardsService.findSlotByKey(cards, id);
+            const removedSlot = cardsService.peekSlotByKey(cards, id);
             if (removedSlot !== undefined) cardsService.slotContentService.clearSlotContent(removedSlot);
             alive.delete(id);
         } else if (choice < 0.82) {

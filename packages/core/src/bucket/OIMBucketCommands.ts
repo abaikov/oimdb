@@ -7,7 +7,7 @@ import type { TOIMEditable } from '../slot/types/TOIMEditable';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import { OIM_MAX_COMMANDS_PER_SLOT } from './commands/constants/OIM_MAX_COMMANDS_PER_SLOT';
-import { oimIsRevisionAfter } from '../channel/utils/oimIsRevisionAfter';
+import { isOIMRevisionAfter } from '../channel/utils/isOIMRevisionAfter';
 import { OIMChannelQueue } from '../channel/OIMChannelQueue';
 import { OIMChannelService } from '../channel/OIMChannelService';
 
@@ -82,7 +82,7 @@ function getCommandsStoreSlotChannelQueue(channelSlot: TOIMChannelSlot): OIMChan
 
 function isScriptStale(channelSlot: TOIMChannelSlot, bucketSlot: TOIMBucketContentSlot<unknown>): boolean {
     const frame = channelSlot.frame;
-    return oimIsRevisionAfter(
+    return isOIMRevisionAfter(
         frame.openedAtRevision, frame.openedAtEpoch, bucketSlot.commandsStartedAtRevision, bucketSlot.commandsStartedAtEpoch,
     );
 }

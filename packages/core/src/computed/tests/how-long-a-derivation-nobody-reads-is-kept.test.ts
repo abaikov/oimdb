@@ -1,9 +1,9 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../createOIMComputedService';
 import { OIMSlotAfterIdleReleasePolicy } from '../../collector/OIMSlotAfterIdleReleasePolicy';
-import { oimMintAfterIdleSlotReleaseWheel } from '../../collector/utils/oimMintAfterIdleSlotReleaseWheel';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { mintOIMAfterIdleSlotReleaseWheel } from '../../collector/utils/mintOIMAfterIdleSlotReleaseWheel';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
@@ -17,14 +17,14 @@ const createFixture =(keepAfterIdleMs?: number) => {
     let ms = START;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
     const cooling = {
-        flush: (): void => oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush(),
+        flush: (): void => mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush(),
     };
     const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     const ranksService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
         slotReleasePolicy: keepAfterIdleMs === undefined
             ? undefined
             : new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }),
@@ -41,7 +41,7 @@ describe('a derivation the last reader let go of', () => {
 
         held.owner.unholdSlot(held);
 
-        expect(oimIsSlotReleased(held)).toBe(true);
+        expect(isOIMSlotReleased(held)).toBe(true);
         expect(fixture.ranksService.getSlotCount(fixture.ranks)).toBe(0);
     });
 
@@ -65,7 +65,7 @@ describe('a derivation the last reader let go of', () => {
         fixture.at(START + WINDOW + 1_000);
         fixture.cooling.flush();
 
-        expect(oimIsSlotReleased(held)).toBe(true);
+        expect(isOIMSlotReleased(held)).toBe(true);
         expect(fixture.ranksService.getSlotCount(fixture.ranks)).toBe(0);
     });
 

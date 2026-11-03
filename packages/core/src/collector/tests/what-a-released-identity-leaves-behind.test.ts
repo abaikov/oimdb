@@ -1,4 +1,4 @@
-import { OIMChannelService, OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
+import { OIMChannelService, OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, mintOIMAfterIdleSlotReleaseWheel, isOIMSlotEmpty, isOIMSlotReleased } from '../../index';
 import type { TOIMDisposer } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -17,7 +17,7 @@ const createFixtureAt = (after: number) => {
         cardsService,
         cards,
         flushAfterIdle: (): void => {
-            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+            mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
         },
         at: (value: number): void => { ms = value; },
     };
@@ -33,10 +33,10 @@ describe('an identity a sweep takes back', () => {
         fixture.at(START + 31_000);
         fixture.flushAfterIdle();
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
         expect(Array.from(fixture.cardsService.getSlots(fixture.cards))).not.toContain(slot);
-        expect(oimIsSlotEmpty(slot)).toBe(true);
+        expect(isOIMSlotEmpty(slot)).toBe(true);
     });
 
     it('names the row at the door and nothing else, because its value left', () => {
@@ -77,7 +77,7 @@ describe('an identity a sweep takes back', () => {
         fixture.cardsService.slotContentService.clearSlotContent(slot);
         fixture.db.flush();
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 });

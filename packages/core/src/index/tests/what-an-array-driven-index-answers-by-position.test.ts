@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../../column/types/TOIMColumnName';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -11,7 +11,7 @@ type TCard = { id: string; deck: string };
 type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>;
 
 const createByDeckService = (cardsService: TCardsService) => createOIMSlotCollectionIndexService<
-    TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
+    TCard, TOIMStoreKey, readonly TOIMColumnName<TCard>[], string,
     Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>
 >({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
 

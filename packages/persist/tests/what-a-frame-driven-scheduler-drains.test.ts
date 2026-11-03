@@ -1,5 +1,5 @@
 import type { TOIMStoreKey } from '@oimdb/core';
-import { OIMChannelService, OIMDB, oimIsSlotReleased } from '@oimdb/core';
+import { OIMChannelService, OIMDB, isOIMSlotReleased } from '@oimdb/core';
 import {
     OIMPersistCollectionWriteRecordSource,
     OIMPersistRecordsResource,
@@ -156,12 +156,12 @@ describe('a frame-driven persistor over the write-driven arm', () => {
         expect(testPersistBackend.entityByKey.has('c1')).toBe(true);
 
         cardEntityCollectionService.slotContentService.clearSlotContent(cardSlot);
-        expect(oimIsSlotReleased(cardSlot)).toBe(false);
+        expect(isOIMSlotReleased(cardSlot)).toBe(false);
 
         db.flush();
         await persistor.whenIdle();
         expect(testPersistBackend.entityByKey.has('c1')).toBe(false);
-        expect(oimIsSlotReleased(cardSlot)).toBe(true);
+        expect(isOIMSlotReleased(cardSlot)).toBe(true);
 
         persistor.destroy();
     });

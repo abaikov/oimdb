@@ -160,19 +160,19 @@ const GROUPED_FLOOR_CAVEAT =
  *
  * WHAT VARIES IS THE WRITE STRATEGY, and the job here is to find out whether the
  * fork is FREE rather than to find a winner: both shipped writers fill a fresh
- * slot through the same `oimInsertEntityWithoutCopy`, and the insert branch of
+ * slot through the same `insertOIMEntityWithoutCopy`, and the insert branch of
  * `OIMEntityContentService.insertSlotContent` (reached by `writeSlotContentByKey`) calls `fillEntity` and nothing else of the
  * writer.
  */
 const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPricePair => ({
     id,
     path: EPricePath.PerRowPerWrite,
-    ours: `entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) into an empty population, then entityService.findSlotByKey(entityStoreSlot, key)?.entity — ${arm}`,
+    ours: `entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) into an empty population, then entityService.peekSlotByKey(entityStoreSlot, key)?.entity — ${arm}`,
     floor: 'map.set(row.id, { ...row }) per row, then map.get(key)',
     caveat:
         `THE ARM IS ${arm.toUpperCase()}, AND THE SWEEP'S QUESTION ON THIS TASK IS WHETHER THE ` +
         'FORK COSTS ANYTHING AT ALL HERE. `createOIMInPlaceEntityWriter` and ' +
-        '`createOIMReplacingEntityWriter` both default `fillEntity` to `oimInsertEntityWithoutCopy`, and ' +
+        '`createOIMReplacingEntityWriter` both default `fillEntity` to `insertOIMEntityWithoutCopy`, and ' +
         'the insert branch of `OIMEntityContentService.insertSlotContent` (reached by `writeSlotContentByKey`) calls `fillEntity` and no other ' +
         'member of the writer — so the two arms should run the same code on this path. [FIGURE ' +
         'STATED IN ADVANCE] Expect the two arms to differ by less than each row\'s own noise; a ' +
@@ -207,7 +207,7 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
                 run: times => {
                     for (let i = 0; i < times; i++) entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]);
                     db.flush();
-                    priceSink.ours = entityService.findSlotByKey(entityStoreSlot, readKey)?.entity;
+                    priceSink.ours = entityService.peekSlotByKey(entityStoreSlot, readKey)?.entity;
                 },
             },
             floor: {
@@ -326,7 +326,7 @@ const groupedIndexPair = (id: string, arm: string, replacing: boolean): TPricePa
         `THE ARM IS ${arm.toUpperCase()}. THE MOVE IS THE ENGINE'S: the index listens to the `,
         'collection\'s content changes, so `updateEntity` alone re-files the row — `updateIndexKeyForSlot` reads the ',
         'previous key off the slot\'s index-key cell, runs `keyOf` on the new entity, writes the ',
-        'cell, and calls `findSlotByKey` then `addBucketMemberSlot` for the new key and `findSlotByKey` then `removeBucketMemberSlot` for the old, each a hash ',
+        'cell, and calls `peekSlotByKey` then `addBucketMemberSlot` for the new key and `peekSlotByKey` then `removeBucketMemberSlot` for the old, each a hash ',
         'of the address, a `Set` edit, a hold or an unhold and a channel mark queued to the change ',
         'close. A caller writes one call and cannot forget to move a row. [FIGURE STATED IN ',
         'ADVANCE] Expect this to be the closest arm of the task; if a manual door comes out ',

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.0
+
+### Changed
+
+- Requires `@oimdb/core` 4.9.0; `oimDefaultCollectionMapper` / `oimDefaultGlobalIndexMapper` / `oimDefaultKeyedIndexMapper` → `mapOIMCollection` / `mapOIMGlobalIndex` / `mapOIMKeyedIndex`.
+
 ## 3.1.1
 
 ### Changed

@@ -103,7 +103,7 @@ The steps run in this order:
    for the unload's batch.
 2. When the unload's turn comes, one write batch of its own carries what that
    resource still has pending **and** the current value of every unloaded key, read
-   through `IOIMPersistRecordSource.readRecordsDelta(findEntitySlotsByKeys(keys))`. So an edit no
+   through `IOIMPersistRecordSource.readRecordsDelta(peekEntitySlotsByKeys(keys))`. So an edit no
    flush had reached yet is not lost, and neither is an edit the resource never
    heard: one made while the persistor was stopped, or while the resource was
    quarantined. A key whose slot still exists but holds no value is written as a

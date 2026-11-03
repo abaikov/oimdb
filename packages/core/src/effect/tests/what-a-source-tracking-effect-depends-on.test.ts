@@ -146,11 +146,11 @@ describe('what a source-tracking effect depends on', () => {
             runCount++;
         });
         const sourceSlotsAfterFirstRun = effect.sourceSlots;
-        const allRootSlotsAfterFirstRun = effect.allRootSlots;
+        const rootSlotsAfterFirstRun = effect.rootSlots;
         for (let i = 0; i < 5; i++) writeText(db, firstService, first, `text${i}`);
         expect(runCount).toBe(6);
         expect([effectCountOf(firstService.getSingleSlot(first)), effectCountOf(secondService.getSingleSlot(second))]).toEqual([1, 1]);
         expect(effect.sourceSlots === sourceSlotsAfterFirstRun).toBe(true);
-        expect(effect.allRootSlots === allRootSlotsAfterFirstRun).toBe(true);
+        expect(effect.rootSlots === rootSlotsAfterFirstRun).toBe(true);
     });
 });

@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel } from '@oimdb/core';
+import { OIMDB, OIMSlotAfterIdleReleasePolicy, mintOIMAfterIdleSlotReleaseWheel } from '@oimdb/core';
 import { createTestEntityCollection } from './shared/createTestEntityCollection';
 
 type TCard = { id: string; title: string };
@@ -14,7 +14,7 @@ const buildWorld = (keepAfterIdleMs: number) => {
     const disposer = persistEntityWriter.subscribeEntitySlotWritten(entitySlot => { reportedKeys.push(String(entitySlot.key)); });
     return {
         flushAfterIdleReleaseSlotCollector: (): void => {
-            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+            mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
         },
         entityCollectionService,
         entityStoreSlot,
@@ -28,7 +28,7 @@ describe('an entity persisted through the write-driven arm', () => {
     it('is collected on its window, exactly as an unpersisted one is', () => {
         const world = buildWorld(30_000);
         world.entityCollectionService.writeSlotContentByKey(world.entityStoreSlot, 'c1', { id: 'c1', title: 'one' });
-        expect(world.entityCollectionService.findSlotByKey(world.entityStoreSlot, 'c1')?.entity)
+        expect(world.entityCollectionService.peekSlotByKey(world.entityStoreSlot, 'c1')?.entity)
             .toEqual({ id: 'c1', title: 'one' });
         expect(world.reportedKeys).toEqual(['c1']);
 

@@ -3,7 +3,7 @@
  * engine had already answered about keys, and had answered the other way.
  *
  * `same-key-and-what-a-map-would-say.test.ts` settled the ADDRESS half:
- * `oimSameValueZeroGuard` decides "the same key" as a `Map` does, by SameValueZero, so
+ * `isOIMSameValueZero` decides "the same key" as a `Map` does, by SameValueZero, so
  * `NaN` is a key like any other. What was left unsettled was the same
  * value one call earlier — "did this column move?" — which three write-path
  * defaults answered by hand with `(a, b) => a === b`:
@@ -16,13 +16,13 @@
  * So one write held two answers about one value. The strategy said the `NaN`
  * column changed — the collection then recorded it, marked the slot and the
  * collection, and drove the reindex — and the index it drove asked
- * `isAddressedBy`, which is `oimSameValueZeroGuard`, which said the slot had not moved at all.
+ * `isAddressedBy`, which is `isOIMSameValueZero`, which said the slot had not moved at all.
  * A poll re-sending unchanged entities therefore woke every subscriber of every
  * such slot for ever, and under `createOIMReplacingEntityWriter` allocated a fresh entity and
  * handed a new reference to every reader that compares by reference. Nothing
  * threw.
  *
- * The three defaults are one module now, `oimSameValueZeroGuard`, and this file is what
+ * The three defaults are one module now, `isOIMSameValueZero`, and this file is what
  * makes that a decision rather than a coincidence.
  *
  * A WRITE NO LONGER DRIVES A REINDEX AT ALL — a bucket's slots are the caller's, and
@@ -34,11 +34,11 @@
  * AND `isAddressedBy` WENT WITH THE BUCKET KEY STORES. A bucket is filed in an
  * ordinary `OIMSlotMapStoreService`, which is a `Map` — so the store's rule
  * is the container's, asked below by resolving the same `NaN` key twice, beside
- * `oimSameValueZeroGuard` asked directly.
+ * `isOIMSameValueZero` asked directly.
  */
 import { OIMDB } from '../src/db/OIMDB';
 import { OIMEffectService } from '../src/effect/OIMEffectService';
-import { oimSameValueZeroGuard } from '../src/slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../src/slot/utils/isOIMSameValueZero';
 import { createOIMInPlaceEntityWriter } from '../src/entity/createOIMInPlaceEntityWriter';
 import { createOIMReplacingEntityWriter } from '../src/entity/createOIMReplacingEntityWriter';
 import { OIMSetBucketContentService } from '../src/bucket/OIMSetBucketContentService';
@@ -62,7 +62,7 @@ const createFixture =(strategy: IOIMEntityWriter = createOIMInPlaceEntityWriter(
     const readingsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TReading>({ entityWriter: strategy }) });
     const readings = readingsService.createStoreSlot(db);
     const updateReading = (key: string, patch: Partial<TReading>): void => {
-        const readingSlot = readingsService.findSlotByKey(readings, key);
+        const readingSlot = readingsService.peekSlotByKey(readings, key);
         if (readingSlot !== undefined) readingsService.slotContentService.updateEntity(readingSlot, patch);
     };
     return { db, effectService, readingsService, readings, updateReading };
@@ -86,7 +86,7 @@ describe('a column that is not equal to itself', () => {
         // `OIMSlotContentEntityStrategy` writes both, so a column
         // wrongly called displaced is heard on either of them.
         effectService.createEffect(db, () => { slotWoke++; }, [slot]);
-        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumn(slot, 'score')]);
+        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumnSlot(slot, 'score')]);
         db.flush();
         slotWoke = 0;
         columnWoke = 0;
@@ -119,7 +119,7 @@ describe('a column that is not equal to itself', () => {
         const slot = readingsService.getSlotByKey(readings, 'r1');
 
         let columnWoke = 0;
-        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumn(slot, 'score')]);
+        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumnSlot(slot, 'score')]);
 
         updateReading('r1',{ score: 2 });
         db.flush();
@@ -167,10 +167,10 @@ describe('a column that is not equal to itself', () => {
         // The store's rule, asked of the container that keeps it and of the
         // function that states it.
         expect(byScoreService.getSlotByKey(byScore, Number.NaN)).toBe(heldSlot);
-        expect(oimSameValueZeroGuard(Number.NaN, Number.NaN)).toBe(true);
+        expect(isOIMSameValueZero(Number.NaN, Number.NaN)).toBe(true);
 
         let columnWoke = 0;
-        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumn(slot, 'score')]);
+        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumnSlot(slot, 'score')]);
 
         updateReading('r1',{ score: Number.NaN });
         db.flush();
@@ -240,7 +240,7 @@ describe('a column that is not equal to itself', () => {
         const slot = readingsService.holdSlotByKey(readings, 'r1');
 
         let runs = 0;
-        const scoreService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+        const scoreService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
         const score = scoreService.createStoreSlot(
             db,
             () => { runs++; return Number(slot.entity?.label); },
@@ -251,7 +251,7 @@ describe('a column that is not equal to itself', () => {
             return readValueWithoutTracking(scoreSlot);
         };
         const belowRuns: number[] = [];
-        const belowService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+        const belowService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
         const below = belowService.createStoreSlot(
             db,
             () => { belowRuns.push(scoreValue()); return 0; },
@@ -298,7 +298,7 @@ describe('a column that is not equal to itself', () => {
      * away from the rule that is actually wanted. It separates `-0` from `0`, so
      * swapping it in writes, reports and wakes on a column set from `0` to `-0`
      * — the same silent defect this file closes, moved to a value nobody types
-     * either. `oimSameValueZeroGuard` refuses `Object.is` at the same value for the same
+     * either. `isOIMSameValueZero` refuses `Object.is` at the same value for the same
      * reason.
      */
     it('does not report a column moved from 0 to -0, which is what Object.is would do', () => {
@@ -309,7 +309,7 @@ describe('a column that is not equal to itself', () => {
         const slot = readingsService.getSlotByKey(readings, 'r1');
 
         let columnWoke = 0;
-        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumn(slot, 'score')]);
+        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumnSlot(slot, 'score')]);
 
         updateReading('r1',{ score: -0 });
         db.flush();
@@ -321,13 +321,13 @@ describe('a column that is not equal to itself', () => {
 /**
  * ONE RULE, CHECKED AGAINST THE CONTAINER.
  *
- * `oimSameValueZeroGuard` answers "the same key" and "the same column value" alike,
+ * `isOIMSameValueZero` answers "the same key" and "the same column value" alike,
  * asserted here against a `Map`, which IS SameValueZero by specification with
  * nothing restated.
  *
  * The two negative assertions are what make this more than decoration: `===`
  * disagrees with the `Map` at `NaN`, `Object.is` disagrees at `-0`, and anyone
- * who "simplifies" `oimSameValueZeroGuard` to either fails here with the value named.
+ * who "simplifies" `isOIMSameValueZero` to either fails here with the value named.
  */
 describe('the same value, and what a Map would say', () => {
     /** The oracle: a one-entry `Map` filed under `a` and asked about `b`. */
@@ -345,7 +345,7 @@ describe('the same value, and what a Map would say', () => {
     it('agrees with a Map at every pair a column could carry', () => {
         for (const a of values) {
             for (const b of values) {
-                expect([a, b, oimSameValueZeroGuard(a, b)]).toEqual([a, b, mapSays(a, b)]);
+                expect([a, b, isOIMSameValueZero(a, b)]).toEqual([a, b, mapSays(a, b)]);
             }
         }
     });
@@ -353,13 +353,13 @@ describe('the same value, and what a Map would say', () => {
     it('is not === , which parts company at NaN', () => {
         // The rejected rule, written as a rule rather than inline.
         const strictEquality = (a: unknown, b: unknown): boolean => a === b;
-        expect(oimSameValueZeroGuard(Number.NaN, Number.NaN)).toBe(true);
+        expect(isOIMSameValueZero(Number.NaN, Number.NaN)).toBe(true);
         expect(strictEquality(Number.NaN, Number.NaN)).toBe(false);
         expect(mapSays(Number.NaN, Number.NaN)).toBe(true);
     });
 
     it('is not Object.is, which parts company at -0', () => {
-        expect(oimSameValueZeroGuard(0, -0)).toBe(true);
+        expect(isOIMSameValueZero(0, -0)).toBe(true);
         expect(Object.is(0, -0)).toBe(false);
         expect(mapSays(0, -0)).toBe(true);
     });

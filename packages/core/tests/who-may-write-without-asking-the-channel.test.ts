@@ -77,7 +77,7 @@ const firstAt = (body: string, pattern: RegExp): number => {
     return match === null ? Infinity : match.index;
 };
 
-const ASKS = /\b(?:assertWritable|assertNotFlushing|oimAssertSlotUnheld)\(/;
+const ASKS = /\b(?:assertWritable|assertNotFlushing|assertOIMSlotUnheld)\(/;
 
 const membersThatWriteBeforeAsking = (code: string): TMember[] => {
     const members = membersOf(code).filter(member => member.name !== 'constructor');
@@ -148,7 +148,7 @@ describe('who may write without asking the channel whether it is flushing', () =
     it('has the content owner\'s assertWritable ask the channel', () => {
         const contentOwner = readFileSync(join(sourceRoot, 'slot/OIMSlotOwnerService.ts'), 'utf8');
         expect(contentOwner).toContain(
-            'public assertWritable(slot: TOIMSlot): void {\n        OIMChannelService.INSTANCE.assertNotFlushing(oimGetChannelSlot(slot));',
+            'public assertWritable(slot: TOIMSlot): void {\n        OIMChannelService.INSTANCE.assertNotFlushing(peekOIMChannelSlot(slot));',
         );
     });
 

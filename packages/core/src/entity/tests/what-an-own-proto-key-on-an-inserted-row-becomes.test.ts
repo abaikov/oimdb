@@ -1,8 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMInPlaceEntityWriter } from '../createOIMInPlaceEntityWriter';
 import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWriter';
-import { oimInsertEntityWithoutCopy } from '../utils/oimInsertEntityWithoutCopy';
-import { oimInsertEntityWithSanitizedCopy } from '../utils/oimInsertEntityWithSanitizedCopy';
+import { insertOIMEntityWithoutCopy } from '../utils/insertOIMEntityWithoutCopy';
+import { insertOIMEntityWithSanitizedCopy } from '../utils/insertOIMEntityWithSanitizedCopy';
 import type { TOIMEntityInserter } from '../types/TOIMEntityInserter';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -87,7 +87,7 @@ const storedBy = (entityInserter: TOIMEntityInserter, handed: TRow): TRow => {
 
 describe('what an own __proto__ key on an inserted row becomes', () => {
     it.each(cases)('leaves the stored row on Object.prototype either way: $named', (one: TCase) => {
-        const shipped = storedBy(oimInsertEntityWithSanitizedCopy, one.handed());
+        const shipped = storedBy(insertOIMEntityWithSanitizedCopy, one.handed());
         const withoutTheDelete = storedBy(spreadWithoutDeletingTheKey, one.handed());
 
         expect(Object.getPrototypeOf(shipped)).toBe(Object.prototype);
@@ -95,7 +95,7 @@ describe('what an own __proto__ key on an inserted row becomes', () => {
     });
 
     it.each(cases)('keeps the stored row\'s own keys to its columns: $named', (one: TCase) => {
-        const shipped = storedBy(oimInsertEntityWithSanitizedCopy, one.handed());
+        const shipped = storedBy(insertOIMEntityWithSanitizedCopy, one.handed());
         const withoutTheDelete = storedBy(spreadWithoutDeletingTheKey, one.handed());
 
         expect(Object.getOwnPropertyNames(shipped)).toEqual(['id', 'n']);
@@ -104,7 +104,7 @@ describe('what an own __proto__ key on an inserted row becomes', () => {
     });
 
     it.each(cases)('cannot become a prototype on a copy assigned by name: $named', (one: TCase) => {
-        const shipped = storedBy(oimInsertEntityWithSanitizedCopy, one.handed());
+        const shipped = storedBy(insertOIMEntityWithSanitizedCopy, one.handed());
         const withoutTheDelete = storedBy(spreadWithoutDeletingTheKey, one.handed());
 
         expect(Object.getPrototypeOf(Object.assign({}, shipped))).toBe(Object.prototype);
@@ -115,14 +115,14 @@ describe('what an own __proto__ key on an inserted row becomes', () => {
     it.each(cases)('is kept as handed by the shipped default, which stores the very object: $named', (one: TCase) => {
         const handed = one.handed();
 
-        expect(storedBy(oimInsertEntityWithoutCopy, handed)).toBe(handed);
+        expect(storedBy(insertOIMEntityWithoutCopy, handed)).toBe(handed);
     });
 
     it('is absent after a PATCH on a row inserted through the sanitized copy', () => {
-        const { rowsService, rows } = replacingRowsFilledBy(oimInsertEntityWithSanitizedCopy);
+        const { rowsService, rows } = replacingRowsFilledBy(insertOIMEntityWithSanitizedCopy);
         rowsService.writeSlotContentByKey(rows, (JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow).id, JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow);
 
-        const stored = rowsService.slotContentService.updateEntity(rowsService.findSlotByKey(rows, 'r1')!, { n: 2 }).entity as TRow;
+        const stored = rowsService.slotContentService.updateEntity(rowsService.peekSlotByKey(rows, 'r1')!, { n: 2 }).entity as TRow;
 
         expect(Object.hasOwn(stored, PROTO_KEY)).toBe(false);
         expect(Object.getPrototypeOf(stored)).toBe(Object.prototype);
@@ -130,7 +130,7 @@ describe('what an own __proto__ key on an inserted row becomes', () => {
     });
 
     it('is gone from the row the sanitized arm stores, and from every write after it', () => {
-        const { rowsService, rows } = replacingRowsFilledBy(oimInsertEntityWithSanitizedCopy);
+        const { rowsService, rows } = replacingRowsFilledBy(insertOIMEntityWithSanitizedCopy);
         rowsService.writeSlotContentByKey(rows, (JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow).id, JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow);
 
         const stored = rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 2 }).entity as TRow;

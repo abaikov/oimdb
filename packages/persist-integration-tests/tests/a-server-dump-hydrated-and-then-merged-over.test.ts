@@ -2,7 +2,7 @@ import type { TOIMEntitySlot, TOIMStoreSlot } from '@oimdb/core';
 import { createOIMInPlaceEntityWriter, OIMDB } from '@oimdb/core';
 import type { TOIMPersistHydrateReconcile, TOIMPersistRecords } from '@oimdb/persist';
 import {
-    oimReconcileByKey,
+    reconcileOIMByKey,
     OIMPersistEntityWriter,
     OIMPersistor,
     OIMPersistCollectionChangeWriteRecordSource,
@@ -37,7 +37,7 @@ type TQuestionCollection = {
 };
 
 const reconcileAnswerOntoQuestion: TOIMPersistHydrateReconcile<TOIMPersistRecords<string, TQuestion>> =
-    oimReconcileByKey<string, TQuestion>((currentQuestion, incomingAnswer) =>
+    reconcileOIMByKey<string, TQuestion>((currentQuestion, incomingAnswer) =>
         currentQuestion === undefined
             ? incomingAnswer
             : { ...currentQuestion, answer: incomingAnswer.answer }
@@ -74,7 +74,7 @@ function entitiesOf(entityCollectionService: TQuestionCollectionService, entityS
 }
 
 function findQuestion(questionCollection: TQuestionCollection, key: string): TQuestion | undefined {
-    return questionCollection.entityCollectionService.findSlotByKey(questionCollection.entityStoreSlot, key)?.entity;
+    return questionCollection.entityCollectionService.peekSlotByKey(questionCollection.entityStoreSlot, key)?.entity;
 }
 
 describe('SSR data cycle across packages (json + idb)', () => {

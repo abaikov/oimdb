@@ -7,6 +7,7 @@ import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
 import type { TOIMSortedArrayBucketContentServiceOptions } from './types/TOIMSortedArrayBucketContentServiceOptions';
 import { OIMArrayBucketContentService } from './OIMArrayBucketContentService';
 import { OIM_NOTHING_WAS_REMOVED } from './constants/OIM_NOTHING_WAS_REMOVED';
+import { OIMWholeListBucketCommands } from './commands/OIMWholeListBucketCommands';
 
 export class OIMSortedArrayBucketContentService<
     TBucketMemberSlot extends TOIMSlot = TOIMSlot, TKey extends NonNullable<unknown> = TOIMStoreKey,
@@ -14,7 +15,10 @@ export class OIMSortedArrayBucketContentService<
     private readonly compareBucketMemberSlots: (left: TBucketMemberSlot, right: TBucketMemberSlot) => number;
 
     public constructor(options: TOIMSortedArrayBucketContentServiceOptions<TBucketMemberSlot>) {
-        super({ bucketMemberSlotsArrayService: options.bucketMemberSlotsArrayService });
+        super({
+            bucketMemberSlotsArrayService: options.bucketMemberSlotsArrayService,
+            bucketCommands: options.bucketCommands === undefined ? undefined : new OIMWholeListBucketCommands(options.bucketCommands),
+        });
         this.compareBucketMemberSlots = options.compareBucketMemberSlots;
     }
 
@@ -46,6 +50,8 @@ export class OIMSortedArrayBucketContentService<
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>;
         slotOwnerService.assertWritable(bucketSlot);
         if (this.removeSlot(bucketSlot, bucketMemberSlot) === OIM_NOTHING_WAS_REMOVED) return;
-        if (this.addSlot(bucketSlot, bucketMemberSlot)) this.announceBucketSlotChanged(bucketSlot);
+        if (!this.addSlot(bucketSlot, bucketMemberSlot)) return;
+        this.bucketCommands.recordWholeList(bucketSlot);
+        this.announceBucketSlotChanged(bucketSlot);
     }
 }

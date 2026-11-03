@@ -1,5 +1,5 @@
 import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
-import { OIMChannelService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
+import { OIMChannelService, createOIMInPlaceEntityWriter, isOIMSameValueZero } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
@@ -49,7 +49,7 @@ const guardedForIn: TRung = (fixture, trackedFrame, patch, upTo) => {
         for (const name in source) {
             if (name === '__proto__') continue;
             if (!Object.prototype.hasOwnProperty.call(source, name)) continue;
-            if (oimSameValueZeroGuard(entity[name], source[name])) continue;
+            if (isOIMSameValueZero(entity[name], source[name])) continue;
             entity[name] = source[name];
             isWritten = true;
         }
@@ -163,7 +163,7 @@ export const alternativePairsUpdateLadder: readonly TPricePair[] = [
     ladderPair('1-patch-walk', bareForIn, 'for…in over the patch, ===, queue once per frame',
         directField, 'entity.title = value after ===, queue once per frame',
         'a patch object and a for…in over it instead of a named column.'),
-    ladderPair('2-guards-and-same-value', guardedForIn, 'the same walk with the `__proto__` check, hasOwnProperty and oimSameValueZeroGuard',
+    ladderPair('2-guards-and-same-value', guardedForIn, 'the same walk with the `__proto__` check, hasOwnProperty and isOIMSameValueZero',
         bareForIn, 'for…in over the patch, ===, queue once per frame',
         'the two key guards and the SameValueZero comparison the shipped walk runs.'),
     ladderPair('3-writer-object', writerObject, 'createOIMInPlaceEntityWriter().patchEntity(slot, patch), queue once per frame',

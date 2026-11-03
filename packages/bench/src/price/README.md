@@ -323,11 +323,11 @@ ours and calling the result a subscription cost.
 Every row hands a writer (`IOIMEntityWriter`) or a subclass to the SHIPPED
 entity content service, so the rejected design is driven through the same
 `updateEntity` or `writeSlotContentByKey` as the one it lost to. Each floor holds the shipped walk's
-own helpers — `oimIsProtoKey`, `oimIsPlainObject`, `oimOwnedColumnNames`,
+own helpers — `isOIMProtoKey`, `isOIMPlainObject`, `getOIMOwnedColumnNames`,
 `OIM_FROZEN_EMPTY_COLUMN_NAMES` — imported from `packages/core/src/engine/entity/`, so
 a row differs by the one thing it is named after. `changedColumns`, the detection half
 of the spreading arm, is no longer shipped and lives beside it in `./changedColumns.ts`. The equality every floor uses is
-`oimSameValueZeroGuard`, the shipped default, for the same reason.
+`isOIMSameValueZero`, the shipped default, for the same reason.
 
 Each update side is primed and then checked (`assertWideRowsHold`) to hold the
 patch it was handed, and each removal population is checked to have lost `c15`
@@ -401,7 +401,7 @@ Values a timed body writes come out of `titles` rather than being built per writ
 
 ### Why there are eight titles
 
-So consecutive frames always write a value the store does not already hold — `createOIMInPlaceEntityWriter` gates on the value guard (`oimSameValueZeroGuard`) and returns early on a re-send, which is a DIFFERENT price with its own row (`update.unchanged-vs-store`).
+So consecutive frames always write a value the store does not already hold — `createOIMInPlaceEntityWriter` gates on the value guard (`isOIMSameValueZero`) and returns early on a re-send, which is a DIFFERENT price with its own row (`update.unchanged-vs-store`).
 
 ## priceFixture
 
@@ -481,7 +481,7 @@ for free.
 
 It compares four columns named at compile time where `patchEntity` enumerates
 whatever the patch carries, and it never asks which columns the stored row has that
-the new one does not, where the writer's `putEntity` (`oimPutEntityColumns`) walks
+the new one does not, where the writer's `putEntity` (`putOIMEntityColumns`) walks
 the stored row after it walks the patch. Both push our ratio UP, and the second is a
 whole extra walk of the row.
 

@@ -1,5 +1,5 @@
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { oimIsSlotReleased } from '@oimdb/core';
+import { isOIMSlotReleased } from '@oimdb/core';
 import type { OIMPersistKeyValueWriteBatch, TOIMPersistRecords, TOIMPersistRecordsDelta } from '../src';
 import {
     OIMPersistIdentityCodec,
@@ -11,7 +11,7 @@ import {
     OIMPersistSnapshotResource,
     OIMPersistMicrotaskScheduler,
     OIMPersistor,
-    oimReconcileByKey,
+    reconcileOIMByKey,
 } from '../src';
 import { OIMTestKeyValueItemStorage } from './shared/OIMTestKeyValueItemStorage';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
@@ -41,7 +41,7 @@ const updateCardByKey = (
 const deleteCardByKey = (
     cardEntityCollectionService: TCardEntityCollectionService, cardEntityStoreSlot: TCardEntityStoreSlot, key: TOIMStoreKey,
 ): void => {
-    const cardSlot = cardEntityCollectionService.findSlotByKey(cardEntityStoreSlot, key);
+    const cardSlot = cardEntityCollectionService.peekSlotByKey(cardEntityStoreSlot, key);
     if (cardSlot !== undefined) cardEntityCollectionService.slotContentService.clearSlotContent(cardSlot);
 };
 
@@ -160,7 +160,7 @@ describe('OIMPersistCollectionWriteRecordSource', () => {
         ]).map(entity => cardEntityCollectionService.writeSlotContentByKey(cardEntityStoreSlot, entity.id, entity)));
 
         expect(persistCollectionWriteRecordSource.readRecordsDelta(
-            persistCollectionWriteRecordSource.findEntitySlotsByKeys(['c2', 'missing']),
+            persistCollectionWriteRecordSource.peekEntitySlotsByKeys(['c2', 'missing']),
         )).toEqual({
             upserts: [{ key: 'c2', entity: { id: 'c2', title: 'beta' } }],
             deletedKeys: [],
@@ -177,8 +177,8 @@ describe('OIMPersistCollectionWriteRecordSource', () => {
         persistCollectionWriteRecordSource.writeSnapshot({ records: [{ key: 'c1', entity: { id: 'c1', title: 'ALPHA' } }] });
 
         expect(keysOf(persistCollectionWriteRecordSource.readSnapshot())).toEqual(['c1']);
-        expect(cardEntityCollectionService.findSlotByKey(cardEntityStoreSlot, 'c1')?.entity?.title).toBe('ALPHA');
-        expect(cardEntityCollectionService.findSlotByKey(cardEntityStoreSlot, 'c2')?.entity).toBeUndefined();
+        expect(cardEntityCollectionService.peekSlotByKey(cardEntityStoreSlot, 'c1')?.entity?.title).toBe('ALPHA');
+        expect(cardEntityCollectionService.peekSlotByKey(cardEntityStoreSlot, 'c2')?.entity).toBeUndefined();
     });
 
     it('reads a key released and minted again as the live entity, not as a deletion', () => {
@@ -187,7 +187,7 @@ describe('OIMPersistCollectionWriteRecordSource', () => {
         deleteCardByKey(cardEntityCollectionService, cardEntityStoreSlot, 'c1');
         const mintedCardSlot = cardEntityCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'again' });
 
-        expect(oimIsSlotReleased(releasedCardSlot)).toBe(true);
+        expect(isOIMSlotReleased(releasedCardSlot)).toBe(true);
         expect(mintedCardSlot).not.toBe(releasedCardSlot);
         expect(persistCollectionWriteRecordSource.readRecordsDelta(new Set([releasedCardSlot, mintedCardSlot]))).toEqual({
             upserts: [{ key: 'c1', entity: { id: 'c1', title: 'again' } }],
@@ -217,7 +217,7 @@ describe('a records resource over the write-driven arm', () => {
         expect(reportCountBeforeHydrate).toBeGreaterThan(0);
 
         await persistRecordsResource.hydrate(testPersistBackend);
-        expect(cardEntityCollectionService.findSlotByKey(cardEntityStoreSlot, 'c1')?.entity?.title).toBe('stored');
+        expect(cardEntityCollectionService.peekSlotByKey(cardEntityStoreSlot, 'c1')?.entity?.title).toBe('stored');
         expect(reportCount).toBe(reportCountBeforeHydrate);
 
         updateCardByKey(cardEntityCollectionService, cardEntityStoreSlot, 'c1', { title: 'edited' });
@@ -363,7 +363,7 @@ describe('hydrating a whole collection', () => {
             persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TCardPersistRecords>({ storageKey: 'cards' }),
             persistCodec: new OIMPersistIdentityCodec<TCardPersistRecords>(),
             persistHydrateReconcile: withReconcile
-                ? oimReconcileByKey<TOIMStoreKey, TCard>((_currentCard, incomingCard) => incomingCard)
+                ? reconcileOIMByKey<TOIMStoreKey, TCard>((_currentCard, incomingCard) => incomingCard)
                 : undefined,
         }));
     }
@@ -379,11 +379,11 @@ describe('hydrating a whole collection', () => {
 
         await persistor.hydrate();
 
-        expect(cardEntityCollectionService.findSlotByKey(cardEntityStoreSlot, 'c1')?.entity?.title).toBe('stored');
-        expect(cardEntityCollectionService.findSlotByKey(cardEntityStoreSlot, 'c2')?.entity).toBeUndefined();
+        expect(cardEntityCollectionService.peekSlotByKey(cardEntityStoreSlot, 'c1')?.entity?.title).toBe('stored');
+        expect(cardEntityCollectionService.peekSlotByKey(cardEntityStoreSlot, 'c2')?.entity).toBeUndefined();
     });
 
-    it('keeps it when the resource was given oimReconcileByKey', async () => {
+    it('keeps it when the resource was given reconcileOIMByKey', async () => {
         const { testKeyValueItemStorage, persistor } = buildPersistor();
         testKeyValueItemStorage.itemByStorageKey.set('cards', JSON.stringify({
             records: [{ key: 'c1', entity: { id: 'c1', title: 'stored' } }],
@@ -394,8 +394,8 @@ describe('hydrating a whole collection', () => {
 
         await persistor.hydrate();
 
-        expect(cardEntityCollectionService.findSlotByKey(cardEntityStoreSlot, 'c1')?.entity?.title).toBe('stored');
-        expect(cardEntityCollectionService.findSlotByKey(cardEntityStoreSlot, 'c2')?.entity?.title).toBe('seeded');
+        expect(cardEntityCollectionService.peekSlotByKey(cardEntityStoreSlot, 'c1')?.entity?.title).toBe('stored');
+        expect(cardEntityCollectionService.peekSlotByKey(cardEntityStoreSlot, 'c2')?.entity?.title).toBe('seeded');
     });
 
     it('does not write the hydrated collection back out when autosave starts after it', async () => {

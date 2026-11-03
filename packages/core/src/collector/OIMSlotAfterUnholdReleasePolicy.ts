@@ -1,8 +1,8 @@
 import type { IOIMSlotReleasePolicy } from './interfaces/IOIMSlotReleasePolicy';
 import type { TOIMSlotAfterUnholdReleasePolicyOptions } from './types/TOIMSlotAfterUnholdReleasePolicyOptions';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
-import { oimGetChannelSlot } from '../slot/utils/oimGetChannelSlot';
-import { oimMintAfterUnholdSlotReleaseWheel } from './utils/oimMintAfterUnholdSlotReleaseWheel';
+import { peekOIMChannelSlot } from '../slot/utils/peekOIMChannelSlot';
+import { mintOIMAfterUnholdSlotReleaseWheel } from './utils/mintOIMAfterUnholdSlotReleaseWheel';
 
 export class OIMSlotAfterUnholdReleasePolicy implements IOIMSlotReleasePolicy {
     public readonly releasesWrittenSlots = true;
@@ -24,11 +24,11 @@ export class OIMSlotAfterUnholdReleasePolicy implements IOIMSlotReleasePolicy {
     }
 
     public onSlotUnheld(slot: TOIMSlot): void {
-        oimMintAfterUnholdSlotReleaseWheel(oimGetChannelSlot(slot).collectorSlot).markSlotReleaseDue(slot, this.keepAfterUnholdMs);
+        mintOIMAfterUnholdSlotReleaseWheel(peekOIMChannelSlot(slot).collectorSlot).markSlotReleaseDue(slot, this.keepAfterUnholdMs);
     }
 
     public isSlotReleasable(slot: TOIMSlot): boolean {
-        return oimMintAfterUnholdSlotReleaseWheel(oimGetChannelSlot(slot).collectorSlot).isSlotReleasable(slot);
+        return mintOIMAfterUnholdSlotReleaseWheel(peekOIMChannelSlot(slot).collectorSlot).isSlotReleasable(slot);
     }
 
     public isEmptySlotReleasable(): boolean {
@@ -36,6 +36,6 @@ export class OIMSlotAfterUnholdReleasePolicy implements IOIMSlotReleasePolicy {
     }
 
     public cancelSlotRelease(slot: TOIMSlot): void {
-        oimMintAfterUnholdSlotReleaseWheel(oimGetChannelSlot(slot).collectorSlot).cancelSlotRelease(slot);
+        mintOIMAfterUnholdSlotReleaseWheel(peekOIMChannelSlot(slot).collectorSlot).cancelSlotRelease(slot);
     }
 }

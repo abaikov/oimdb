@@ -4,13 +4,17 @@ import type { IOIMSlotOwner } from '../slot/interfaces/IOIMSlotOwner';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
 import type { TOIMColumnSlot } from '../column/types/TOIMColumnSlot';
-import type { TOIMEntityColumnName } from './types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../column/types/TOIMColumnName';
 import type { OIMEntityContentService } from './OIMEntityContentService';
 import type { TOIMEntitySlot } from './types/TOIMEntitySlot';
 import type { TOIMEntitySlotOwnerService } from './types/TOIMEntitySlotOwnerService';
+import type { TOIMDisposer } from '../schedule/types/TOIMDisposer';
+import type { TOIMSlot } from '../slot/types/TOIMSlot';
+import { createOIMEffectDisposer } from '../effect/utils/createOIMEffectDisposer';
+import { createOIMColumnGroup } from '../column/utils/createOIMColumnGroup';
 
 export class OIMEntitySlot<
-    TEntity extends object = object, TKey extends NonNullable<unknown> = NonNullable<unknown>, TColumnName extends TOIMEntityColumnName<TEntity> = TOIMEntityColumnName<TEntity>,
+    TEntity extends object = object, TKey extends NonNullable<unknown> = NonNullable<unknown>, TColumnName extends TOIMColumnName<TEntity> = TOIMColumnName<TEntity>,
 > extends OIMSlot {
     public key: TKey;
 
@@ -30,7 +34,7 @@ export class OIMEntitySlot<
         return this.content;
     }
 
-    public readEntity(columnGroup: TOIMColumnGroup): TEntity | undefined {
+    public getEntity(columnGroup: TOIMColumnGroup): TEntity | undefined {
         OIM_ACTIVE_SOURCE_TRACKER.sourceTracker?.trackSourceSlot(this, columnGroup);
         return this.content;
     }
@@ -47,7 +51,7 @@ export class OIMEntitySlot<
         return this.entityContentService().updateEntityColumn(this, columnName, value);
     }
 
-    public deleteEntityColumns(columnNames: readonly TOIMEntityColumnName<TEntity>[]): this {
+    public deleteEntityColumns(columnNames: readonly TOIMColumnName<TEntity>[]): this {
         return this.entityContentService().deleteEntityColumns(this, columnNames);
     }
 
@@ -59,28 +63,34 @@ export class OIMEntitySlot<
         this.entityContentService().clearSlotContent(this);
     }
 
-    public getColumn(columnName: TColumnName): TOIMColumnSlot {
-        return this.entitySlotOwnerService().columnSlotService.getColumn(this, columnName);
+    public getColumnSlot(columnName: TColumnName): TOIMColumnSlot {
+        return this.entitySlotOwnerService().columnSlotService.getColumnSlot(this, columnName);
     }
 
-    public holdColumn(columnName: TColumnName): TOIMColumnSlot {
-        return this.entitySlotOwnerService().columnSlotService.holdColumn(this, columnName);
+    public holdColumnSlot(columnName: TColumnName): TOIMColumnSlot {
+        return this.entitySlotOwnerService().columnSlotService.holdColumnSlot(this, columnName);
     }
 
-    public getAnyColumn(): TOIMColumnSlot {
-        return this.entitySlotOwnerService().columnSlotService.getAnyColumn(this);
+    public getAnyColumnSlot(): TOIMColumnSlot {
+        return this.entitySlotOwnerService().columnSlotService.getAnyColumnSlot(this);
     }
 
-    public holdAnyColumn(): TOIMColumnSlot {
-        return this.entitySlotOwnerService().columnSlotService.holdAnyColumn(this);
+    public holdAnyColumnSlot(): TOIMColumnSlot {
+        return this.entitySlotOwnerService().columnSlotService.holdAnyColumnSlot(this);
     }
 
     public getColumnGroupSlot(columnGroup: TOIMColumnGroup): TOIMColumnSlot {
         return this.entitySlotOwnerService().columnSlotService.getColumnGroupSlot(this, columnGroup);
     }
 
-    public holdColumnGroup(columnGroup: TOIMColumnGroup): TOIMColumnSlot {
-        return this.entitySlotOwnerService().columnSlotService.holdColumnGroup(this, columnGroup);
+    public holdColumnGroupSlot(columnGroup: TOIMColumnGroup): TOIMColumnSlot {
+        return this.entitySlotOwnerService().columnSlotService.holdColumnGroupSlot(this, columnGroup);
+    }
+
+    public watch(body: (entity: TEntity | undefined) => void, columnNames?: readonly [TColumnName, ...TColumnName[]]): TOIMDisposer {
+        const sourceSlot: TOIMSlot = columnNames === undefined ? this
+            : columnNames.length === 1 ? this.getColumnSlot(columnNames[0]) : this.getColumnGroupSlot(createOIMColumnGroup(columnNames));
+        return createOIMEffectDisposer({ defaultChannelSlot: this.storeSlot.channelSlot }, () => { body(this.content); }, [sourceSlot]);
     }
 
     private entitySlotOwnerService(): TOIMEntitySlotOwnerService<TEntity, TOIMEntitySlot<TEntity, TKey>, unknown, TColumnName> {

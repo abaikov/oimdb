@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMComputedService } from '../createOIMComputedService';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMColumnGroup } from '../../column/utils/createOIMColumnGroup';
@@ -32,7 +32,7 @@ function setUp() {
     );
     db.flush();
     const updateCard = (id: string, patch: Partial<TCard>): void => {
-        const cardSlot = cardsService.findSlotByKey(cards, id);
+        const cardSlot = cardsService.peekSlotByKey(cards, id);
         if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, patch);
     };
     return { db, effectService, cardsService, cards, summaryService: summaryComputedService, summary, updateCard };
@@ -41,7 +41,7 @@ function setUp() {
 describe('a column of a computed value', () => {
     it('wakes its effect when that field of the derived value changes', () => {
         const { db, effectService, updateCard, summaryService, summary } = setUp();
-        const topRank = summaryService.columnSlotService.holdColumn(summaryService.getSingleSlot(summary), 'topRank');
+        const topRank = summaryService.getSingleSlot(summary).holdColumnSlot('topRank');
         const seen: unknown[] = [];
         effectService.createAndRunEffect(db, () => { seen.push(readValueWithoutTracking(summaryService.getSingleSlot(summary) as TOIMComputedContentSlot<TSummary>).topRank); }, [], [topRank]);
 
@@ -53,7 +53,7 @@ describe('a column of a computed value', () => {
 
     it('stays silent when another field of the derived value changes', () => {
         const { db, effectService, updateCard, summaryService, summary } = setUp();
-        const topRank = summaryService.columnSlotService.holdColumn(summaryService.getSingleSlot(summary), 'topRank');
+        const topRank = summaryService.getSingleSlot(summary).holdColumnSlot('topRank');
         let runs = 0;
         effectService.createAndRunEffect(db, () => { runs++; }, [], [topRank]);
 
@@ -66,13 +66,13 @@ describe('a column of a computed value', () => {
 
     it('hands a new column group slot its value at once', () => {
         const { summaryService, summary } = setUp();
-        const group = summaryService.columnSlotService.holdColumnGroup(summaryService.getSingleSlot(summary), summaryColumns);
+        const group = summaryService.getSingleSlot(summary).holdColumnGroupSlot(summaryColumns);
         expect(group.value).toBeDefined();
     });
 
     it('wakes a column group once when any of its fields changes, and not for the others', () => {
         const { db, effectService, updateCard, summaryService, summary } = setUp();
-        const group = summaryService.columnSlotService.holdColumnGroup(summaryService.getSingleSlot(summary), summaryColumns);
+        const group = summaryService.getSingleSlot(summary).holdColumnGroupSlot(summaryColumns);
         let runs = 0;
         effectService.createAndRunEffect(db, () => { runs++; }, [], [group]);
 
@@ -87,7 +87,7 @@ describe('a column of a computed value', () => {
 
     it('wakes the any-column slot whenever the derived value changes', () => {
         const { db, effectService, updateCard, summaryService, summary } = setUp();
-        const anyColumn = summaryService.columnSlotService.holdAnyColumn(summaryService.getSingleSlot(summary));
+        const anyColumn = summaryService.getSingleSlot(summary).holdAnyColumnSlot();
         let runs = 0;
         effectService.createAndRunEffect(db, () => { runs++; }, [], [anyColumn]);
 
@@ -102,24 +102,27 @@ describe('a column of a computed value', () => {
     it('keeps its computed slot alive while held and is released after the last hold goes', () => {
         const { db, summaryService, summary } = setUp();
         const computedSlot = summaryService.getSingleSlot(summary);
-        const topRank = summaryService.columnSlotService.holdColumn(computedSlot, 'topRank');
+        const topRank = summaryService.columnSlotService.holdColumnSlot(computedSlot, 'topRank');
         db.flush();
-        expect(oimIsSlotReleased(computedSlot)).toBe(false);
+        expect(isOIMSlotReleased(computedSlot)).toBe(false);
 
-        summaryService.columnSlotService.unholdColumn(topRank);
+        summaryService.columnSlotService.unholdColumnSlot(topRank);
         db.flush();
 
-        expect(oimIsSlotReleased(topRank)).toBe(true);
+        expect(isOIMSlotReleased(topRank)).toBe(true);
     });
 
-    it('is a computed slot of the same shape as every other, its carrier the only source', () => {
-        const { summaryService, summary } = setUp();
+    it('is the column slot an entity column is, its carrier the only source', () => {
+        const { cardsService, cards, summaryService, summary } = setUp();
         const computedSlot = summaryService.getSingleSlot(summary);
-        const topRank = summaryService.columnSlotService.holdColumn(computedSlot, 'topRank');
+        const topRank = summaryService.columnSlotService.holdColumnSlot(computedSlot, 'topRank');
+        const titleColumn = cardsService.columnSlotService.holdColumnSlot(cardsService.getSlotByKey(cards, 'ace'), 'title');
 
-        expect(Object.keys(topRank).sort()).toEqual(Object.keys(computedSlot).sort());
+        expect(Object.keys(topRank)).toEqual(Object.keys(titleColumn));
+        expect(topRank.constructor).toBe(titleColumn.constructor);
         expect(topRank.sourceComputeds).toEqual([computedSlot]);
-        summaryService.columnSlotService.unholdColumn(topRank);
+        expect(topRank.carrierSlot).toBe(computedSlot);
+        summaryService.columnSlotService.unholdColumnSlot(topRank);
     });
 
     it('reads its field from each key of a computed collection on its own', () => {
@@ -129,7 +132,7 @@ describe('a column of a computed value', () => {
             derive: computedSlot => ({ size: (cardsService.getSlotByKey(cards, computedSlot.key === 'spades' ? 'ace' : 'two').entity?.rank ?? 0) * 10 }),
         });
         const ranksByDeck = ranksByDeckComputedService.createStoreSlot(db);
-        const spadesSize = ranksByDeckComputedService.columnSlotService.holdColumn(ranksByDeckComputedService.holdSlotByKey(ranksByDeck, 'spades'), 'size');
+        const spadesSize = ranksByDeckComputedService.holdSlotByKey(ranksByDeck, 'spades').holdColumnSlot('size');
         const seen: number[] = [];
         effectService.createAndRunEffect(db, () => { seen.push(spadesSize.value as number); }, [], [spadesSize]);
 

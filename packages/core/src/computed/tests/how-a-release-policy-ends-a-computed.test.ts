@@ -1,15 +1,15 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotAfterUnholdReleasePolicy } from '../../collector/OIMSlotAfterUnholdReleasePolicy';
-import { oimMintAfterUnholdSlotReleaseWheel } from '../../collector/utils/oimMintAfterUnholdSlotReleaseWheel';
-import { oimMintAfterWriteSlotReleaseWheel } from '../../collector/utils/oimMintAfterWriteSlotReleaseWheel';
+import { mintOIMAfterUnholdSlotReleaseWheel } from '../../collector/utils/mintOIMAfterUnholdSlotReleaseWheel';
+import { mintOIMAfterWriteSlotReleaseWheel } from '../../collector/utils/mintOIMAfterWriteSlotReleaseWheel';
 import { OIMSlotAfterWriteReleasePolicy } from '../../collector/OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotEarliestReleasePolicy } from '../../collector/OIMSlotEarliestReleasePolicy';
 import { OIMSlotAtEmptyReleasePolicy } from '../../collector/OIMSlotAtEmptyReleasePolicy';
 import { OIMSlotNeverReleasePolicy } from '../../collector/OIMSlotNeverReleasePolicy';
 import { OIM_SLICE_LENGTH_MS } from '../../collector/constants/OIM_SLICE_LENGTH_MS';
 import type { IOIMSlotReleasePolicy } from '../../collector/interfaces/IOIMSlotReleasePolicy';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
@@ -61,14 +61,14 @@ const createFixture = (slotReleasePolicyFor?: (clock: TClock) => IOIMSlotRelease
 const afterUnhold = (keepAfterUnholdMs: number) => ({
     policyFor: (_clock: TClock): IOIMSlotReleasePolicy => new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs }),
     flush: (db: OIMDB): void => {
-        oimMintAfterUnholdSlotReleaseWheel(db.collectorSlot).flush();
+        mintOIMAfterUnholdSlotReleaseWheel(db.collectorSlot).flush();
     },
 });
 
 const afterWrite = (keepAfterWriteMs: number) => ({
     policyFor: (_clock: TClock): IOIMSlotReleasePolicy => new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs }),
     flush: (db: OIMDB): void => {
-        oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
+        mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
     },
 });
 
@@ -80,7 +80,7 @@ describe('a computed under the default policy', () => {
 
         first.owner.unholdSlot(first);
 
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
         expect(card.holdCount).toBe(0);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', rank: 4 });
         expect(rankService.getSingleValue(rank)).toBe(4);
@@ -92,11 +92,11 @@ describe('a computed under the default policy', () => {
         const effect = effectService.createEffect(db, () => undefined, [], [rankService.getSingleSlot(rank)]);
         const subscribed = rankService.getSingleSlot(rank);
         db.flush();
-        expect(oimIsSlotReleased(subscribed)).toBe(false);
+        expect(isOIMSlotReleased(subscribed)).toBe(false);
 
         effectService.disposeEffect(effect);
 
-        expect(oimIsSlotReleased(subscribed)).toBe(true);
+        expect(isOIMSlotReleased(subscribed)).toBe(true);
         expect(card.holdCount).toBe(0);
     });
 });
@@ -108,7 +108,7 @@ describe('a computed kept after its last unhold', () => {
         const first = rankService.holdSingleSlot(rank);
         first.owner.unholdSlot(first);
 
-        expect(oimIsSlotReleased(first)).toBe(false);
+        expect(isOIMSlotReleased(first)).toBe(false);
         expect(card.holdCount).toBe(1);
         expect(rankService.holdSingleSlot(rank)).toBe(first);
     });
@@ -121,7 +121,7 @@ describe('a computed kept after its last unhold', () => {
 
         db.flush();
 
-        expect(oimIsSlotReleased(first)).toBe(false);
+        expect(isOIMSlotReleased(first)).toBe(false);
         expect(rankService.getSingleSlot(rank)).toBe(first);
         expect(rankService.getSingleValue(rank)).toBe(1);
         expect(derives()).toBe(1);
@@ -136,7 +136,7 @@ describe('a computed kept after its last unhold', () => {
         clock.at(START + LONG + 1);
         keep.flush(db);
 
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
         expect(card.holdCount).toBe(0);
     });
 
@@ -145,7 +145,7 @@ describe('a computed kept after its last unhold', () => {
         const { cardsService, cards, rankService, rank } = createFixture(keep.policyFor);
         expect(rankService.getSingleValue(rank)).toBe(1);
 
-        const cardSlot = cardsService.findSlotByKey(cards, 'a');
+        const cardSlot = cardsService.peekSlotByKey(cards, 'a');
         if (cardSlot !== undefined) cardsService.slotContentService.clearSlotContent(cardSlot);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', rank: 5 });
         expect(rankService.getSingleValue(rank)).toBe(5);
@@ -167,7 +167,7 @@ describe('a computed under the policy that keeps a filled slot', () => {
         effectService.disposeEffect(effect);
         db.flush();
 
-        expect(oimIsSlotReleased(read)).toBe(false);
+        expect(isOIMSlotReleased(read)).toBe(false);
         expect(rankService.getSingleSlot(rank)).toBe(read);
         expect(card.holdCount).toBe(1);
         expect(derives()).toBe(1);
@@ -182,7 +182,7 @@ describe('a computed under the policy that releases nothing', () => {
         effectService.disposeEffect(effectService.createEffect(db, () => undefined, [], [rankService.getSingleSlot(rank)]));
         db.flush();
 
-        expect(oimIsSlotReleased(first)).toBe(false);
+        expect(isOIMSlotReleased(first)).toBe(false);
         expect(rankService.getSingleSlot(rank)).toBe(first);
         expect(card.holdCount).toBe(1);
     });
@@ -194,17 +194,17 @@ describe('a computed under a deadline counted from its mint', () => {
         const { db, cardsService, cards, rankService, rank, clock } = createFixture(due.policyFor);
         const first = rankService.holdSingleSlot(rank);
         first.owner.unholdSlot(first);
-        expect(oimIsSlotReleased(first)).toBe(false);
+        expect(isOIMSlotReleased(first)).toBe(false);
 
         clock.at(START + SHORT - 1);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', rank: 3 });
         expect(rankService.getSingleValue(rank)).toBe(3);
         due.flush(db);
-        expect(oimIsSlotReleased(first)).toBe(false);
+        expect(isOIMSlotReleased(first)).toBe(false);
 
         clock.at(START + SHORT + OIM_SLICE_LENGTH_MS);
         due.flush(db);
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
     });
 });
 
@@ -222,6 +222,6 @@ describe('a computed under the earliest of two policies', () => {
         due.flush(db);
         keep.flush(db);
 
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
     });
 });

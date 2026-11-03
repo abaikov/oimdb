@@ -5,7 +5,7 @@ import type { TOIMEditable } from './types/TOIMEditable';
 import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
 import type { IOIMSlotSubscriptionListener } from './interfaces/IOIMSlotSubscriptionListener';
 import { OIMNoSlotSubscriptionListener } from './OIMNoSlotSubscriptionListener';
-import { oimAssertSlotNotReleased } from './utils/oimAssertSlotNotReleased';
+import { assertOIMSlotNotReleased } from './utils/assertOIMSlotNotReleased';
 import { OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS } from './constants/OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS';
 export abstract class OIMSlotOwner implements IOIMSlotOwner {
     private readonly slotSubscriptionListener: IOIMSlotSubscriptionListener;
@@ -86,7 +86,7 @@ export abstract class OIMSlotOwner implements IOIMSlotOwner {
     }
 
     protected assertNotReleased(slot: TOIMSlot): void {
-        oimAssertSlotNotReleased(slot);
+        assertOIMSlotNotReleased(slot);
     }
 }
 

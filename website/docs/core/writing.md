@@ -6,7 +6,7 @@ description: Which write door of an entity content service to call, what each wr
 # Writing
 
 ```ts setup
-import { OIMDB, OIMEffectService, oimInsertEntityWithCopy, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimPatchEntityColumn, oimPatchEntityColumns, oimPutEntityColumns, oimSameValueZeroGuard, type IOIMEntityWriter, type TOIMEntitySlot, type TOIMEditable, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService, type TOIMEntityContentSlot, type OIMEntitySlot, OIMDefaults } from '@oimdb/core';
+import { OIMDB, OIMEffectService, insertOIMEntityWithCopy, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, patchOIMEntityColumn, patchOIMEntityColumns, putOIMEntityColumns, isOIMSameValueZero, type IOIMEntityWriter, type TOIMEntitySlot, type TOIMEditable, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService, type TOIMEntityContentSlot, type OIMEntitySlot, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -45,7 +45,7 @@ a store slot too, so it always reports.
 
 The by-key write is on the collection service; every other write door is on its content service and
 takes the slot you hold, because the slot carries the store slot it is filed in. A key that arrives
-from outside is resolved with `cardService.getSlotByKey(cards, key)` (or `findSlotByKey`, which mints
+from outside is resolved with `cardService.getSlotByKey(cards, key)` (or `peekSlotByKey`, which mints
 nothing) and written through.
 
 | Call | What it does |
@@ -57,7 +57,7 @@ nothing) and written through.
 | `clearSlotContent(slot)` | The value leaves; the identity stays for as long as anything still refers to it. |
 | `deleteEntityColumns(slot, names)` | Take named columns away from an identity you hold. Returns the slot. |
 | `markEntityChanged(slot, changedColumns?)` | Report a change you made to `slot.entity` yourself. |
-| `cardService.findSlotByKey(storeSlot, key)?.entity` | Not a write: the entity or `undefined`, minting nothing. |
+| `cardService.peekSlotByKey(storeSlot, key)?.entity` | Not a write: the entity or `undefined`, minting nothing. |
 
 There are no bulk writes: many entities are a loop of these, inside `cardService.writeInBatch(cards, () => …)`
 when an index on the collection should hear them at once.
@@ -73,7 +73,7 @@ declare const keyFromTheServer: string;
 
 const held = cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', title: 'Two', rank: 2 });
 held.updateEntity({ rank: 3 });
-const fromTheServer = cardService.findSlotByKey(cards, keyFromTheServer);
+const fromTheServer = cardService.peekSlotByKey(cards, keyFromTheServer);
 if (fromTheServer !== undefined) fromTheServer.updateEntity({ rank: 4 });
 held.clearSlotContent();
 ```
@@ -113,7 +113,7 @@ of the store slot it is filed in, which is how an index re-files the entity — 
 ```ts
 const slot = cardService.writeSlotContentByKey(cards, 'c3', { id: 'c3', title: 'Three', rank: 3 });
 let rankRuns = 0;
-const rankColumn = slot.holdColumn('rank');
+const rankColumn = slot.holdColumnSlot('rank');
 const rankEffect = effectService.createEffect(db, () => { rankRuns++; }, [rankColumn]);
 db.flush();
 rankRuns = 0;
@@ -175,28 +175,28 @@ that landed stay.
 
 ### The store keeps the object you insert
 
-Under the default `oimInsertEntityWithoutCopy`, the store keeps the object you hand
+Under the default `insertOIMEntityWithoutCopy`, the store keeps the object you hand
 in, and that object is what is stored and handed to readers. From then on, change it
 only through the content service: `updateEntity`, or `markEntityChanged` after you edit it
 by hand. If you edit it and call `writeSlotContentByKey` with the same object again, nobody is
 told: the store already holds those values, so no column reads as changed. It is the
 same mistake as editing a stored entity without `markEntityChanged`. With the in-place writer a
 later update edits that same object; with the replacing writer it leaves your object
-alone and stores a new one. `oimInsertEntityWithCopy` stores `{ ...entity }` instead, so
-mutating the object you passed afterwards does nothing. `oimInsertEntityWithSanitizedCopy`
+alone and stores a new one. `insertOIMEntityWithCopy` stores `{ ...entity }` instead, so
+mutating the object you passed afterwards does nothing. `insertOIMEntityWithSanitizedCopy`
 stores a copy with an own `__proto__` key removed: pick it when you insert untrusted JSON
 (for example `JSON.parse` of data from other users). You pass any one to a writer factory
 as `entityInserter`, and it decides only the first value a slot gets (`fillEntity`):
 
 ```ts
-const copyingCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+const copyingCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithCopy }) }) });
 const copiedCards = copyingCardService.createStoreSlot(db);
 
 const mine = { id: 'c9', title: 'Nine', rank: 9 };
 copyingCardService.writeSlotContentByKey(copiedCards, mine.id, mine).entity === mine;   // false
 ```
 
-Pass `entityInserter: oimInsertEntityWithCopy` whenever the caller must keep its
+Pass `entityInserter: insertOIMEntityWithCopy` whenever the caller must keep its
 object untouched, or anything else may still hold it. The default suits an object
 already yours to give away (freshly parsed, never shared), where a copy is pure cost.
 
@@ -216,7 +216,7 @@ slot.markEntityChanged(
 ```
 
 Every other write derives the verdict: the writer walks the value that
-arrived (`oimPatchEntityColumns`, `oimPutEntityColumns`) and puts each column through `sameValueGuard`. A caller who edited the stored
+arrived (`patchOIMEntityColumns`, `putOIMEntityColumns`) and puts each column through `sameValueGuard`. A caller who edited the stored
 object by hand already holds that verdict, so this door accepts it instead of
 recomputing it: no patch object to build, no copy, no comparison per column.
 
@@ -343,17 +343,17 @@ Left out everywhere, the writer is the in-place writer, `createOIMInPlaceEntityW
 ### Writing your own writer
 
 ```ts signature
-oimPatchEntityColumns(slot, patch: object, sameValueGuard, changedColumnNames: string[] | undefined,
+patchOIMEntityColumns(slot, patch: object, sameValueGuard, changedColumnNames: string[] | undefined,
     targetOf: (entity: Record<string, unknown>) => Record<string, unknown>): Record<string, unknown> | undefined
-oimPatchEntityColumn(slot, columnName: string, value: unknown, sameValueGuard, changedColumnNames: string[] | undefined,
+patchOIMEntityColumn(slot, columnName: string, value: unknown, sameValueGuard, changedColumnNames: string[] | undefined,
     targetOf: (entity: Record<string, unknown>) => Record<string, unknown>): Record<string, unknown> | undefined
-oimPutEntityColumns(slot, entity: object, sameValueGuard, changedColumnNames: string[] | undefined,
+putOIMEntityColumns(slot, entity: object, sameValueGuard, changedColumnNames: string[] | undefined,
     targetOf: (entity: Record<string, unknown>) => Record<string, unknown>): Record<string, unknown> | undefined
-oimGuardedPutEntityColumns(slot, entity: object, sameValueGuard, changedColumnNames: string[] | undefined,
+guardOIMEntityColumnsPut(slot, entity: object, sameValueGuard, changedColumnNames: string[] | undefined,
     targetOf: (entity: Record<string, unknown>) => Record<string, unknown>): Record<string, unknown> | undefined
 ```
 
-These are the column walks both shipped writers run; `oimPatchEntityColumn` is the
+These are the column walks both shipped writers run; `patchOIMEntityColumn` is the
 one-column form behind `patchColumn`, with no patch object to walk. Each compares every column
 through `sameValueGuard`, writes the moved ones into the object `targetOf` hands
 back on the first move (the stored entity itself when in place, a copy when
@@ -365,9 +365,9 @@ with two arms:
 
 | Option | Default | Guarded arm |
 |---|---|---|
-| `putEntityColumns` | `oimPutEntityColumns` — skips neither `__proto__` keys nor inherited stored columns | `oimGuardedPutEntityColumns` — skips both |
-| `patchEntityColumns` | `oimPatchEntityColumns` — every enumerable key of the patch | `oimGuardedPatchEntityColumns` — skips a `__proto__` key and a key the patch does not own |
-| `patchEntityColumn` | `oimPatchEntityColumn` | `oimGuardedPatchEntityColumn` — refuses the column name `__proto__` |
+| `putEntityColumns` | `putOIMEntityColumns` — skips neither `__proto__` keys nor inherited stored columns | `guardOIMEntityColumnsPut` — skips both |
+| `patchEntityColumns` | `patchOIMEntityColumns` — every enumerable key of the patch | `guardOIMEntityColumnsPatch` — skips a `__proto__` key and a key the patch does not own |
+| `patchEntityColumn` | `patchOIMEntityColumn` | `guardOIMEntityColumnPatch` — refuses the column name `__proto__` |
 
 Take the guarded arms, at a cost on every write, for values that can carry a `__proto__` key or are class
 instances, on `createOIMInPlaceEntityWriter` or `createOIMReplacingEntityWriter`.
@@ -389,11 +389,11 @@ const freezingWriter: IOIMEntityWriter = {
     fillEntity: (slot, entity) => { storeFrozen(slot, copyColumns(entity as Record<string, unknown>)); },
     clearEntity: replacingWriter.clearEntity,
     putEntity: (slot, entity, changedColumnNames) =>
-        storeFrozen(slot, oimPutEntityColumns(slot, entity, oimSameValueZeroGuard, changedColumnNames, copyColumns)),
+        storeFrozen(slot, putOIMEntityColumns(slot, entity, isOIMSameValueZero, changedColumnNames, copyColumns)),
     patchEntity: (slot, patch, changedColumnNames) =>
-        storeFrozen(slot, oimPatchEntityColumns(slot, patch, oimSameValueZeroGuard, changedColumnNames, copyColumns)),
+        storeFrozen(slot, patchOIMEntityColumns(slot, patch, isOIMSameValueZero, changedColumnNames, copyColumns)),
     patchColumn: (slot, columnName, value, changedColumnNames) =>
-        storeFrozen(slot, oimPatchEntityColumn(slot, columnName, value, oimSameValueZeroGuard, changedColumnNames, copyColumns)),
+        storeFrozen(slot, patchOIMEntityColumn(slot, columnName, value, isOIMSameValueZero, changedColumnNames, copyColumns)),
     deleteColumns: (slot, names) => {
         const deleted = replacingWriter.deleteColumns(slot, names);
         if (deleted.length !== 0) storeFrozen(slot, slot.content as Record<string, unknown>);
@@ -422,12 +422,12 @@ wakes anyone for it.
 `createOIMReplacingEntityWriter` produces a new object per changed write, so a consumer that compares
 by reference (a memoised render, a shallow-equality selector, a library that
 diffs props) sees the change without being told. The new object is a spread copy
-(`oimCopyEntity`), and a column it takes away is
+(`copyOIMEntity`), and a column it takes away is
 `undefined` on it, as above. A write that changed nothing keeps the old object.
 
 ### `sameValueGuard`
 
-Both writers take it as `sameValueGuard` in their options, defaulting to `oimSameValueZeroGuard`
+Both writers take it as `sameValueGuard` in their options, defaulting to `isOIMSameValueZero`
 — `===` except that `NaN` equals itself. Pass your own when a column's "did it
 move" is not identity:
 
@@ -472,7 +472,7 @@ every key that was deleted before the snapshot was taken, so a plain load quietl
 resurrects them.
 
 A misspelt column in `deleteEntityColumns` is a compile error naming the column, because
-its parameter is `readonly TOIMEntityColumnName<TEntity>[]`.
+its parameter is `readonly TOIMColumnName<TEntity>[]`.
 
 See [Standalone records](/docs/core/object) for the rest of its surface.
 

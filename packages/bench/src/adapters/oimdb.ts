@@ -1,5 +1,5 @@
 import { OIMCompositeKeyTreeWalk } from '../../../core/dist/index.js';
-import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMColumnGroup, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimInsertEntityWithCopy, oimSameValueZeroGuard} from '../../../core/dist/index.js';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMColumnGroup, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, insertOIMEntityWithCopy, isOIMSameValueZero} from '../../../core/dist/index.js';
 import type {
     IOIMSlotReleasePolicy,
     OIMPushColumnSlotOwner,
@@ -14,7 +14,7 @@ import type {
     TOIMComputedStoreSlot,
     TOIMEffect,
     TOIMEntitySlot,
-    TOIMEntityColumnName,
+    TOIMColumnName,
     TOIMIndexKeyOptions,
     TOIMSortColumn,
     TOIMStoreKey,
@@ -53,7 +53,7 @@ type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
 type TRowColumnName = 'rank' | 'label' | 'note';
 type TRowStore = Map<TOIMStoreKey, TRowSlot>;
 type TEntityService<
-    TKey extends NonNullable<unknown>, TEntity extends object, TStore, TColumnName extends string = TOIMEntityColumnName<TEntity>,
+    TKey extends NonNullable<unknown>, TEntity extends object, TStore, TColumnName extends string = TOIMColumnName<TEntity>,
 > = OIMWritableSlotCollectionService<
     TKey, TOIMEntitySlot<TEntity, TKey>, TStore, TEntity, OIMEntityContentService<TEntity, TKey, TColumnName>,
     TColumnName, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
@@ -111,7 +111,7 @@ const createRowEntityService = (): TRowEntityService =>
 const GROUP_ORDER_SORTED_AT_READ: TGroupOrderStrategy<TGroupOrderComputedSlot, readonly TOIMEntitySlot<TRow, TOIMStoreKey>[]> = {
     createGroupOrders: (entityService, entityStoreSlot, indexKeyOptions, slotReleasePolicy) => {
         const indexService = createOIMSlotCollectionIndexService<
-            TRow, TOIMStoreKey, readonly TOIMEntityColumnName<TRow>[], TOIMStoreKey, TRowStore, TGroupSlots,
+            TRow, TOIMStoreKey, readonly TOIMColumnName<TRow>[], TOIMStoreKey, TRowStore, TGroupSlots,
             OIMSetBucketContentService<TOIMEntitySlot<TRow, TOIMStoreKey>>
         >({
             ...indexKeyOptions,
@@ -145,7 +145,7 @@ const createGroupOrdersSortedAtWrite = (
     slotReleasePolicy?: IOIMSlotReleasePolicy,
 ) => {
     const indexService = createOIMSlotCollectionSortedArrayIndexService<
-        TRow, TOIMStoreKey, readonly TOIMEntityColumnName<TRow>[], TOIMStoreKey, TRowStore, TSortedGroupIndexStore
+        TRow, TOIMStoreKey, readonly TOIMColumnName<TRow>[], TOIMStoreKey, TRowStore, TSortedGroupIndexStore
     >({
         ...indexKeyOptions,
         entityService,
@@ -230,7 +230,7 @@ const bindRowWrites = (
         remove: ids => {
             entityService.writeInBatch(entityStoreSlot, () => {
                 for (let i = 0; i < ids.length; i++) {
-                    const rowSlot = entityService.findSlotByKey(entityStoreSlot, ids[i]);
+                    const rowSlot = entityService.peekSlotByKey(entityStoreSlot, ids[i]);
                     if (rowSlot !== undefined) slotContentService.clearSlotContent(rowSlot);
                 }
             });
@@ -314,7 +314,7 @@ const createWindowViews: TWindowViewsCreator = <TGroupOrder, TOrderedSlots>(
                 visible.length = 0;
                 for (let at = offset; at < orderedSlotCount && visible.length < windowSize; at++) {
                     const slot = groupOrders.getOrderedSlotAt(orderedSlots, at);
-                    const entity = slot.readEntity(renderedColumns);
+                    const entity = slot.getEntity(renderedColumns);
                     if (entity === undefined) continue;
                     visible.push(entity);
                 }
@@ -443,8 +443,8 @@ const bindViews = <TGroupOrder, TOrderedSlots>(
             noteText.length = pinned.length;
             for (let i = 0; i < pinned.length; i++) {
                 const slot = pinned[i];
-                const labelColumnSlot = entityService.columnSlotService.holdColumn(slot, 'label');
-                const noteColumnSlot = entityService.columnSlotService.holdColumn(slot, 'note');
+                const labelColumnSlot = entityService.columnSlotService.holdColumnSlot(slot, 'label');
+                const noteColumnSlot = entityService.columnSlotService.holdColumnSlot(slot, 'note');
                 cellColumnSlots.push(labelColumnSlot, noteColumnSlot);
                 cellEffects.push(
                     effectService.createEffect(db, () => {
@@ -539,7 +539,7 @@ const createChurnMounts = (
                 ? chainLevelOf(joinedLabelsOf(computedSlot.sourceSlots as readonly TRowSlot[]), 1)
                 : chainLevelOf((computedSlot.sourceComputeds[0] as TChurnDerivationSlot).value, level);
         },
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const chainComputedStoreSlot: TChurnComputedStoreSlot = chainComputedService.createStoreSlot(db);
 
@@ -564,7 +564,7 @@ const createChurnMounts = (
             const label = labelOf(computedSlot.sourceSlots[0] as TRowSlot);
             return node === DIAMOND_LEFT ? diamondLeftOf(label) : diamondRightOf(label);
         },
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const diamondComputedStoreSlot: TChurnComputedStoreSlot = diamondComputedService.createStoreSlot(db);
 
@@ -674,9 +674,9 @@ const bindChurnStore = (churnConsumer: BenchConsumer): TChurnBinding => {
         },
         mountOnColumn: at => {
             const slot = churnSlots[0];
-            const columnSlot = entityService.columnSlotService.holdColumn(slot, 'label');
+            const columnSlot = entityService.columnSlotService.holdColumnSlot(slot, 'label');
             churnEffects[at] = effectService.createEffect(db, churnBody(at, slot), [columnSlot]);
-            entityService.columnSlotService.unholdColumn(columnSlot);
+            entityService.columnSlotService.unholdColumnSlot(columnSlot);
             churnRead[at] = labelOf(slot);
         },
         // A STACK OF DERIVATIONS BUILT BY THE MOUNT, and one effect on its head.
@@ -762,7 +762,7 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
             const keys = plan.readKeys;
             found.length = 0;
             for (let i = 0; i < count; i++) {
-                const entity = entityService.findSlotByKey(entityStoreSlot, keys[from + i])?.entity;
+                const entity = entityService.peekSlotByKey(entityStoreSlot, keys[from + i])?.entity;
                 if (entity !== undefined) found.push(entity);
             }
             deliverPage(consumers.a, found, 0, count);
@@ -798,7 +798,7 @@ const bindRelationViews = (consumers: TConsumers): TRelationBinding => {
     const rowEntityStoreSlot = rowEntityService.createStoreSlot(db);
     // The SECOND ENTITY TYPE, and into the SAME channel, so a frame that wrote both
     // types is one frame and one flush.
-    const ownerEntityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TOwner>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+    const ownerEntityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TOwner>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithCopy }) }) });
     const ownerEntityStoreSlot = ownerEntityService.createStoreSlot(db);
     // The records keyed by a COMBINATION OF IDENTITIES. The descent compares nothing:
     // rebuilding `[a, b]` from the same two slots arrives at the same node.

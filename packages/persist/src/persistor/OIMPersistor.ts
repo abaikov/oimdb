@@ -1,11 +1,10 @@
-import { oimDeliverPersistErrors } from '../error/oimDeliverPersistErrors';
+import { deliverOIMPersistErrors } from '../error/deliverOIMPersistErrors';
 import type { TOIMPersistErrorContext } from '../error/types/TOIMPersistErrorContext';
 import type { TOIMPersistErrorHandler } from '../error/types/TOIMPersistErrorHandler';
 import type { TOIMPersistOperation } from '../error/types/TOIMPersistOperation';
 import type { IOIMPersistResource } from '../resource/interfaces/IOIMPersistResource';
 import type { OIMPersistRecordsResource } from '../resource/OIMPersistRecordsResource';
 import type { IOIMPersistScheduler } from '../schedule/interfaces/IOIMPersistScheduler';
-import { oimNoop } from '../utils/oimNoop';
 import type { IOIMPersistBackend } from './interfaces/IOIMPersistBackend';
 import type { IOIMPersistWriteBatch } from './interfaces/IOIMPersistWriteBatch';
 import type { TOIMPersistorOptions } from './types/TOIMPersistorOptions';
@@ -293,7 +292,7 @@ export class OIMPersistor<
         persistResourceFailures: readonly TOIMPersistResourceFailure<TPersistBackend, TWriteBatch>[],
         persistOperation: TOIMPersistOperation,
     ): void {
-        oimDeliverPersistErrors(this.onPersistError, persistResourceFailures.map(persistResourceFailure => ({
+        deliverOIMPersistErrors(this.onPersistError, persistResourceFailures.map(persistResourceFailure => ({
             error: persistResourceFailure.error,
             persistErrorContext: this.persistErrorContextOf(persistResourceFailure.persistResource, persistOperation),
         })));
@@ -337,7 +336,7 @@ export class OIMPersistor<
 
     private enqueue(work: () => Promise<void>): Promise<void> {
         const result = this.persistQueue.then(work);
-        this.persistQueue = result.then(oimNoop, oimNoop);
+        this.persistQueue = result.catch(() => undefined);
         return result;
     }
 }

@@ -2,8 +2,8 @@ import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
 import type { TOIMSlotReleaseWheelOptions } from './types/TOIMSlotReleaseWheelOptions';
 import { OIMSlotWheel } from './OIMSlotWheel';
-import { oimSliceOfMs } from './utils/oimSliceOfMs';
-import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
+import { getOIMSliceOfMs } from './utils/getOIMSliceOfMs';
+import { isOIMSlotReleased } from '../slot/utils/isOIMSlotReleased';
 
 export class OIMSlotReleaseWheel extends OIMSlotWheel {
     public readonly getReleaseDueMs: (slot: TOIMSlot) => number;
@@ -34,7 +34,7 @@ export class OIMSlotReleaseWheel extends OIMSlotWheel {
         const releaseDueMs = this.getReleaseDueMs(slot);
         if (releaseDueMs < 0) return;
         if ((slot.slotFlags & this.releaseScheduledSlotFlag) !== 0) return;
-        this.fileReleaseSlot(oimSliceOfMs(Math.max(releaseDueMs, nowMs)), slot);
+        this.fileReleaseSlot(getOIMSliceOfMs(Math.max(releaseDueMs, nowMs)), slot);
         this.scheduleNextSweep();
     }
 
@@ -60,11 +60,11 @@ export class OIMSlotReleaseWheel extends OIMSlotWheel {
         const slotFlags = slot.slotFlags;
         if ((slotFlags & this.releaseScheduledSlotFlag) === 0) return;
         (slot as TOIMEditable<TOIMSlot>).slotFlags = slotFlags & ~this.releaseScheduledSlotFlag;
-        if (oimIsSlotReleased(slot)) return;
+        if (isOIMSlotReleased(slot)) return;
         const releaseDueMs = this.getReleaseDueMs(slot);
         if (releaseDueMs < 0) return;
         if (releaseDueMs > nowMs) {
-            this.fileReleaseSlot(oimSliceOfMs(releaseDueMs), slot);
+            this.fileReleaseSlot(getOIMSliceOfMs(releaseDueMs), slot);
             return;
         }
         slot.owner.releaseSlotIfUnheld(slot);

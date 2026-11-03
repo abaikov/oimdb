@@ -47,7 +47,7 @@ const exercise = (dbOptions: TOIMDBOptions) => {
     );
     db.flush();
     cardsService.writeSlotContentByKey(cards, 'c3', { id: 'c3', deck: 'd1', rank: 1.5 });
-    const c5Slot = cardsService.findSlotByKey(cards, 'c5');
+    const c5Slot = cardsService.peekSlotByKey(cards, 'c5');
     if (c5Slot !== undefined) cardsService.slotContentService.updateEntity(c5Slot, { rank: 7 });
     db.flush();
     effectService.disposeEffect(effect);
@@ -55,10 +55,10 @@ const exercise = (dbOptions: TOIMDBOptions) => {
     const entitySlots = Array.from({ length: CARDS }, (_, i) => cardsService.getSlotByKey(cards, `c${i}`));
     const bucketSlots = Array.from({ length: 5 }, (_, d) => byDeckService.getSlotByKey(byDeck, `d${d}`));
     const columnSlots = [
-        cardsService.columnSlotService.holdColumn(entitySlots[6], 'rank'), cardsService.columnSlotService.holdColumn(entitySlots[7], 'deck'),
-        byDeckService.holdBucketColumnByKey(byDeck, 'd1', 'rank'),
+        cardsService.columnSlotService.holdColumnSlot(entitySlots[6], 'rank'), cardsService.columnSlotService.holdColumnSlot(entitySlots[7], 'deck'),
+        byDeckService.holdBucketColumnSlotByKey(byDeck, 'd1', 'rank'),
     ];
-    cardsService.columnSlotService.unholdColumn(cardsService.columnSlotService.holdColumn(entitySlots[8], 'note'));
+    cardsService.columnSlotService.unholdColumnSlot(cardsService.columnSlotService.holdColumnSlot(entitySlots[8], 'note'));
     return { db, cards, cardsService, byDeck, byDeckService, top, topService, entitySlots, bucketSlots, columnSlots };
 };
 

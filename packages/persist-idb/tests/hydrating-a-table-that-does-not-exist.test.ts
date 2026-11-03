@@ -98,7 +98,7 @@ describe('the records strategy on a table that was never written', () => {
         targetSearch.db.flush();
 
         expect(targetSearch.readMemberKeys()).toEqual([]);
-        expect(targetSearch.entityService.findSlotByKey(targetSearch.entityStoreSlot, 'c1')?.entity?.title).toBe('alpha');
+        expect(targetSearch.entityService.peekSlotByKey(targetSearch.entityStoreSlot, 'c1')?.entity?.title).toBe('alpha');
         targetPersistor.destroy();
     });
 });

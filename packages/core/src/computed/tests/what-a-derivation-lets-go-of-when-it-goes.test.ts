@@ -1,8 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../createOIMComputedService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -15,7 +15,7 @@ const createFixture =() => {
     const computedService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const ranks = computedService.createStoreSlot(db);
     const flushUnusedSlots = (): void => OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
@@ -36,7 +36,7 @@ describe('the holds a derivation took on its roots', () => {
         // collection that minted it is owed the question and takes it out.
         expect(ranksService.getSlotCount(ranks)).toBe(0);
         expect(source.holdCount).toBe(0);
-        expect(oimIsSlotReleased(source)).toBe(true);
+        expect(isOIMSlotReleased(source)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 
@@ -61,7 +61,7 @@ describe('the holds a derivation took on its roots', () => {
 
         heldSlot.owner.unholdSlot(heldSlot);
 
-        expect(oimIsSlotReleased(source)).toBe(false);
+        expect(isOIMSlotReleased(source)).toBe(false);
         expect(cardsService.getSlotByKey(cards, 'a')).toBe(source);
         expect(cardsService.getSlotCount(cards)).toBe(1);
     });

@@ -17,11 +17,11 @@ describe('a cleanup that disposes its own effect', () => {
             bodies.push(n);
             return () => { if (n >= 1) effectService.disposeEffect(effect); };
         }, [card]);
-        cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 's')!, { n: 1 });
+        cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 's')!, { n: 1 });
         db.flush();
         bodies.length = 0;
 
-        cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 's')!, { n: 2 });
+        cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 's')!, { n: 2 });
         db.flush();
 
         expect(bodies).toEqual([]);

@@ -9,7 +9,7 @@ import type {
     TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
 import { OIMCompositeKeyTreeWalk } from '@oimdb/core';
-import { OIMDB, OIMSetBucketContentService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard} from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, isOIMSameValueZero} from '@oimdb/core';
 import { OIMPositionalArrayBucketContentService } from '@oimdb/core';
 import type { TOIMBinding } from '../src/index';
 import {
@@ -546,7 +546,7 @@ describe('binding a derived value', () => {
         // own, so the row is kept by whoever resolved it.
         const cardSlot = cardsService.holdSlotByKey(cards, 'c1');
         const lengthService = createOIMSingleComputedService<number>({
-            sameValueGuard: oimSameValueZeroGuard,
+            sameValueGuard: isOIMSameValueZero,
         });
         const length = lengthService.createStoreSlot(
             db,

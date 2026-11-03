@@ -11,7 +11,7 @@ import type { TOIMSlot } from './types/TOIMSlot';
 import type { TOIMStoreSlot } from './types/TOIMStoreSlot';
 import type { TOIMSlotCollectionServiceOptions } from './types/TOIMSlotCollectionServiceOptions';
 import { createOIMStoreSlot } from './utils/createOIMStoreSlot';
-import { oimIsSlotEmpty } from './utils/oimIsSlotEmpty';
+import { isOIMSlotEmpty } from './utils/isOIMSlotEmpty';
 
 export abstract class OIMSlotCollectionService<
     TKey extends NonNullable<unknown>, TSlot extends TOIMKeyedSlot<TKey>, TStore, TSlotContentService,
@@ -54,13 +54,13 @@ export abstract class OIMSlotCollectionService<
         return storeSlot;
     }
 
-    public findSlotByKey(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, key: TKey): TSlot | undefined {
+    public peekSlotByKey(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, key: TKey): TSlot | undefined {
         return this.slotStoreService.get(storeSlot.store, key);
     }
 
     public hasSlotContentByKey(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, key: TKey): boolean {
         const slot = this.slotStoreService.get(storeSlot.store, key);
-        return slot !== undefined && !oimIsSlotEmpty(slot);
+        return slot !== undefined && !isOIMSlotEmpty(slot);
     }
 
     public getSlotByKey(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, key: TKey): TSlot {

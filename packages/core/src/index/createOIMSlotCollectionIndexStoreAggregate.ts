@@ -1,7 +1,7 @@
 import type { TOIMBucketSlot } from '../bucket/types/TOIMBucketSlot';
 import type { TOIMBucketSlotsArrayStore } from '../bucket/array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMEntitySlot } from '../entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../column/types/TOIMColumnName';
 import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
 import type { OIMBucketContentService } from '../bucket/OIMBucketContentService';
 import type { OIMPositionalArrayBucketContentService } from '../bucket/OIMPositionalArrayBucketContentService';
@@ -16,7 +16,7 @@ import { createOIMSlotCollectionIndexService } from './createOIMSlotCollectionIn
 
 export function createOIMSlotCollectionIndexStoreAggregate<
     TEntity extends object, TSourceKey extends NonNullable<unknown>, TSourceStore,
-    const TColumns extends readonly TOIMEntityColumnName<TEntity>[] = readonly TOIMEntityColumnName<TEntity>[],
+    const TColumns extends readonly TOIMColumnName<TEntity>[] = readonly TOIMColumnName<TEntity>[],
     TKey extends TOIMStoreKey = [TOIMIndexKey<TEntity, TColumns>] extends [TOIMStoreKey]
         ? Extract<TOIMIndexKey<TEntity, TColumns>, TOIMStoreKey> : never,
     TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity, TSourceKey>>,

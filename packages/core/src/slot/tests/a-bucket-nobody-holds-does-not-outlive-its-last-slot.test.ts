@@ -1,6 +1,6 @@
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
 
-import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, OIMSlotTreeStoreService, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, OIMSlotTreeStoreService, isOIMSlotEmpty, isOIMSlotReleased } from '../../index';
 import type { TOIMBucketSlot, TOIMEntitySlot, TOIMBucketSlotsSetStore, TOIMSlot } from '../../index';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -66,7 +66,7 @@ describe('a bucket nobody holds does not outlive its last slot', () => {
         cardsService.slotContentService.clearSlotContent(card);
         db.flush();
 
-        expect(oimIsSlotEmpty(card)).toBe(true);
+        expect(isOIMSlotEmpty(card)).toBe(true);
         expect(byDeckService.getSlotByKey(byDeck, 'd1')).toBe(d1);
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(d1)).toBe(1);
         // The slot in it is the whole of what keeps it — one reference, counted
@@ -105,7 +105,7 @@ describe('a bucket nobody holds does not outlive its last slot', () => {
         listService.slotContentService.clearSlotContent(bucket);
         expect(listService.getSlotByKey(list, 'ann-today')).toBe(bucket);
         heldSlot.owner.unholdSlot(heldSlot);
-        expect(oimIsSlotReleased(bucket)).toBe(true);
+        expect(isOIMSlotReleased(bucket)).toBe(true);
         expect(listService.getSlotCount(list)).toBe(0);
     });
 
@@ -124,7 +124,7 @@ describe('a bucket nobody holds does not outlive its last slot', () => {
         // No hold, no effect, no slot: the call that took the last one out is
         // where the answer is given.
         listService.slotContentService.clearSlotContent(bucket);
-        expect(oimIsSlotReleased(bucket)).toBe(true);
+        expect(isOIMSlotReleased(bucket)).toBe(true);
         expect(listService.getSlotCount(list)).toBe(0);
     });
 
@@ -184,7 +184,7 @@ describe('a bucket nobody holds does not outlive its last slot', () => {
 
         // And emptying one is a fact about that collection's bucket only.
         leftService.slotContentService.clearSlotContent(inLeft);
-        expect(oimIsSlotReleased(inLeft)).toBe(true);
+        expect(isOIMSlotReleased(inLeft)).toBe(true);
         expect(leftService.getSlotCount(left)).toBe(0);
         expect(rightService.getSlotByKey(right, 'k')).toBe(inRight);
     });
@@ -268,7 +268,7 @@ describe('a slot in two lists is in both of them', () => {
         listService.slotContentService.clearSlotContent(a);
         db.flush();
 
-        expect(oimIsSlotReleased(a)).toBe(true);
+        expect(isOIMSlotReleased(a)).toBe(true);
         expect(listService.slotContentService.getBucketMemberSlotCount(b)).toBe(1);
         expect(c1.holdCount).toBe(1);
     });

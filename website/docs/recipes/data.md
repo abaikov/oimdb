@@ -74,7 +74,7 @@ without restating the rest, `deleteEntityColumns(slot, columnNames)`.
 const slot = messageService.writeSlotContentByKey(messages, 'm1', { id: 'm1', chatId: 'c1', text: 'Hi', pinned: true });
 
 slot.updateEntityColumn('text', 'Hello');      // text moves, pinned stays
-const byKey = messageService.findSlotByKey(messages, 'm1');           // a key arriving from outside
+const byKey = messageService.peekSlotByKey(messages, 'm1');           // a key arriving from outside
 if (byKey !== undefined) byKey.updateEntity({ text: 'Hello!' });
 
 messageService.writeSlotContentByKey(messages, 'm1', { id: 'm1', chatId: 'c1', text: 'Hello!' });   // pinned is taken away
@@ -86,7 +86,7 @@ Why this way: PATCH and PUT are two writer calls, `patchEntity` and
 `putEntity`, and both report the columns that actually moved, so a column
 subscriber of `text` is not woken by a change to `pinned`. Take `updateEntity`
 or `updateEntityColumn` on the slot you hold — the write that returned it already paid for the
-lookup; a key arriving from outside is resolved once with `findSlotByKey` (which mints nothing) or
+lookup; a key arriving from outside is resolved once with `peekSlotByKey` (which mints nothing) or
 `getSlotByKey`. The one by-key write is the whole-value `writeSlotContentByKey`. A dropped column is set to
 `undefined` under both writers rather than deleted, so every entity of a kind
 keeps one object shape; the key stays in `Object.keys`, reads `undefined`, and
@@ -113,7 +113,7 @@ messageService.writeSlotContentByKey(messages, 'm2', { id: 'm2', chatId: 'c1', t
 db.flush();                        // the same slot is filled; onMessage runs again
 
 effectService.disposeEffect(onMessage);
-const gone = ['m2', 'm3'].flatMap((id) => messageService.findSlotByKey(messages, id) ?? []);
+const gone = ['m2', 'm3'].flatMap((id) => messageService.peekSlotByKey(messages, id) ?? []);
 messageService.writeInBatch(messages, () => { for (const entitySlot of gone) entitySlot.clearSlotContent(); });   // a key with no slot is simply not in the list
 ```
 
@@ -204,7 +204,7 @@ const userMemberships = membershipsByUserService.holdSlotByKey(membershipsByUser
 const onUserGroups = effectService.createAndRunEffect(db, () => {
     for (const membershipSlot of userMemberships.getBucketMemberSlots()) {
         const membership = membershipSlot.entity;
-        if (membership !== undefined) render(groupService.findSlotByKey(groups, membership.groupId)?.entity);
+        if (membership !== undefined) render(groupService.peekSlotByKey(groups, membership.groupId)?.entity);
     }
 }, [userMemberships]);
 
@@ -245,7 +245,7 @@ const readMarkService = createOIMSlotCollectionService<ReturnType<typeof createO
 const readMarks = readMarkService.createStoreSlot(db);
 
 readMarkService.writeSlotContentByKey(readMarks, ['u1', 'c1'], { userId: 'u1', chatId: 'c1', lastReadAt: 1 });
-readMarkService.findSlotByKey(readMarks, ['u1', 'c1'])?.entity?.lastReadAt;   // 1: a rebuilt array finds the same slot
+readMarkService.peekSlotByKey(readMarks, ['u1', 'c1'])?.entity?.lastReadAt;   // 1: a rebuilt array finds the same slot
 ```
 
 Why this way: the tree store descends one `Map` lookup per key part and files a
@@ -264,7 +264,7 @@ Reference: [Composite keys come in two strategies](/docs/core/collections#compos
 Take: `createOIMSingleSlotService({ slotReleasePolicy })`, here with `OIMSlotNeverReleasePolicy`; make
 its store slot with `createStoreSlot(db)`, give it its first value with
 `writeSlotContentByKey(settings, entity)`, and read its one slot through the single doors:
-`holdSingleSlot(settings)` (or `getSingleSlot`, or `findSingleSlot` when nothing should be minted). Do not use a
+`holdSingleSlot(settings)` (or `getSingleSlot`, or `peekSingleSlot` when nothing should be minted). Do not use a
 Map-backed collection with one invented key: a Map store files identities per key, and a record has no key.
 
 ```ts
@@ -276,7 +276,7 @@ const settingsContentService = settingsService.slotContentService;
 settingsService.writeSingleSlotContent(settings, { theme: 'dark', fontSize: 14, token: 'abc' });
 const settingsSlot = settingsService.holdSingleSlot(settings);
 
-const themeColumn = settingsSlot.holdColumn('theme');
+const themeColumn = settingsSlot.holdColumnSlot('theme');
 const onTheme = effectService.createEffect(db, () => render(settingsSlot.entity?.theme), [themeColumn]);
 
 settingsSlot.updateEntity({ fontSize: 16 });                 // PATCH; onTheme is not woken
@@ -321,7 +321,7 @@ const posts = postService.createStoreSlot(db);
 const oldPost = postService.writeSlotContentByKey(posts, 'p1', { id: 'p1', title: 'Old', archived: true });
 db.flush();
 postService.hasSlotContentByKey(posts, 'p1');                              // false
-postService.findSlotByKey(posts, 'p1')?.entity?.title;        // 'Old': the value is still stored
+postService.peekSlotByKey(posts, 'p1')?.entity?.title;        // 'Old': the value is still stored
 oldPost.updateEntity({ archived: false });
 postService.hasSlotContentByKey(posts, 'p1');                              // true
 ```

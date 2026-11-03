@@ -44,9 +44,9 @@ const cards = cardService.createStoreSlot(db);
 | You want to know… | Use | Documented at |
 |---|---|---|
 | which keys to write to storage | `@oimdb/persist`: `OIMPersistEntityWriter` reports every entity slot it writes to whoever called its `subscribeEntitySlotWritten(onEntitySlotWritten)`, and an `OIMPersistRecordsResource` over `OIMPersistCollectionWriteRecordSource` keeps those slots until the persistor's next write batch takes them. It needs no channel. | [Persist](/docs/packages/persist) |
-| that one entity, bucket or derived value changed | an effect: `OIMEffectService.INSTANCE.createEffect(db, [slot], [], body)` | [Reading and subscribing](/docs/core/reading-subscribing#subscribing-is-building-an-effect) |
+| that one entity, bucket or derived value changed | an effect: `OIMEffectService.INSTANCE.createEffect(db, body, [slot])` | [Reading and subscribing](/docs/core/reading-subscribing#subscribing-is-building-an-effect) |
 | which entities of a collection changed during a frame | a content-change listener on the collection's store slot, read at the frame boundary | below, and [Indexes](/docs/core/oimindex#the-content-change-hook-and-indexkeys) |
-| whether a slot moved since a point you remember | the slot's own stamps, `changedAtRevision` and `changedAtEpoch`, against `db.clock` (`oimIsAnySlotChangedAfter`) | [The clock](/docs/core/channel#the-clock) |
+| whether a slot moved since a point you remember | the slot's own stamps, `changedAtRevision` and `changedAtEpoch`, against `db.clock` (`isOIMAnySlotChangedAfter`) | [The clock](/docs/core/channel#the-clock) |
 
 ### Which entities changed in a frame
 

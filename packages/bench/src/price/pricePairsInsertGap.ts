@@ -1,6 +1,6 @@
 import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import type { TOIMStoreSlot } from '../../../core/src/index';
-import { OIMDB, OIMSetBucketContentService, OIMSlotMapStoreService, oimInsertEntityWithSanitizedCopy, createOIMInPlaceEntityWriter } from '../../../core/src/index';
+import { OIMDB, OIMSetBucketContentService, OIMSlotMapStoreService, insertOIMEntityWithSanitizedCopy, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type {
     TOIMBucketContentSlot,
     TOIMBucketSlotsSetStore,
@@ -241,13 +241,13 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
     {
         id: 'insert-gap.the-copying-strategy-beyond-the-spread',
         path: EPricePath.PerRowPerWrite,
-        ours: 'oimInsertEntityWithSanitizedCopy(slot, row) — the spread, then the `__proto__` own-key probe',
+        ours: 'insertOIMEntityWithSanitizedCopy(slot, row) — the spread, then the `__proto__` own-key probe',
         floor: 'slot.content = { ...row } — the spread alone',
         caveat:
             'THE ONE PART OF THE COPY THE FLOOR DOES NOT PAY. `baseline-array` allocates '
-            + '`{ ...row }` per inserted row exactly as `oimInsertEntityWithSanitizedCopy` does, so the '
+            + '`{ ...row }` per inserted row exactly as `insertOIMEntityWithSanitizedCopy` does, so the '
             + 'SPREAD is common ground and cannot be in the gap; what is ours alone is what '
-            + '`oimInsertEntityWithSanitizedCopy` does after it — one call and one `Object.hasOwn(stored, '
+            + '`insertOIMEntityWithSanitizedCopy` does after it — one call and one `Object.hasOwn(stored, '
             + '\'__proto__\')`, which is false on every row here, so the `delete` never runs. The '
             + 'slots are minted outside the clock and reused by both arms, so only the record is '
             + 'allocated inside either clock.',
@@ -263,7 +263,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
                     operationsPerPass: ROWS,
                     run: times => {
                         for (let i = 0; i < times; i++) {
-                            oimInsertEntityWithSanitizedCopy(slots[i] as unknown as OIMEntitySlot<TPriceDataRow>, rows[i]);
+                            insertOIMEntityWithSanitizedCopy(slots[i] as unknown as OIMEntitySlot<TPriceDataRow>, rows[i]);
                             priceSink.ours = slots[i];
                         }
                     },

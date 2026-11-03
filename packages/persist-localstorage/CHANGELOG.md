@@ -3,6 +3,12 @@
 All notable changes to `@oimdb/persist-localstorage` are recorded here. This file starts at 4.1.0; releases
 before it were not changelogged.
 
+## 4.1.2
+
+### Changed
+
+- Internal helper renamed to the `@oimdb/core` 4.9 function naming; no API change.
+
 ## 4.1.1
 
 ### Changed

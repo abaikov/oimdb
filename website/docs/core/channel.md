@@ -282,8 +282,7 @@ after the after-each-frame phase, and after the unused-slot collector has given
 its holds back. `isFlushing` is already lowered there, so a write is accepted
 and lands in the next frame. It runs after every `flush()`, including one that had
 nothing to deliver. Use it for state that must live exactly one frame:
-`OIMBucketCommands` resets the recorded commands of the buckets that recorded here, and
-`exoPositionalList` in `@oimdb/exodra` resets its applied-command count. A throw
+`OIMBucketCommands` resets the recorded commands of the buckets that recorded here. A throw
 from a handler goes to the error policy, and the handlers after it still run.
 
 A derivation is asked and receives no delivery: an effect that reads it settles it on

@@ -1,9 +1,9 @@
 import { OIMSlotAfterIdleReleasePolicy } from '../OIMSlotAfterIdleReleasePolicy';
-import { oimMintAfterIdleSlotReleaseWheel } from '../utils/oimMintAfterIdleSlotReleaseWheel';
-import { oimMintAfterWriteSlotReleaseWheel } from '../utils/oimMintAfterWriteSlotReleaseWheel';
+import { mintOIMAfterIdleSlotReleaseWheel } from '../utils/mintOIMAfterIdleSlotReleaseWheel';
+import { mintOIMAfterWriteSlotReleaseWheel } from '../utils/mintOIMAfterWriteSlotReleaseWheel';
 import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotEarliestReleasePolicy } from '../OIMSlotEarliestReleasePolicy';
-import { OIMDB, OIMEffectService, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, isOIMSlotReleased } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -21,8 +21,8 @@ const createFixtureWith = (keepAfterIdleMs: number, keepAfterWriteMs: number) =>
             new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }),
         ]) });
     const cards = cardsService.createStoreSlot(db);
-    const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
-    const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
+    const afterIdleSlotReleaseWheel = mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot);
+    const afterWriteSlotReleaseWheel = mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot);
     return {
         db,
         cardsService,
@@ -46,7 +46,7 @@ const watched = (fixture:ReturnType<typeof createFixtureWith>, card: TCard) => {
 };
 
 const updateByKey = (fixture:ReturnType<typeof createFixtureWith>, key: string, patch: Partial<TCard>): void => {
-    const slot = fixture.cardsService.findSlotByKey(fixture.cards, key);
+    const slot = fixture.cardsService.peekSlotByKey(fixture.cards, key);
     if (slot !== undefined) fixture.cardsService.slotContentService.updateEntity(slot, patch);
 };
 
@@ -95,7 +95,7 @@ describe(`the conflict one marker cannot hold — ${DO_NOT_EDIT_TO_MAKE_IT_PASS}
         fixture.at(START + 51_000);
         fixture.collect();
 
-        expect(oimIsSlotReleased(held.slot)).toBe(true);
+        expect(isOIMSlotReleased(held.slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 
@@ -113,7 +113,7 @@ describe(`the conflict one marker cannot hold — ${DO_NOT_EDIT_TO_MAKE_IT_PASS}
         fixture.at(START + 26_000);
         fixture.collect();
 
-        expect(oimIsSlotReleased(held.slot)).toBe(true);
+        expect(isOIMSlotReleased(held.slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 });
@@ -156,7 +156,7 @@ describe(`two collectors, two queues, nothing shared — ${DO_NOT_EDIT_TO_MAKE_I
         expect(fixture.cardsService.getSlotByKey(fixture.cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
 
         fixture.flushAfterIdle();
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 
@@ -170,14 +170,14 @@ describe(`two collectors, two queues, nothing shared — ${DO_NOT_EDIT_TO_MAKE_I
         expect(fixture.cardsService.getSlotByKey(fixture.cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
 
         fixture.flushAfterWrite();
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 
     it('a collector whose marker was never stamped files nothing', () => {
         let ms = START;
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
-        const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
+        const afterWriteSlotReleaseWheel = mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot);
         const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 60_000 }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });

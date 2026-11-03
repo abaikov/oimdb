@@ -1,8 +1,8 @@
 import { OIMSlotAfterIdleReleasePolicy } from '../OIMSlotAfterIdleReleasePolicy';
-import { oimMintAfterIdleSlotReleaseWheel } from '../utils/oimMintAfterIdleSlotReleaseWheel';
+import { mintOIMAfterIdleSlotReleaseWheel } from '../utils/mintOIMAfterIdleSlotReleaseWheel';
 import { OIMDB } from '../../db/OIMDB';
 import type { TOIMDisposer } from '../../schedule/types/TOIMDisposer';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -22,7 +22,7 @@ const createFixtureAt = () => {
     const cards = cardsService.createStoreSlot(db);
     return {
         db,
-        afterIdleSlotReleaseWheel: oimMintAfterIdleSlotReleaseWheel(db.collectorSlot),
+        afterIdleSlotReleaseWheel: mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot),
         cardsService,
         cards,
         at: (value: number): void => { ms = value; },
@@ -63,7 +63,7 @@ describe('stopping the release clock', () => {
         fixture.at(START + WINDOW + 1_000);
         fixture.afterIdleSlotReleaseWheel.flush();
 
-        expect(oimIsSlotReleased(condemned)).toBe(true);
+        expect(isOIMSlotReleased(condemned)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(1);
         expect(fixture.cardsService.getSlotByKey(fixture.cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
     });

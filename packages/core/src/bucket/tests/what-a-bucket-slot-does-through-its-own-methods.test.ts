@@ -4,7 +4,7 @@ import { OIMSetBucketContentService } from '../OIMSetBucketContentService';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 
 type TCard = { id: string; title: string };
@@ -81,25 +81,25 @@ describe('what a bucket slot does through its own methods', () => {
         const empty = decksService.getSlotByKey(decks, 'd2');
         empty.holdSlot();
         db.flush();
-        expect(oimIsSlotReleased(empty)).toBe(false);
+        expect(isOIMSlotReleased(empty)).toBe(false);
         empty.unholdSlot();
-        expect(oimIsSlotReleased(empty)).toBe(true);
+        expect(isOIMSlotReleased(empty)).toBe(true);
 
-        const title = ace.getColumn('title');
+        const title = ace.getColumnSlot('title');
         title.holdSlot();
         db.flush();
-        expect(oimIsSlotReleased(title)).toBe(false);
+        expect(isOIMSlotReleased(title)).toBe(false);
         title.unholdSlot();
         db.flush();
-        expect(oimIsSlotReleased(title)).toBe(true);
+        expect(isOIMSlotReleased(title)).toBe(true);
 
         const countService = createOIMSingleComputedService<number>({ createSources: () => ({}), derive: () => 1, initialValue: 0 });
         const count = countService.getSingleSlot(countService.createStoreSlot(db));
         count.holdSlot();
         db.flush();
-        expect(oimIsSlotReleased(count)).toBe(false);
+        expect(isOIMSlotReleased(count)).toBe(false);
         count.unholdSlot();
         db.flush();
-        expect(oimIsSlotReleased(count)).toBe(true);
+        expect(isOIMSlotReleased(count)).toBe(true);
     });
 });

@@ -3,7 +3,7 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotContentChangeListenerService } from '../../slot/OIMSlotContentChangeListenerService';
 import { createOIMInPlaceEntityWriter } from '../createOIMInPlaceEntityWriter';
 import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWriter';
-import { oimGuardedPatchEntityColumn } from '../utils/oimGuardedPatchEntityColumn';
+import { guardOIMEntityColumnPatch } from '../utils/guardOIMEntityColumnPatch';
 import type { IOIMEntityWriter } from '../interfaces/IOIMEntityWriter';
 import type { TOIMEntityWriterOptions } from '../types/TOIMEntityWriterOptions';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
@@ -61,7 +61,7 @@ describe.each(writers)('what a one-column write does, %s', (label, makeWriter) =
     });
 
     it('refuses the prototype key under the guarded one-column patch', () => {
-        const { cardsService, slot } = openCards(makeWriter({ patchEntityColumn: oimGuardedPatchEntityColumn }));
+        const { cardsService, slot } = openCards(makeWriter({ patchEntityColumn: guardOIMEntityColumnPatch }));
 
         cardsService.slotContentService.updateEntityColumn(slot, '__proto__' as keyof TCard & string, { polluted: true } as never);
 
@@ -82,8 +82,8 @@ describe.each(writers)('what a one-column write does, %s', (label, makeWriter) =
         const { db, effectService, cardsService, slot } = openCards(makeWriter());
         let titleRuns = 0;
         let rankRuns = 0;
-        effectService.createEffect(db, () => { titleRuns++; }, [cardsService.columnSlotService.holdColumn(slot, 'title')]);
-        effectService.createEffect(db, () => { rankRuns++; }, [cardsService.columnSlotService.holdColumn(slot, 'rank')]);
+        effectService.createEffect(db, () => { titleRuns++; }, [cardsService.columnSlotService.holdColumnSlot(slot, 'title')]);
+        effectService.createEffect(db, () => { rankRuns++; }, [cardsService.columnSlotService.holdColumnSlot(slot, 'rank')]);
         db.flush();
         titleRuns = 0;
         rankRuns = 0;
@@ -118,7 +118,7 @@ describe('what a one-column write does to a single entity', () => {
         const session = sessionService.createStoreSlot(db);
         sessionService.writeSingleSlotContent(session, { theme: 'dark', locale: 'en' });
         let themeRuns = 0;
-        effectService.createEffect(db, () => { themeRuns++; }, [sessionService.columnSlotService.holdColumn(sessionService.getSingleSlot(session), 'theme')]);
+        effectService.createEffect(db, () => { themeRuns++; }, [sessionService.columnSlotService.holdColumnSlot(sessionService.getSingleSlot(session), 'theme')]);
         db.flush();
         themeRuns = 0;
 

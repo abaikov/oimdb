@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotAfterWriteReleasePolicy, oimIsSlotReleased, oimMintAfterWriteSlotReleaseWheel } from '../../index';
+import { OIMDB, OIMSlotAfterWriteReleasePolicy, isOIMSlotReleased, mintOIMAfterWriteSlotReleaseWheel } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -15,7 +15,7 @@ const createAgingFixture = (after: number) => {
     return {
         db,
         flushAfterWrite: (): void => {
-            oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
+            mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
         },
         cardsService,
         cards,
@@ -65,7 +65,7 @@ describe('a row condemned while something still referred to it', () => {
         // And the window is not waived: it runs from the write.
         fixture.at(START + 31_000 + 31_000);
         fixture.flushAfterWrite();
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 });

@@ -27,6 +27,7 @@ export class OIMSingleSourceTrackingComputedService<TValue> extends OIMSingleSlo
             columnSlotOwnerOptions: options.columnSlotOwnerOptions,
             createColumnSlotOwner: createOIMPullColumnSlotOwner,
             storeSlotListener: options.storeSlotListener,
+            slotSubscriptionListener: options.slotSubscriptionListener,
         });
     }
 }

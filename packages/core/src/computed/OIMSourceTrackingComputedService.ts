@@ -17,7 +17,7 @@ export class OIMSourceTrackingComputedService<TKey extends NonNullable<unknown>,
 > {
     public constructor(
         options: TOIMSourceTrackingComputedDerivationOptions<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>> & {
-            computedSlotStoreService: IOIMSlotStoreService<TKey, TOIMSourceTrackingComputedSlot<TValue, TKey>, TComputedStore>;
+            slotStoreService: IOIMSlotStoreService<TKey, TOIMSourceTrackingComputedSlot<TValue, TKey>, TComputedStore>;
         },
     ) {
         super({
@@ -30,10 +30,11 @@ export class OIMSourceTrackingComputedService<TKey extends NonNullable<unknown>,
                 initialValue: options.initialValue,
             }),
             slotReleasePolicy: options.slotReleasePolicy,
-            slotStoreService: options.computedSlotStoreService,
+            slotStoreService: options.slotStoreService,
             createColumnSlotOwner: createOIMPullColumnSlotOwner,
             columnSlotOwnerOptions: options.columnSlotOwnerOptions,
             storeSlotListener: options.storeSlotListener,
+            slotSubscriptionListener: options.slotSubscriptionListener,
         });
     }
 

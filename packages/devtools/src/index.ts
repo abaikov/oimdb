@@ -6,5 +6,5 @@ export type { TOIMDevFlushErrorRecord } from './types/TOIMDevFlushErrorRecord';
 export type { TOIMDevFlushRecord } from './types/TOIMDevFlushRecord';
 export type { TOIMDevIndexInfo } from './types/TOIMDevIndexInfo';
 export type { TOIMDevInspectResult } from './types/TOIMDevInspectResult';
-export { oimDevRegistry } from './oimDevRegistry';
-export { oimDevDefaults } from './oimDevDefaults';
+export { OIM_DEV_REGISTRY } from './OIM_DEV_REGISTRY';
+export { OIM_DEV_DEFAULTS } from './OIM_DEV_DEFAULTS';

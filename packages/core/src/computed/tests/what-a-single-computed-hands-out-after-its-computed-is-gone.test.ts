@@ -1,9 +1,9 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
@@ -17,7 +17,7 @@ const createFixture = () => {
     const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
     const cards = cardsService.createStoreSlot(db);
     const sourceSlots: TOIMEntitySlot<Card, TOIMStoreKey>[] = [];
-    const topRankComputedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+    const topRankComputedService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
     const topRank = topRankComputedService.createStoreSlot(
         db,
         () => cardsService.getSlotByKey(cards, 'a').entity?.rank ?? -1,
@@ -47,20 +47,20 @@ describe('a single computed is a factory that outlives the computed it hands out
         const first = topRankService.holdSingleSlot(topRank);
         topRankService.holdSingleSlot(topRank);
         first.owner.unholdSlot(first);
-        expect(oimIsSlotReleased(first)).toBe(false);
+        expect(isOIMSlotReleased(first)).toBe(false);
         first.owner.unholdSlot(first);
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
     });
 
     it('hands out a new live computed once the previous one is gone', () => {
         const { db, cardsService, cards, topRankService, topRank, builds } = createFixture();
         const first = topRankService.holdSingleSlot(topRank);
         first.owner.unholdSlot(first);
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
 
         const second = topRankService.holdSingleSlot(topRank);
         expect(second).not.toBe(first);
-        expect(oimIsSlotReleased(second)).toBe(false);
+        expect(isOIMSlotReleased(second)).toBe(false);
         expect(builds()).toBe(2);
 
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', rank: 7 });
@@ -71,9 +71,9 @@ describe('a single computed is a factory that outlives the computed it hands out
     it('lets a computed nobody held go at the next flush, and builds a new one after', () => {
         const { db, topRankService, topRank, builds } = createFixture();
         const first = topRankService.getSingleSlot(topRank);
-        expect(oimIsSlotReleased(first)).toBe(false);
+        expect(isOIMSlotReleased(first)).toBe(false);
         db.flush();
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
 
         const second = topRankService.getSingleSlot(topRank);
         expect(second).not.toBe(first);
@@ -86,7 +86,7 @@ describe('a single computed is a factory that outlives the computed it hands out
         let seen = 0;
         const effect = effectService.createEffect(db, () => { seen = readValueWithoutTracking(first); }, [], [first]);
         first.owner.unholdSlot(first);
-        expect(oimIsSlotReleased(first)).toBe(false);
+        expect(isOIMSlotReleased(first)).toBe(false);
 
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', rank: 3 });
         db.flush();
@@ -94,7 +94,7 @@ describe('a single computed is a factory that outlives the computed it hands out
 
         effectService.disposeEffect(effect);
         db.flush();
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
         expect(topRankService.getSingleSlot(topRank)).not.toBe(first);
     });
 
@@ -103,9 +103,9 @@ describe('a single computed is a factory that outlives the computed it hands out
         const first = topRankService.holdSingleSlot(topRank);
         db.flush();
         const source = sourceSlots[0];
-        expect(oimIsSlotReleased(source)).toBe(false);
+        expect(isOIMSlotReleased(source)).toBe(false);
         first.owner.unholdSlot(first);
-        expect(oimIsSlotReleased(source)).toBe(true);
+        expect(isOIMSlotReleased(source)).toBe(true);
     });
 
     it('refuses a late give-back on a computed that is already gone', () => {
@@ -114,7 +114,7 @@ describe('a single computed is a factory that outlives the computed it hands out
         first.owner.unholdSlot(first);
         const second = topRankService.holdSingleSlot(topRank);
         expect(() => first.owner.unholdSlot(first)).toThrow(/This identity was released/);
-        expect(oimIsSlotReleased(second)).toBe(false);
+        expect(isOIMSlotReleased(second)).toBe(false);
         expect(topRankService.getSingleSlot(topRank)).toBe(second);
     });
 });

@@ -22,7 +22,7 @@ export class OIMDevHttpStateSource implements IOIMDevStateSource {
         if (!body.connected) {
             throw new Error(
                 `[OIMDB] "oimdb serve" at ${this.serverUrl} has no browser tab connected. `
-                + 'Add oimDevRegistry.connect() from @oimdb/devtools to the page and reload it.',
+                + 'Add OIM_DEV_REGISTRY.connect() from @oimdb/devtools to the page and reload it.',
             );
         }
         return body;

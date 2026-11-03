@@ -187,7 +187,7 @@ describe('what naming the shape was not allowed to cost', () => {
     it('the unordered add reaches the set through the set service, with no ensure between', () => {
         const contentSource = sourceOf('bucket/OIMSetBucketContentService.ts');
         const setSource = sourceOf('bucket/set/OIMBucketMemberSlotsSetService.ts');
-                expect(contentSource).toContain('return this.bucketMemberSlotsSetService.addBucketMemberSlot(oimGetBucketSlotsSetStore(bucketSlot), bucketMemberSlot);');
+                expect(contentSource).toContain('return this.bucketMemberSlotsSetService.addBucketMemberSlot(peekOIMBucketSlotsSetStore(bucketSlot), bucketMemberSlot);');
         expect(setSource).toContain('(bucketSlotsSetStore as Set<TBucketMemberSlot>).add(bucketMemberSlot);');
         expect(contentSource).not.toContain('ensure(');
         expect(setSource).not.toContain('ensure(');

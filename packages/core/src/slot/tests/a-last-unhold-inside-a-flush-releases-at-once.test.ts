@@ -5,7 +5,7 @@ import { createOIMSlotCollectionService } from '../createOIMSlotCollectionServic
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotAtUnholdReleasePolicy } from '../../collector/OIMSlotAtUnholdReleasePolicy';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import type { TOIMSlot } from '../types/TOIMSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 
@@ -21,7 +21,7 @@ function releaseInsideAFlush(db: OIMDB, slot: TOIMSlot): { isReleasedInsideTheFl
     const answer: { isReleasedInsideTheFlush: boolean | undefined } = { isReleasedInsideTheFlush: undefined };
     effectService.createEffect(db, () => {
         effectService.disposeEffect(watching);
-        answer.isReleasedInsideTheFlush = oimIsSlotReleased(slot);
+        answer.isReleasedInsideTheFlush = isOIMSlotReleased(slot);
     }, [trigger]);
     cardsService.writeSlotContentByKey(cards, 'trigger', { id: 'trigger', title: 'go' });
     db.flush();
@@ -36,7 +36,7 @@ describe('a last unhold inside a flush', () => {
         const query = queriesService.holdSlotByKey(queries, 'q');
 
         expect(releaseInsideAFlush(db, query).isReleasedInsideTheFlush).toBe(true);
-        expect(queriesService.findSlotByKey(queries, 'q')).toBeUndefined();
+        expect(queriesService.peekSlotByKey(queries, 'q')).toBeUndefined();
     });
 
     it('releases an entity slot with a value at once, under a policy that releases it at its last unhold', () => {
@@ -49,7 +49,7 @@ describe('a last unhold inside a flush', () => {
         cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', title: 'Ace' });
 
         expect(releaseInsideAFlush(db, ace).isReleasedInsideTheFlush).toBe(true);
-        expect(cardsService.findSlotByKey(cards, 'ace')).toBeUndefined();
+        expect(cardsService.peekSlotByKey(cards, 'ace')).toBeUndefined();
     });
 
     it('releases a bucket slot with members at once, under a policy that releases it at its last unhold, and gives its members back', () => {
@@ -65,7 +65,7 @@ describe('a last unhold inside a flush', () => {
         handsService.slotContentService.writeSlotContent(hand, [ace]);
 
         expect(releaseInsideAFlush(db, hand).isReleasedInsideTheFlush).toBe(true);
-        expect(handsService.findSlotByKey(hands, 'hand')).toBeUndefined();
+        expect(handsService.peekSlotByKey(hands, 'hand')).toBeUndefined();
         expect(ace.holdCount).toBe(0);
     });
 });

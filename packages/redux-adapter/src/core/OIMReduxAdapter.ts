@@ -22,9 +22,9 @@ import type { TOIMReduxGlobalIndex } from '../types/TOIMReduxGlobalIndex';
 import type { TOIMReduxGlobalIndexMapper } from '../types/TOIMReduxGlobalIndexMapper';
 import type { TOIMReduxGlobalIndexReducerChildOptions } from '../types/TOIMReduxGlobalIndexReducerChildOptions';
 import type { TOIMReduxKeyedIndex } from '../types/TOIMReduxKeyedIndex';
-import { oimDefaultCollectionMapper } from './oimDefaultCollectionMapper';
-import { oimDefaultKeyedIndexMapper } from './oimDefaultKeyedIndexMapper';
-import { oimDefaultGlobalIndexMapper } from './oimDefaultGlobalIndexMapper';
+import { mapOIMCollection } from './mapOIMCollection';
+import { mapOIMKeyedIndex } from './mapOIMKeyedIndex';
+import { mapOIMGlobalIndex } from './mapOIMGlobalIndex';
 import { OIMReduxReducerFactory } from './OIMReduxReducerFactory';
 
 type TOIMReduxKeyedReducerEntry = {
@@ -154,7 +154,7 @@ export class OIMReduxAdapter {
     ): Reducer<TState | undefined, Action> {
         const actualMapper =
             mapper ??
-            (oimDefaultCollectionMapper as unknown as TOIMReduxCollectionMapper<TEntity, TPk, TState, TStore>);
+            (mapOIMCollection as unknown as TOIMReduxCollectionMapper<TEntity, TPk, TState, TStore>);
 
         const reducerEntry = {
             updatedKeys: new Set<TPk>(),
@@ -189,7 +189,7 @@ export class OIMReduxAdapter {
     ): Reducer<TState | undefined, Action> {
         const actualMapper =
             mapper ??
-            (oimDefaultKeyedIndexMapper as unknown as TOIMReduxIndexMapper<
+            (mapOIMKeyedIndex as unknown as TOIMReduxIndexMapper<
                 TIndexKey, TPk, TState, TEntity, TBucketStore, TEntityStore
             >);
 
@@ -225,7 +225,7 @@ export class OIMReduxAdapter {
     ): Reducer<TState | undefined, Action> {
         const actualMapper =
             mapper ??
-            (oimDefaultGlobalIndexMapper as unknown as TOIMReduxGlobalIndexMapper<
+            (mapOIMGlobalIndex as unknown as TOIMReduxGlobalIndexMapper<
                 TPk, TState, TEntity, TEntityStore, TBucketStore
             >);
 

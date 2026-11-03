@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel } from '../../index';
+import { OIMDB, OIMSlotAfterIdleReleasePolicy, mintOIMAfterIdleSlotReleaseWheel } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -12,7 +12,7 @@ const createFixture =() => {
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
     const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: WINDOW }) });
     const cards = cardsService.createStoreSlot(db);
-    return { db, afterIdleSlotReleaseWheel: oimMintAfterIdleSlotReleaseWheel(db.collectorSlot), cardsService, cards, at: (value: number): void => { ms = value; } };
+    return { db, afterIdleSlotReleaseWheel: mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot), cardsService, cards, at: (value: number): void => { ms = value; } };
 };
 
 describe('a population loaded in bulk', () => {

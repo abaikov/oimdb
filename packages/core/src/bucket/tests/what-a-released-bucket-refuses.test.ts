@@ -3,7 +3,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -30,7 +30,7 @@ const releasedBucket = () => {
 describe('a bucket the engine already let go', () => {
     it('is released by the turn that only read it, which is what the rest of this file rests on', () => {
         const w = releasedBucket();
-        expect(oimIsSlotReleased(w.bucket)).toBe(true);
+        expect(isOIMSlotReleased(w.bucket)).toBe(true);
         expect(w.listsService.getSlotCount(w.lists)).toBe(0);
     });
 

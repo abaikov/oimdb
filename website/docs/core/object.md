@@ -29,7 +29,7 @@ is a [single computed](/docs/core/computed-effects#one-derivation-no-key), not a
 writing.
 
 ```typescript setup
-import { OIMDB, OIMEffectService, OIMSingleSlotStoreService, oimInsertEntityWithCopy, createOIMComputedService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, type TOIMComputedSlot, type TOIMSingleSlotStore, createOIMEntityContentService, createOIMSingleSlotService, createOIMSingleComputedService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSingleSlotStoreService, insertOIMEntityWithCopy, createOIMComputedService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, type TOIMComputedSlot, type TOIMSingleSlotStore, createOIMEntityContentService, createOIMSingleSlotService, createOIMSingleComputedService } from '@oimdb/core';
 
 type Settings = { theme: string; fontSize: number; sidebar?: boolean };
 
@@ -44,7 +44,7 @@ const settingsSlot = settingsService.getSingleSlot(settings);
 
 The service is built once, and each `createStoreSlot(db)` is one record. It mints nothing: the
 record's first value arrives through `writeSingleSlotContent(storeSlot, entity)`, an ordinary write that is
-announced to the channel like any other, and until then `findSingleSlot(storeSlot)`
+announced to the channel like any other, and until then `peekSingleSlot(storeSlot)`
 answers `undefined`.
 
 `createOIMSingleSlotService(options)` takes a required `slotContentService` and the optional `defaults`,
@@ -52,16 +52,16 @@ answers `undefined`.
 from `defaults` and then the built-in defaults. `entityWriter` and `slotEmptinessPolicy` are options of the content
 service, `createOIMEntityContentService<Settings>({ entityWriter, slotEmptinessPolicy })`. `columnNames` names the
 columns, files their slots in the ordinal store `OIMColumnSlotOrdinalStoreService` and types the column doors on
-those names; `columnGroups` declares the groups (from `createOIMColumnGroup`) its group doors accept. The column doors are on the slot — `settingsSlot.getColumn(columnName)`, `holdColumn(columnName)`,
-`getColumnGroupSlot(group)`, `holdColumnGroup(group)`, `getAnyColumn()`, `holdAnyColumn()` — and on the service's
-`columnSlotService`: `getColumn(slot, columnName)`, `holdColumn(slot, columnName)`,
-`getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)`, `getAnyColumn(slot)`, `holdAnyColumn(slot)` and
-`unholdColumn(columnSlot)`.
+those names; `columnGroups` declares the groups (from `createOIMColumnGroup`) its group doors accept. The column doors are on the slot — `settingsSlot.getColumnSlot(columnName)`, `holdColumnSlot(columnName)`,
+`getColumnGroupSlot(group)`, `holdColumnGroupSlot(group)`, `getAnyColumnSlot()`, `holdAnyColumnSlot()` — and on the service's
+`columnSlotService`: `getColumnSlot(slot, columnName)`, `holdColumnSlot(slot, columnName)`,
+`getColumnGroupSlot(slot, group)`, `holdColumnGroupSlot(slot, group)`, `getAnyColumnSlot(slot)`, `holdAnyColumnSlot(slot)` and
+`unholdColumnSlot(columnSlot)`.
 
 The record owns one slot, and it is read through the single doors:
 `settingsService.getSingleSlot(settings)` hands it back, and mints it if none is filed;
 `settingsService.holdSingleSlot(settings)` hands it back held;
-`settingsService.findSingleSlot(settings)` answers it without minting, and `hasSingleSlotContent(settings)`
+`settingsService.peekSingleSlot(settings)` answers it without minting, and `hasSingleSlotContent(settings)`
 whether it holds a value. The slot is a plain `TOIMEntitySlot`, the same shape a collection files —
 `.entity` is the stored value, `.effects` its subscribers — so there is no handle to resolve and nothing to
 look up. Its owner is the content service's slot owner, and it is released under the release policy like any
@@ -76,7 +76,7 @@ of its columns, or a computed that names it as a source.
 effectService.createEffect(db, () => { console.log(settingsSlot.entity?.theme); }, [settingsSlot]);
 effectService.createEffect(db, () => {
     console.log(settingsSlot.entity?.fontSize);
-}, [settingsSlot.holdColumn('fontSize')]);
+}, [settingsSlot.holdColumnSlot('fontSize')]);
 
 const fontLabelService = createOIMSingleComputedService<string>();
 const fontLabel = fontLabelService.createStoreSlot(
@@ -89,7 +89,7 @@ fontLabelSlot.value;
 ```
 
 An effect on a column takes the column slot as its root.
-`settingsService.holdColumn(settingsSlot, name)` is what mints it and holds it. `settingsService.unholdColumn(column)`
+`settingsService.holdColumnSlot(settingsSlot, name)` is what mints it and holds it. `settingsService.unholdColumnSlot(column)`
 gives the hold back, and the column slot goes once nothing holds it and no effect is filed on it. An
 effect on a column runs only when a write moved that column; an effect on the
 record runs on any write that moved something.
@@ -112,7 +112,7 @@ db.flush();
 
 These are the slot doors of the entity content service, the same ones a collection's slots take: none of
 them takes a store slot, because the slot carries the one it is filed in. A write that moved nothing
-wakes nobody. Whether a column moved is the writer's `sameValueGuard`, `oimSameValueZeroGuard` by
+wakes nobody. Whether a column moved is the writer's `sameValueGuard`, `isOIMSameValueZero` by
 default. Delivery happens at the next `db.flush()`.
 
 `writeSlotContent` is what restoring a saved state needs: a patch alone leaves behind
@@ -126,7 +126,7 @@ replacing writer's copy), so the stored object keeps its shape; a column holding
 `undefined` counts as absent. See [Writing](/docs/core/writing#which-strategy-to-pick).
 
 A misspelt column in `deleteEntityColumns` is a compile error naming the column — its
-parameter is `readonly TOIMEntityColumnName<TEntity>[]`.
+parameter is `readonly TOIMColumnName<TEntity>[]`.
 
 ## The writer
 
@@ -154,24 +154,24 @@ saw. Name no writer and `defaults.entityWriter` answers, then the in-place write
 ## The object you hand it is stored as handed — by default
 
 The first value, upserted while no slot is filed, goes through the writer's `fillEntity`. Both writer factories
-default it to `oimInsertEntityWithoutCopy`, which stores your object itself. With the
+default it to `insertOIMEntityWithoutCopy`, which stores your object itself. With the
 in-place writer a later update edits that same object. If you keep your own reference
 and mutate it, the stored value changes without telling anyone: no `sameValueGuard`
 runs, no frame opens, nobody is woken.
 
-When the caller must keep its object untouched, `oimInsertEntityWithCopy` stores a
+When the caller must keep its object untouched, `insertOIMEntityWithCopy` stores a
 shallow copy (`{ ...entity }`), one level deep: a nested object is shared with
 the value you handed in.
 
 ```typescript
-const copyingSettingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+const copyingSettingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithCopy }) }) });
 copyingSettingsService.writeSingleSlotContent(copyingSettingsService.createStoreSlot(db), { theme: 'dark', fontSize: 14 });
 ```
 
-For untrusted JSON, `oimInsertEntityWithSanitizedCopy` also removes an own `__proto__`
+For untrusted JSON, `insertOIMEntityWithSanitizedCopy` also removes an own `__proto__`
 key from the copy; for later writes take the guarded walk arms
-(`patchEntityColumns: oimGuardedPatchEntityColumns`, `patchEntityColumn: oimGuardedPatchEntityColumn`,
-`putEntityColumns: oimGuardedPutEntityColumns`), which skip that name.
+(`patchEntityColumns: guardOIMEntityColumnsPatch`, `patchEntityColumn: guardOIMEntityColumnPatch`,
+`putEntityColumns: guardOIMEntityColumnsPut`), which skip that name.
 
 ## The frame guard
 

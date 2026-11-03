@@ -1,7 +1,7 @@
 import type { TOIMDisposer } from '@oimdb/core';
 import type { TOIMBrowserOnlineEntity } from './types/TOIMBrowserOnlineEntity';
 import { OIMBrowserSlotSubscriptionListener } from './OIMBrowserSlotSubscriptionListener';
-import { oimListenToBrowserWindow } from './utils/oimListenToBrowserWindow';
+import { listenToOIMBrowserWindow } from './utils/listenToOIMBrowserWindow';
 
 export class OIMBrowserOnlineSlotSubscriptionListener extends OIMBrowserSlotSubscriptionListener<TOIMBrowserOnlineEntity> {
     protected readCurrentEntity(): TOIMBrowserOnlineEntity {
@@ -10,6 +10,6 @@ export class OIMBrowserOnlineSlotSubscriptionListener extends OIMBrowserSlotSubs
     }
 
     protected listenToBrowser(onBrowserChanged: () => void): TOIMDisposer {
-        return oimListenToBrowserWindow(['online', 'offline'], onBrowserChanged);
+        return listenToOIMBrowserWindow(['online', 'offline'], onBrowserChanged);
     }
 }

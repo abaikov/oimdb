@@ -1,4 +1,4 @@
-import { createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
+import { createOIMInPlaceEntityWriter, isOIMSameValueZero } from '../../../core/src/index';
 import type { IOIMEntityWriter, TOIMEntityContentSlot } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
@@ -19,7 +19,7 @@ const patchByBareForIn: TPatchWalk = (slot, patch, changedColumnNames) => {
     const source = patch as Record<string, unknown>;
     let isWritten = false;
     for (const name in source) {
-        if (oimSameValueZeroGuard(entity[name], source[name])) continue;
+        if (isOIMSameValueZero(entity[name], source[name])) continue;
         entity[name] = source[name];
         isWritten = true;
         if (changedColumnNames !== undefined) changedColumnNames.push(name);
@@ -35,7 +35,7 @@ const patchByObjectKeys: TPatchWalk = (slot, patch, changedColumnNames) => {
     let isWritten = false;
     for (let i = 0; i < names.length; i++) {
         const name = names[i];
-        if (oimSameValueZeroGuard(entity[name], source[name])) continue;
+        if (isOIMSameValueZero(entity[name], source[name])) continue;
         entity[name] = source[name];
         isWritten = true;
         if (changedColumnNames !== undefined) changedColumnNames.push(name);

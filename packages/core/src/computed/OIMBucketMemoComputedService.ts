@@ -14,7 +14,7 @@ import type { TOIMBucketMemoComputedServiceOptions } from './types/TOIMBucketMem
 import type { TOIMBucketMemoComputedSlot } from './types/TOIMBucketMemoComputedSlot';
 import type { OIMComputedContentService } from './OIMComputedContentService';
 import { OIMExplicitSourceComputedContentService } from './OIMExplicitSourceComputedContentService';
-import { oimSameSlotSequence } from '../bucket/utils/oimSameSlotSequence';
+import { isOIMSameSlotSequence } from '../bucket/utils/isOIMSameSlotSequence';
 import { OIMComputedValueService } from './OIMComputedValueService';
 import { OIM_FROZEN_EMPTY_SLOTS } from '../slot/constants/OIM_FROZEN_EMPTY_SLOTS';
 
@@ -37,7 +37,7 @@ export class OIMBucketMemoComputedService<
             readonly TBucketMemberSlot[], TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>
         >({
             derive: computedSlot => deriveBucketMemo(computedSlot, bucketContentService),
-            sameValueGuard: oimSameSlotSequence,
+            sameValueGuard: isOIMSameSlotSequence,
         });
         super({
             slotContentService: new OIMExplicitSourceComputedContentService<readonly TBucketMemberSlot[], TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>>({
@@ -46,9 +46,10 @@ export class OIMBucketMemoComputedService<
                 initialValue: OIM_FROZEN_EMPTY_SLOTS as readonly TBucketMemberSlot[],
             }),
             slotReleasePolicy: options.slotReleasePolicy,
-            slotStoreService: options.computedSlotStoreService,
+            slotStoreService: options.slotStoreService,
             createColumnSlotOwner: createOIMPullColumnSlotOwner,
-            columnSlotOwnerOptions: { columnSlotStoreService: options.columnSlotStoreService },
+            columnSlotOwnerOptions: options.columnSlotOwnerOptions,
+            slotSubscriptionListener: options.slotSubscriptionListener,
             storeSlotListener: options.storeSlotListener,
         });
     }

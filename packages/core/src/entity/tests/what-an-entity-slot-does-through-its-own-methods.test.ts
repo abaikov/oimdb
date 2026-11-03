@@ -3,7 +3,7 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMColumnGroup } from '../../column/utils/createOIMColumnGroup';
 import type { OIMEntitySlot } from '../OIMEntitySlot';
 
@@ -49,12 +49,12 @@ describe('what an entity slot does through its own methods', () => {
         const { cardService, card } = createFixture();
         const columnSlotService = cardService.columnSlotService;
         const group = titleAndRank;
-        expect(card.getColumn('title')).toBe(columnSlotService.getColumn(card, 'title'));
-        expect(card.holdColumn('rank')).toBe(columnSlotService.getColumn(card, 'rank'));
-        expect(card.getAnyColumn()).toBe(columnSlotService.getAnyColumn(card));
-        expect(card.holdAnyColumn()).toBe(columnSlotService.getAnyColumn(card));
+        expect(card.getColumnSlot('title')).toBe(columnSlotService.getColumnSlot(card, 'title'));
+        expect(card.holdColumnSlot('rank')).toBe(columnSlotService.getColumnSlot(card, 'rank'));
+        expect(card.getAnyColumnSlot()).toBe(columnSlotService.getAnyColumnSlot(card));
+        expect(card.holdAnyColumnSlot()).toBe(columnSlotService.getAnyColumnSlot(card));
         expect(card.getColumnGroupSlot(group)).toBe(columnSlotService.getColumnGroupSlot(card, group));
-        expect(card.holdColumnGroup(group)).toBe(columnSlotService.getColumnGroupSlot(card, group));
+        expect(card.holdColumnGroupSlot(group)).toBe(columnSlotService.getColumnGroupSlot(card, group));
     });
 
     it('holds itself and gives the hold back', () => {
@@ -62,9 +62,9 @@ describe('what an entity slot does through its own methods', () => {
         const empty = cardService.getSlotByKey(cards, 'c2') as unknown as OIMEntitySlot<TCard, string>;
         empty.holdSlot();
         db.flush();
-        expect(oimIsSlotReleased(empty)).toBe(false);
+        expect(isOIMSlotReleased(empty)).toBe(false);
         empty.unholdSlot();
-        expect(oimIsSlotReleased(empty)).toBe(true);
+        expect(isOIMSlotReleased(empty)).toBe(true);
     });
 
     it('becomes a source of a tracked body by being read, with no tracker in sight', () => {

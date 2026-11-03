@@ -348,7 +348,7 @@ describe('@oimdb/persist-idb', () => {
             targetPersistor.addPersistResource(targetSettings.persistSnapshotResource);
             await targetPersistor.hydrate();
 
-            expect(targetSettings.singleEntityService.findSingleSlot(targetSettings.singleEntityStoreSlot)?.entity).toEqual({ theme: 'dark' });
+            expect(targetSettings.singleEntityService.peekSingleSlot(targetSettings.singleEntityStoreSlot)?.entity).toEqual({ theme: 'dark' });
         });
 
         test('a removed resource is written neither by autosave nor by persist', async () => {

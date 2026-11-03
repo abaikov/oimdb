@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
@@ -14,9 +14,9 @@ describe('a column getter on an aggregate', () => {
         const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', deck: 'spades', rank: 1 });
-        const heldRank = cardsService.columnSlotService.holdColumn(ace, 'rank');
+        const heldRank = cardsService.columnSlotService.holdColumnSlot(ace, 'rank');
 
-        expect(cardsService.columnSlotService.getColumn(ace, 'rank')).toBe(heldRank);
+        expect(cardsService.columnSlotService.getColumnSlot(ace, 'rank')).toBe(heldRank);
     });
 
     it('gives back a column slot it minted at the end of the next flush', () => {
@@ -24,11 +24,11 @@ describe('a column getter on an aggregate', () => {
         const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', deck: 'spades', rank: 1 });
-        const rank = cardsService.columnSlotService.getColumn(ace, 'rank');
+        const rank = cardsService.columnSlotService.getColumnSlot(ace, 'rank');
         db.flush();
 
-        expect(oimIsSlotReleased(rank)).toBe(true);
-        expect(cardsService.columnSlotService.getColumn(ace, 'rank')).not.toBe(rank);
+        expect(isOIMSlotReleased(rank)).toBe(true);
+        expect(cardsService.columnSlotService.getColumnSlot(ace, 'rank')).not.toBe(rank);
     });
 
     it('is the door an index reads its bucket column slots through', () => {
@@ -42,8 +42,8 @@ describe('a column getter on an aggregate', () => {
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', deck: 'spades', rank: 1 });
-        const heldRank = byDeckService.holdBucketColumnByKey(byDeck, 'spades', 'rank');
+        const heldRank = byDeckService.holdBucketColumnSlotByKey(byDeck, 'spades', 'rank');
 
-        expect(byDeckService.getBucketColumnByKey(byDeck, 'spades', 'rank')).toBe(heldRank);
+        expect(byDeckService.getBucketColumnSlotByKey(byDeck, 'spades', 'rank')).toBe(heldRank);
     });
 });

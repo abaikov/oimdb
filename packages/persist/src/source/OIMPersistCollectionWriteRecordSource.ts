@@ -8,13 +8,13 @@ import type { TOIMPersistEntityCollectionService } from './types/TOIMPersistEnti
 import type { TOIMPersistRecords } from './types/TOIMPersistRecords';
 import type { TOIMPersistRecordsDelta } from './types/TOIMPersistRecordsDelta';
 import type { TOIMPersistRecordSourceCollectionOptions } from './types/TOIMPersistRecordSourceCollectionOptions';
-import { oimClearEntitySlots } from './utils/oimClearEntitySlots';
-import { oimFindEntitySlotsByKeys } from './utils/oimFindEntitySlotsByKeys';
-import { oimUpsertPersistRecords } from './utils/oimUpsertPersistRecords';
-import { oimReadRecordsDeltaOfEntitySlots } from './utils/oimReadRecordsDeltaOfEntitySlots';
-import { oimReadRecordsOfEntitySlots } from './utils/oimReadRecordsOfEntitySlots';
+import { clearOIMEntitySlots } from './utils/clearOIMEntitySlots';
+import { peekOIMEntitySlotsByKeys } from './utils/peekOIMEntitySlotsByKeys';
+import { upsertOIMPersistRecords } from './utils/upsertOIMPersistRecords';
+import { readOIMRecordsDeltaOfEntitySlots } from './utils/readOIMRecordsDeltaOfEntitySlots';
+import { readOIMRecordsOfEntitySlots } from './utils/readOIMRecordsOfEntitySlots';
 
-const oimIsAlwaysSourceEntitySlot = (): boolean => true;
+const isOIMAlwaysSourceEntitySlot = (): boolean => true;
 
 export class OIMPersistCollectionWriteRecordSource<
     TKey extends TOIMStoreKey, TEntity extends object, TStore = TOIMDefaultSlotStore<TKey, TOIMEntitySlot<TEntity, TKey>>,
@@ -32,7 +32,7 @@ export class OIMPersistCollectionWriteRecordSource<
     }
 
     public readSnapshot(): TOIMPersistRecords<TKey, TEntity> {
-        return oimReadRecordsOfEntitySlots<TKey, TEntity>(this.entityCollectionService.getSlots(this.entityStoreSlot));
+        return readOIMRecordsOfEntitySlots<TKey, TEntity>(this.entityCollectionService.getSlots(this.entityStoreSlot));
     }
 
     public writeSnapshot(persistRecords: TOIMPersistRecords<TKey, TEntity>): void {
@@ -41,7 +41,7 @@ export class OIMPersistCollectionWriteRecordSource<
         const entityStoreSlot = this.entityStoreSlot;
         entityCollectionService.writeInBatch(entityStoreSlot, () => {
             const restoredEntitySlots = new Set<TOIMEntitySlot<TEntity, TKey>>(
-                oimUpsertPersistRecords(entityCollectionService, entityStoreSlot, persistRecords.records),
+                upsertOIMPersistRecords(entityCollectionService, entityStoreSlot, persistRecords.records),
             );
             const entitySlots = Array.from(entityCollectionService.getSlots(entityStoreSlot));
             for (let i = 0; i < entitySlots.length; i++) {
@@ -79,20 +79,20 @@ export class OIMPersistCollectionWriteRecordSource<
     public readRecordsDelta(
         entitySlots: ReadonlySet<TOIMEntitySlot<TEntity, TKey>>,
     ): TOIMPersistRecordsDelta<TKey, TEntity> {
-        return oimReadRecordsDeltaOfEntitySlots(entitySlots, oimIsAlwaysSourceEntitySlot);
+        return readOIMRecordsDeltaOfEntitySlots(entitySlots, isOIMAlwaysSourceEntitySlot);
     }
 
-    public findEntitySlotsByKeys(keys: readonly TKey[]): ReadonlySet<TOIMEntitySlot<TEntity, TKey>> {
-        return oimFindEntitySlotsByKeys(this.entityCollectionService, this.entityStoreSlot, keys);
+    public peekEntitySlotsByKeys(keys: readonly TKey[]): ReadonlySet<TOIMEntitySlot<TEntity, TKey>> {
+        return peekOIMEntitySlotsByKeys(this.entityCollectionService, this.entityStoreSlot, keys);
     }
 
     public loadRecords(persistRecords: TOIMPersistRecords<TKey, TEntity>): void {
-        oimUpsertPersistRecords(this.entityCollectionService, this.entityStoreSlot, persistRecords.records);
+        upsertOIMPersistRecords(this.entityCollectionService, this.entityStoreSlot, persistRecords.records);
     }
 
     public unloadKeys(keys: readonly TKey[]): void {
-        const entitySlots = this.findEntitySlotsByKeys(keys);
+        const entitySlots = this.peekEntitySlotsByKeys(keys);
         if (entitySlots.size === 0) return;
-        oimClearEntitySlots(this.entityCollectionService, this.entityStoreSlot, entitySlots);
+        clearOIMEntitySlots(this.entityCollectionService, this.entityStoreSlot, entitySlots);
     }
 }

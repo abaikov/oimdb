@@ -14,7 +14,7 @@ describe('what an effect with no sources does', () => {
 
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => undefined);
 
-        expect(effect.allRootSlots).toHaveLength(0);
+        expect(effect.rootSlots).toHaveLength(0);
         expect(effect.sourceComputeds).toHaveLength(0);
         expect(effect.sourceTracker).toBeUndefined();
         expect(card.effects ?? []).toHaveLength(0);

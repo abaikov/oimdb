@@ -48,7 +48,7 @@ Three sentences carry the rest:
 
 1. Four doors mint an identity: writing a value, subscribing, taking a
    hold, and `getSlotByKey`, whose mint the unused-slot collector holds for the
-   turn. `findSlotByKey` and `hasSlotContentByKey` read without minting.
+   turn. `peekSlotByKey` and `hasSlotContentByKey` read without minting.
 2. A slot goes when nothing refers to it, and whatever took a reference
    gives it back.
 3. Where a trade-off has two defensible strategies, both ship and you pick one
@@ -114,7 +114,6 @@ See [Writing](/docs/core/writing).
 | [`@oimdb/core`](/docs/core/model) | The engine. |
 | [`@oimdb/react`](/docs/packages/react) | React bindings: `OIMDBProvider` and thirteen hooks (`useOIMDB`, `useOIMValue`, `useOIMComputedValue`, `useOIMComputedValueByKey`, `useOIMSingleComputedValue`, `useOIMComputedCollection`, `useOIMEntity`, `useOIMSingleEntity`, `useOIMField`, `useOIMBucketSlots`, `useOIMBucketSlotsByKey`, `useOIMSingleBucketSlots`, `useOIMSlotsByKeys`). |
 | [`@oimdb/persist`](/docs/packages/persist) | Storage-agnostic persistence, with five backends: `persist-idb`, `persist-localstorage`, `persist-async-kv`, `persist-json`, `persist-memory`. |
-| [`@oimdb/exodra`](/docs/packages/exodra) | Bridge into an Exodra reactive surface. |
 | [`@oimdb/redux-adapter`](/docs/packages/redux-adapter) | Mirrors entity and bucket store slots into Redux. |
 | `@oimdb/devtools` | A debug registry: name store slots and indexes, inspect runtime state. |
 | `@oimdb/cli` | The command line: inspect a live page, a model module or Chrome over CDP, and run the DevTools UI. |
@@ -159,7 +158,8 @@ See [Packages](/docs/packages/) for what each one imports from the core.
   <DocCard to="/docs/packages/persist" title="Persist">Save collections to storage and load them back.</DocCard>
   <DocCard to="/docs/guides/ssr" title="Server-side rendering">Render on the server and hand the state to the client.</DocCard>
   <DocCard to="/docs/guides/error-handling" title="Error handling">What happens when a subscriber or a write throws.</DocCard>
-  <DocCard to="/docs/guides/with-cnstra" title="Delivery with cnstra">Drive the flush from an orchestrator.</DocCard>
+  <DocCard to="/docs/guides/dependency-injection" title="Dependency injection">One database, strategies chosen at construction.</DocCard>
+  <DocCard to="/docs/guides/with-cnstra" title="OIMDB with cnstra">The database as cnstra's global, one flush per turn.</DocCard>
   <DocCard to="/docs/guides/performance" title="Performance">Pick strategies for speed.</DocCard>
   <DocCard to="/docs/benchmarks" title="Benchmarks">What has been measured, against which libraries.</DocCard>
 </DocCards>

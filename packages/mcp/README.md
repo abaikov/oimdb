@@ -33,11 +33,11 @@ bridge:
 // src/debug.ts
 import './store/users.debug';
 import './store/tasks.debug';
-import { oimDevRegistry } from '@oimdb/devtools';
+import { OIM_DEV_REGISTRY } from '@oimdb/devtools';
 
 if (typeof window !== 'undefined') {
-    (window as unknown as Record<string, unknown>).__OIMDB_DEV__ = oimDevRegistry;
-    oimDevRegistry.connect(); // connects to ws://localhost:7432
+    (window as unknown as Record<string, unknown>).__OIMDB_DEV__ = OIM_DEV_REGISTRY;
+    OIM_DEV_REGISTRY.connect(); // connects to ws://localhost:7432
 }
 ```
 
@@ -46,7 +46,7 @@ if (typeof window !== 'undefined') {
 | Tool | Description |
 |---|---|
 | `oimdb_inspect` | Full structured state — collections with their index keys and relations, computeds, flush history, errors |
-| `oimdb_dump` | Human-readable text summary — what `oimDevRegistry.dumpString()` returns |
+| `oimdb_dump` | Human-readable text summary — what `OIM_DEV_REGISTRY.dumpString()` returns |
 | `oimdb_collection` | Details of one collection by name |
 | `oimdb_computed` | Current value of one registered computed, by name |
 
@@ -61,9 +61,9 @@ mode. From your own Node process, pass the registry directly:
 
 ```ts
 import { createOIMDevMcpServer } from '@oimdb/mcp';
-import { oimDevRegistry } from '@oimdb/devtools';
+import { OIM_DEV_REGISTRY } from '@oimdb/devtools';
 
-await createOIMDevMcpServer({ registry: oimDevRegistry }).start();
+await createOIMDevMcpServer({ registry: OIM_DEV_REGISTRY }).start();
 ```
 
 `createOIMDevMcpServer(options?)` takes `wsPort?` (7432), `registry?`, `modelModulePath?`, `host?`

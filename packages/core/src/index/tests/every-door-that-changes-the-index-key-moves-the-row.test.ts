@@ -61,7 +61,7 @@ describe('every door that changes the index key moves the row', () => {
     it('moves the row when the key is patched through updateByKey', () => {
         const fixture = createFixture();
 
-        const slot = fixture.cardsService.findSlotByKey(fixture.cards, 'c1');
+        const slot = fixture.cardsService.peekSlotByKey(fixture.cards, 'c1');
         if (slot !== undefined) fixture.cardsService.slotContentService.updateEntity(slot, { deck: 'clubs' });
         fixture.db.flush();
 
@@ -72,7 +72,7 @@ describe('every door that changes the index key moves the row', () => {
     it('leaves the buckets alone when a patch touches no index key', () => {
         const fixture = createFixture();
 
-        const slot = fixture.cardsService.findSlotByKey(fixture.cards, 'c1');
+        const slot = fixture.cardsService.peekSlotByKey(fixture.cards, 'c1');
         if (slot !== undefined) fixture.cardsService.slotContentService.updateEntity(slot, { title: 'joker' });
         fixture.db.flush();
 

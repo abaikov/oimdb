@@ -70,7 +70,7 @@ describe('what a dispose called inside a flush leaves behind', () => {
         }, [cardsService.getSlotByKey(cards, 'a')]);
         db.flush();
         const updateCard = (key: string, patch: Partial<TCard>): void => {
-            const cardSlot = cardsService.findSlotByKey(cards, key);
+            const cardSlot = cardsService.peekSlotByKey(cards, key);
             if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, patch);
         };
         return { db, cards, cardsService, byDeck, byDeckService, byDeckToo, byDeckTooService, run, updateCard };
@@ -208,7 +208,7 @@ describe('what an index keyed by two columns files into buckets minted several a
         const byDeckAndSuit = byDeckAndSuitService.createIndexStoreSlot(fixture.cards);
         const [redHearts, blueHearts] = byDeckAndSuitService.holdSlotsByKeys(byDeckAndSuit, [['red', 'hearts'], ['blue', 'hearts']]);
 
-        const c1Slot = fixture.cardsService.findSlotByKey(fixture.cards, 'c1');
+        const c1Slot = fixture.cardsService.peekSlotByKey(fixture.cards, 'c1');
         if (c1Slot !== undefined) fixture.cardsService.slotContentService.updateEntity(c1Slot, { deck: 'blue' });
 
         expect(byDeckAndSuitService.slotContentService.getBucketMemberSlotCount(redHearts)).toBe(1);

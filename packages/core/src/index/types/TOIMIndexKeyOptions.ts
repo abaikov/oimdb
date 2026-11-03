@@ -1,9 +1,9 @@
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../../column/types/TOIMColumnName';
 import type { TOIMIndexKey } from './TOIMIndexKey';
 
 export type TOIMIndexKeyOptions<
     TKey, TEntity extends object,
-    TColumns extends readonly TOIMEntityColumnName<TEntity>[] = readonly TOIMEntityColumnName<TEntity>[],
+    TColumns extends readonly TOIMColumnName<TEntity>[] = readonly TOIMColumnName<TEntity>[],
 > = {
     keyOf: (entity: TEntity) => TKey;
     columns?: TColumns;

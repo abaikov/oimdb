@@ -41,7 +41,7 @@ by every mount.
 
 ## Column holds
 
-`pin` (:496-522) holds two column slots per pinned entity with `entityService.slotContentOwner.holdColumn`; nothing gives them back, the channel
+`pin` (:496-522) holds two column slots per pinned entity with `entityService.slotContentOwner.holdColumnSlot`; nothing gives them back, the channel
 drop in `dispose` ends them. A churn column mount (:735-741) holds the column, subscribes, and gives its hold back at
 once, so the effect's subscription is what keeps the column slot; the last unmount of a cycle releases it and the next
 cycle's first mount mints it again — what an application pays that releases what it took.

@@ -39,10 +39,10 @@ its services, its slot types, its factories, its defaults' options — is in tha
 
 1. **A factory goes to the domain of what it builds**, and its options type and its
    `oimResolve*` helper go beside it: `createOIMSlotCollectionService` → `slot/`,
-   `createOIMSortedComputedService` → `computed/`, `oimResolveSlotOwnerServiceOptions` →
+   `createOIMSortedComputedService` → `computed/`, `resolveOIMSlotOwnerServiceOptions` →
    `slot/utils/`.
 2. **A helper used by one domain lives in that domain**, even if its name mentions another one:
-   `oimKeyOfColumns` is used only by the index resolver, so it is `index/utils/`.
+   `createOIMColumnsKeyOf` is used only by the index resolver, so it is `index/utils/`.
 3. **A test goes to the domain it tests**, not to the folder of the file it happens to import.
    Tests that read the whole engine (censuses, doc checks) stay in `packages/core/tests/`.
 4. **A new domain is a decision.** `scripts/check-structure.mjs` holds the list of domains and

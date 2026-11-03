@@ -8,7 +8,7 @@ import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentServ
 import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
 
-import { oimSameValueZeroGuard } from '../utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../utils/isOIMSameValueZero';
 import type { TOIMSlot } from '../types/TOIMSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
@@ -60,7 +60,7 @@ describe('who triggers the release check', () => {
         const ranksService = createOIMComputedService<TOIMStoreKey, number>({
             createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
             derive: (computedSlot) => (cardsService.getSlotByKey(cards, computedSlot.key).entity === undefined ? 0 : 1),
-            sameValueGuard: oimSameValueZeroGuard,
+            sameValueGuard: isOIMSameValueZero,
         });
         const ranks = ranksService.createStoreSlot(db);
         const heldSlot = ranksService.holdSlotByKey(ranks, 'ghost');

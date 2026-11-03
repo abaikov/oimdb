@@ -15,8 +15,8 @@ export class OIMSlotCollectionStoreAggregate<
         return this.slotService.slotContentService;
     }
 
-    public findSlotByKey(key: TKey): TSlot | undefined {
-        return this.slotService.findSlotByKey(this.storeSlot, key);
+    public peekSlotByKey(key: TKey): TSlot | undefined {
+        return this.slotService.peekSlotByKey(this.storeSlot, key);
     }
 
     public hasSlotContentByKey(key: TKey): boolean {

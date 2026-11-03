@@ -2,7 +2,7 @@ import { OIMDB, OIMEffectService, OIMSetBucketContentService } from '../../index
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMBucketSlotsSetStore } from '../types/TOIMBucketSlotsSetStore';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -143,7 +143,7 @@ describe('a bucket nothing holds is let go of', () => {
         expect(byDeckService.getSlotByKey(byDeck, 'red')).toBe(red);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
-        expect(oimIsSlotReleased(red)).toBe(true);
+        expect(isOIMSlotReleased(red)).toBe(true);
         expect(byDeckService.getSlotCount(byDeck)).toBe(0);
     });
 });

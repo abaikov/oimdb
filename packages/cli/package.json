@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/cli",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "OIMDB command line: inspect, dump, collection and computed of a live page, a model module or Chrome over CDP; the DevTools bridge and UI; the MCP server",
   "type": "module",
   "main": "./dist/index.cjs",

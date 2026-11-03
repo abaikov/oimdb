@@ -66,8 +66,8 @@ written entity slot to it, and the index does this per slot:
 1. reads the key it last filed the slot under, from the slot's own `indexKeys` cell;
 2. computes `keyOf(entity)`;
 3. if the two are equal, membership did not change, and no bucket is edited — only the
-   bucket's any-column slot and bucket column slots are marked, which report member
-   content and not membership, and only if somebody has asked for them;
+   bucket's any-column slot and bucket column slots are marked, only if somebody has
+   asked for them (they wake on membership too, in step 4, since their value lists the members);
 4. if they differ, it writes the new key into the cell, removes the slot from the old
    bucket and adds it to the new one. A bucket that is not minted is skipped: a key
    nobody asked for costs the `keyOf`, the comparison and the cell write, and nothing else.
@@ -95,9 +95,9 @@ these sources:
 - with `sortColumns`, one bucket column slot per sort column — it moves when a write changes
   that column on a member of the bucket. The index marks them only once somebody has
   asked for a bucket column slot, so an index with no sorted view pays nothing for them;
-- with only a `comparator`, the bucket's any-column slot (`getAnyBucketColumnByKey`), so
-  any write to a member counts. That slot wakes on member content only; a member joining or
-  leaving wakes the bucket slot, which is the first source.
+- with only a `comparator`, the bucket's any-column slot (`getAnyBucketColumnSlotByKey`), so
+  any write to a member counts. That slot also wakes when a member joins or leaves, as does
+  the bucket slot, which is the first source.
 
 A write that changes neither membership nor a sort column — a title edit — moves none of
 these sources, and the order is not derived again.
@@ -117,7 +117,7 @@ derivation avoids that by starting from its previous value:
 - **only a sort column changed**: the previous array is copied and sorted.
 
 Either way the sort runs over an array that is already in order apart from what changed.
-A sort that yields the same sequence keeps the previous array (`oimSameSlotSequence`), so
+A sort that yields the same sequence keeps the previous array (`isOIMSameSlotSequence`), so
 its `changedAtRevision` does not move and nothing downstream wakes.
 
 ## See it

@@ -41,7 +41,7 @@ export const priceDataset = {
     /**
      * The values a write body rotates through. Eight, so consecutive frames
      * always write a value the store does not already hold — the in-place writer
-     * gates each column on `oimSameValueZeroGuard` and the door returns early on a re-send, which is a DIFFERENT price
+     * gates each column on `isOIMSameValueZero` and the door returns early on a re-send, which is a DIFFERENT price
      * with its own row (`update.unchanged-vs-field-store`).
      */
     titles: [

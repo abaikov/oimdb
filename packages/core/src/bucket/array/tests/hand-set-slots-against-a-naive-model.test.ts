@@ -34,11 +34,11 @@ const createFixture =() => {
     const search = searchService.createStoreSlot(db);
     const upsertEntity = (row: TRow): void => { rowsService.writeSlotContentByKey(rows, row.id, row); };
     const updateEntityByKey = (id: string, patch: Partial<TRow>): void => {
-        const slot = rowsService.findSlotByKey(rows, id);
+        const slot = rowsService.peekSlotByKey(rows, id);
         if (slot !== undefined) rowsService.slotContentService.updateEntity(slot, patch);
     };
     const deleteEntityByKey = (id: string): void => {
-        const slot = rowsService.findSlotByKey(rows, id);
+        const slot = rowsService.peekSlotByKey(rows, id);
         if (slot !== undefined) rowsService.slotContentService.clearSlotContent(slot);
     };
     const searchBucketService = {

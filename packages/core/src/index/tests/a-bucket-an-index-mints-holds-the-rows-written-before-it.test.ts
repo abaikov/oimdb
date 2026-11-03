@@ -6,7 +6,7 @@ import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -62,7 +62,7 @@ describe('a bucket an index mints holds the rows written before it', () => {
         const clubs = byDeckService.getSlotByKey(byDeck, 'clubs');
         let runCount = 0;
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => { runCount++; }, [spades]);
-        const c2 = cardsService.findSlotByKey(cards, 'c2');
+        const c2 = cardsService.peekSlotByKey(cards, 'c2');
         if (c2 !== undefined) cardsService.slotContentService.updateEntity(c2, { deck: 'clubs' });
         db.flush();
         expect(idsIn(spades)).toEqual(['c1']);
@@ -74,7 +74,7 @@ describe('a bucket an index mints holds the rows written before it', () => {
     it('a removed row leaves its bucket', () => {
         const { cardsService, cards, byDeckService, byDeck, idsIn } = createFixture();
         const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
-        const c1 = cardsService.findSlotByKey(cards, 'c1');
+        const c1 = cardsService.peekSlotByKey(cards, 'c1');
         if (c1 !== undefined) cardsService.slotContentService.clearSlotContent(c1);
         expect(idsIn(spades)).toEqual(['c2']);
         spades.owner.unholdSlot(spades);
@@ -122,7 +122,7 @@ describe('a bucket an index mints holds the rows written before it', () => {
         byDeckService.disposeIndexStoreSlot(byDeck);
         expect(c1.holdCount).toBe(heldBefore - 1);
         cardsService.writeSlotContentByKey(cards, 'c5', { id: 'c5', deck: 'spades' });
-        expect(oimIsSlotEmpty(spades)).toBe(true);
+        expect(isOIMSlotEmpty(spades)).toBe(true);
         expect(() => byDeckService.getSlotByKey(byDeck, 'spades')).toThrow();
     });
 });

@@ -22,7 +22,7 @@ delivered (frames and batches) is the channel's business and is covered in
 </InShort>
 
 ```ts setup
-import { OIMDB, oimIsSlotReleased, createOIMEntityContentService, createOIMSlotCollectionService, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, oimMintAfterIdleSlotReleaseWheel, OIMSlotReleaseManualDueFramePolicy, OIMSlotRefetchWheel, type TOIMSlot, OIMDefaults } from '@oimdb/core';
+import { OIMDB, isOIMSlotReleased, createOIMEntityContentService, createOIMSlotCollectionService, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, mintOIMAfterIdleSlotReleaseWheel, OIMSlotReleaseManualDueFramePolicy, OIMSlotRefetchWheel, type TOIMSlot, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
@@ -45,7 +45,7 @@ subscribes works through it, so its life is the part of the engine a consumer de
 | **Kept** | something counts on it: a hold (`holdCount`), an effect filed on it, a column slot on it, a bucket it is a member of | you, an effect, an index |
 | **Filled / emptied** | a value lands on it or leaves it; the identity stays the same either way | writes: `writeSlotContentByKey`, `updateEntity`, `clearSlotContent` |
 | **Asked to go** | the last thing keeping it gives it back, or its value leaves while nothing keeps it | `unholdSlot`, `effectService.disposeEffect(effect)`, the unused-slot collector at flush, a delete |
-| **Released** | the release policy agrees; the value (if any) is cleared, the slot leaves the store, its RELEASED flag is set (`oimIsSlotReleased(slot)`) | the owner, never the caller |
+| **Released** | the release policy agrees; the value (if any) is cleared, the slot leaves the store, its RELEASED flag is set (`isOIMSlotReleased(slot)`) | the owner, never the caller |
 
 Try the stages on a real collection: mint with a getter and flush, hold and give back,
 write a value and delete it. Watch the identity number change when a released key
@@ -69,7 +69,7 @@ an identity and leave it with no owner of its lifetime:
 ```ts
 const peek = cardService.getSlotByKey(cards, 'c1');
 db.flush();
-const released = oimIsSlotReleased(peek);
+const released = isOIMSlotReleased(peek);
 const again = cardService.getSlotByKey(cards, 'c1');
 const isNewIdentity = again !== peek;
 ```
@@ -101,7 +101,7 @@ const briefs = briefService.createStoreSlot(db);
 const brief = briefService.writeSlotContentByKey(briefs, 'b1', { id: 'b1', title: 'one' });
 brief.updateEntity({ title: 'two' });
 db.flush();
-const isGone = oimIsSlotReleased(brief);
+const isGone = isOIMSlotReleased(brief);
 ```
 
 The second write lands on the same slot, and the collector's flush at the end of `db.flush()` releases it:
@@ -124,9 +124,9 @@ const filled = cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', title:
 const isSameIdentity = filled === ace;
 db.flush();
 ace.unholdSlot();
-const keptByValue = !oimIsSlotReleased(ace);
+const keptByValue = !isOIMSlotReleased(ace);
 ace.clearSlotContent();
-const goneWithValue = oimIsSlotReleased(ace);
+const goneWithValue = isOIMSlotReleased(ace);
 ```
 
 The hold minted `'c2'` empty; the upsert filled the **same** slot. After the hold was
@@ -169,6 +169,30 @@ and leave the identity standing for as long as something keeps it. A subscriber 
 deleted entity is still subscribed, and a later `writeSlotContentByKey` under the same key lands on the
 same slot.
 
+### Hearing a release
+
+`slot.data` is the consumer's own array (`unknown[] | undefined`) — rendered nodes, a cached view model — and the
+core never touches it. Claim a cell of it with `db.claimSlotDataCell()`, so two consumers on one database never
+share one. To tear that cache down when the engine lets the slot go, add a release listener:
+
+```ts
+const releasedNodes: unknown[] = [];
+const listenedDb = new OIMDB();
+const removeReleaseListener = listenedDb.addSlotReleaseListener({ onSlotReleased: releasedSlot => { releasedNodes.push(releasedSlot.data); } });
+const listenedCards = cardService.createStoreSlot(listenedDb);
+cardService.writeSlotContentByKey(listenedCards, 'c1', { id: 'c1', title: 'Ace' });
+const listenedCard = cardService.holdSlotByKey(listenedCards, 'c1');
+listenedCard.data = ['rendered ace'];
+listenedCard.clearSlotContent();
+listenedCard.unholdSlot();
+listenedDb.flush();
+// releasedNodes: [['rendered ace']]
+```
+
+`onSlotReleased(slot)` is called once for every slot and every column slot the engine releases, of every
+collection on that database, after the slot is marked released and with `slot.data` still on it. It is told,
+not asked: it cannot keep the slot. `removeReleaseListener()` stops it; with no listener a release costs one length check.
+
 ## Releasing an identity on a clock — opt-in, and off it costs nothing
 
 A slot is memory: the identity, its value, and whatever it files.
@@ -194,7 +218,7 @@ outranks its answer.
 | `OIMSlotEarliestReleasePolicy([...])` | as soon as any of several policies says so | combining windows |
 
 Under `OIMSlotAtUnholdReleasePolicy`, a write into an entity nothing holds
-releases it at once: the slot comes back released (`oimIsSlotReleased(slot)`) and `hasSlotContentByKey` for
+releases it at once: the slot comes back released (`isOIMSlotReleased(slot)`) and `hasSlotContentByKey` for
 its key is `false`. An entity filed into a held bucket is kept, because the bucket
 holds it.
 
@@ -268,7 +292,7 @@ const testDefaults = new OIMDefaults({
 });
 
 nowMs += 31_000;
-oimMintAfterIdleSlotReleaseWheel(testDb.collectorSlot).flush();
+mintOIMAfterIdleSlotReleaseWheel(testDb.collectorSlot).flush();
 ```
 
 `flush()` releases every slot whose deadline has passed, up to now; `cancelAllSlots()` empties the wheel and disarms the timer. Deadlines are filed in slices of `OIM_SLICE_LENGTH_MS`
@@ -324,7 +348,7 @@ collection's window. The function you pass must be synchronous: the frame closes
 
 ### Invalidating
 
-`oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).markSlotReleaseDueNow(slot)` makes the slot's
+`mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot).markSlotReleaseDueNow(slot)` makes the slot's
 write deadline now. A slot nothing holds or watches goes at once, with its data. A held or watched one
 keeps its data and goes when its last hold or subscriber leaves, unless a write inside the release-due
 frame moves its deadline a window ahead first. Nothing is written, so no effect wakes.
@@ -348,8 +372,8 @@ const onCardResponse = (cardSlot: TOIMSlot, staleTimeMs: number): void => {
 
 The wheel keeps nothing on the slot. Every `scheduleSlotRefetchAt` files one entry, so moving a refetch
 earlier is one more call; the listener decides from its own data whether an entry it is handed is still
-current. A sweep takes only slices that have fully passed, drops slots nobody subscribes to, and calls the
-listener once with every watched slot that came due. The array it passes is reused, so copy what you keep.
+current. A sweep takes only slices that have fully passed, skips released slots, and calls the
+listener once with every slot that came due, watched or not. The array it passes is reused, so copy what you keep.
 
 ### An idle window opens twice, and a held slot is off the clock
 
@@ -366,7 +390,7 @@ A held slot is off the clock. Two consequences follow:
   const heldSlot = cardService.holdSlotByKey(cards, 'c1');
   // …the window passes, sweeps run, nothing happens to this slot…
   heldSlot.unholdSlot();
-  oimIsSlotReleased(heldSlot); // true — the give-back settles what the sweep could not
+  isOIMSlotReleased(heldSlot); // true — the give-back settles what the sweep could not
   ```
 
   The last subscriber leaving is the other case: the last `disposeEffect(effect)` grants a full

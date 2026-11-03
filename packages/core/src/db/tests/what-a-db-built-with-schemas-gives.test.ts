@@ -2,7 +2,7 @@ import { OIMDB } from '../OIMDB';
 import { createOIMEntitySlotCollectionStoreAggregate } from '../../entity/createOIMEntitySlotCollectionStoreAggregate';
 import { createOIMSlotCollectionIndexStoreAggregate } from '../../index/createOIMSlotCollectionIndexStoreAggregate';
 import { createOIMSingleSourceTrackingComputedService } from '../../computed/createOIMSingleSourceTrackingComputedService';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 
 type TCard = { id: string; deck: string; title: string; rank: number };
 type TConnection = { isOnline: boolean };
@@ -66,7 +66,7 @@ describe('what a db built with schemas gives', () => {
         const firstSlot = db.schemas.default.visibleSpadeCount.getSingleSlot();
         expect(firstSlot.value).toBe(0);
         db.flush();
-        expect(oimIsSlotReleased(firstSlot)).toBe(true);
+        expect(isOIMSlotReleased(firstSlot)).toBe(true);
         db.schemas.default.cards.writeSlotContentByKey('c1', { id: 'c1', deck: 'spades', title: 'Ace', rank: 1 });
         db.flush();
         expect(db.schemas.default.visibleSpadeCount.getSingleSlot().value).toBe(1);

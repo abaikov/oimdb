@@ -7,7 +7,7 @@ import { OIMDB, OIMEffectService, OIMSlotMapStoreService } from '../../../../cor
 import type { TOIMBucketSlot, TOIMColumnSlot, TOIMStoreKey } from '../../../../core/src/index';
 import { OIMSetBucketContentService } from '../../../../core/src/index';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot } from '../../../../core/src/index';
-import { oimOrderedListCommandsOfTransition } from '../../../../core/src/index';
+import { getOIMOrderedListCommands } from '../../../../core/src/index';
 import { createOIMEntityContentService } from '../../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../../core/src/index';
 
@@ -45,7 +45,7 @@ held.push(db, entityService, entityStoreSlot, bucketService, bucketStoreSlot, sp
 const shown: TOIMEntitySlot[] = [];
 held.push(effectService.createEffect(db, () => {
     const next = [...bucketService.slotContentService.getBucketMemberSlots(spadesSlot)];
-    held.push(oimOrderedListCommandsOfTransition(shown, next));
+    held.push(getOIMOrderedListCommands(shown, next));
     shown.length = 0;
     for (let i = 0; i < next.length; i++) shown.push(next[i]);
 }, [spadesSlot]));

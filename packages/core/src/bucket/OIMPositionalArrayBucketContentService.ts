@@ -7,9 +7,9 @@ import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
 import type { TOIMArrayBucketContentServiceOptions } from './types/TOIMArrayBucketContentServiceOptions';
 import { OIMArrayBucketContentService } from './OIMArrayBucketContentService';
 import { OIM_NOTHING_WAS_INSERTED } from './constants/OIM_NOTHING_WAS_INSERTED';
-import { oimAssertWholePosition } from './array/utils/oimAssertWholePosition';
+import { assertOIMWholePosition } from './array/utils/assertOIMWholePosition';
 import { OIM_FROZEN_EMPTY_SLOTS } from '../slot/constants/OIM_FROZEN_EMPTY_SLOTS';
-import { oimUnholdSlotIfAlive } from '../slot/utils/oimUnholdSlotIfAlive';
+import { unholdOIMSlotIfAlive } from '../slot/utils/unholdOIMSlotIfAlive';
 
 export class OIMPositionalArrayBucketContentService<
     TBucketMemberSlot extends TOIMSlot = TOIMSlot, TKey extends NonNullable<unknown> = TOIMStoreKey,
@@ -24,7 +24,7 @@ export class OIMPositionalArrayBucketContentService<
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>;
         slotOwnerService.assertWritable(bucketSlot);
-        oimAssertWholePosition(at);
+        assertOIMWholePosition(at);
         this.assertBucketMemberSlotNotReleased(bucketMemberSlot);
         const bucketSlotsArrayStore = (bucketSlot as unknown as OIMBucketSlot<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>).bucketSlotsStore;
         const landing = this.bucketMemberSlotsArrayService.insertBucketMemberSlotAt(bucketSlotsArrayStore, at, bucketMemberSlot);
@@ -40,11 +40,11 @@ export class OIMPositionalArrayBucketContentService<
     ): TBucketMemberSlot | undefined {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>;
         slotOwnerService.assertWritable(bucketSlot);
-        oimAssertWholePosition(at);
+        assertOIMWholePosition(at);
         const bucketSlotsArrayStore = (bucketSlot as unknown as OIMBucketSlot<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>).bucketSlotsStore;
         if (at < 0 || at >= bucketSlotsArrayStore.bucketMemberSlots.length) return undefined;
         const removedBucketMemberSlot = this.bucketMemberSlotsArrayService.removeBucketMemberSlotAt(bucketSlotsArrayStore, at);
-        oimUnholdSlotIfAlive(removedBucketMemberSlot);
+        unholdOIMSlotIfAlive(removedBucketMemberSlot);
         this.bucketCommands.recordRemove(bucketSlot, at, 1, bucketSlotsArrayStore.bucketMemberSlots.length);
         this.announceBucketSlotChanged(bucketSlot);
         return removedBucketMemberSlot;
@@ -56,12 +56,12 @@ export class OIMPositionalArrayBucketContentService<
     ): readonly TBucketMemberSlot[] {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>;
         slotOwnerService.assertWritable(bucketSlot);
-        oimAssertWholePosition(at);
-        oimAssertWholePosition(count);
+        assertOIMWholePosition(at);
+        assertOIMWholePosition(count);
         const bucketSlotsArrayStore = (bucketSlot as unknown as OIMBucketSlot<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>).bucketSlotsStore;
         if (at < 0 || count <= 0 || at >= bucketSlotsArrayStore.bucketMemberSlots.length) return OIM_FROZEN_EMPTY_SLOTS;
         const removedBucketMemberSlots = this.bucketMemberSlotsArrayService.removeBucketMemberSlotRange(bucketSlotsArrayStore, at, count);
-        for (let i = 0; i < removedBucketMemberSlots.length; i++) oimUnholdSlotIfAlive(removedBucketMemberSlots[i]);
+        for (let i = 0; i < removedBucketMemberSlots.length; i++) unholdOIMSlotIfAlive(removedBucketMemberSlots[i]);
         this.bucketCommands.recordRemove(bucketSlot, at, removedBucketMemberSlots.length, bucketSlotsArrayStore.bucketMemberSlots.length);
         this.announceBucketSlotChanged(bucketSlot);
         return removedBucketMemberSlots;
@@ -73,8 +73,8 @@ export class OIMPositionalArrayBucketContentService<
     ): TBucketMemberSlot | undefined {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>;
         slotOwnerService.assertWritable(bucketSlot);
-        oimAssertWholePosition(from);
-        oimAssertWholePosition(to);
+        assertOIMWholePosition(from);
+        assertOIMWholePosition(to);
         const bucketSlotsArrayStore = (bucketSlot as unknown as OIMBucketSlot<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>).bucketSlotsStore;
         const bucketMemberSlotCount = bucketSlotsArrayStore.bucketMemberSlots.length;
         if (from < 0 || from >= bucketMemberSlotCount || to < 0 || to >= bucketMemberSlotCount || from === to) return undefined;
@@ -90,9 +90,9 @@ export class OIMPositionalArrayBucketContentService<
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>;
         slotOwnerService.assertWritable(bucketSlot);
-        oimAssertWholePosition(from);
-        oimAssertWholePosition(count);
-        oimAssertWholePosition(to);
+        assertOIMWholePosition(from);
+        assertOIMWholePosition(count);
+        assertOIMWholePosition(to);
         const bucketSlotsArrayStore = (bucketSlot as unknown as OIMBucketSlot<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>).bucketSlotsStore;
         const bucketMemberSlotCount = bucketSlotsArrayStore.bucketMemberSlots.length;
         if (from < 0 || count <= 0 || from >= bucketMemberSlotCount) return;

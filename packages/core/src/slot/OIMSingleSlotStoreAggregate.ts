@@ -16,8 +16,8 @@ export class OIMSingleSlotStoreAggregate<
         return this.slotService.slotContentService;
     }
 
-    public findSingleSlot(): TSlot | undefined {
-        return this.slotService.findSingleSlot(this.storeSlot);
+    public peekSingleSlot(): TSlot | undefined {
+        return this.slotService.peekSingleSlot(this.storeSlot);
     }
 
     public hasSingleSlotContent(): boolean {

@@ -3,6 +3,12 @@
 All notable changes to `@oimdb/persist-idb` are recorded here. This file starts at 4.1.0; releases
 before it were not changelogged.
 
+## 4.2.0
+
+### Changed
+
+- Requires `@oimdb/core` 4.9.0 and `@oimdb/persist` 4.3.0; `oimIndexedDbRequestToPromise` → `promisifyOIMIndexedDbRequest`, `oimIndexedDbTransactionToPromise` → `promisifyOIMIndexedDbTransaction`, `oimOpenIndexedDb…` → `openOIMIndexedDb…`, `oimReadAllIndexedDbTableRecords` → `readOIMAllIndexedDbTableRecords`, `oimNormalizeIndexedDbPrimaryKey` → `normalizeOIMIndexedDbPrimaryKey`.
+
 ## 4.1.1
 
 ### Changed

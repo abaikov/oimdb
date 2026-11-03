@@ -122,6 +122,6 @@ describe('what a tracking effect keeps when its window moves', () => {
         writeLabel(0, 'gone');
         writeLabel(4, 'seen');
         expect(shown.at(-1)).toEqual(['l2', 'l3', 'seen', 'l5']);
-        expect(page.allRootSlots).toEqual([offsetSlot, ...cardSlots.slice(2, 6)]);
+        expect(page.rootSlots).toEqual([offsetSlot, ...cardSlots.slice(2, 6)]);
     });
 });

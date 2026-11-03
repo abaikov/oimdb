@@ -6,7 +6,7 @@ import type { IOIMPersistResource } from './interfaces/IOIMPersistResource';
 import { OIMPersistSourceSilencer } from './OIMPersistSourceSilencer';
 import { OIMPersistSourceSubscription } from './OIMPersistSourceSubscription';
 import type { TOIMPersistResourceSnapshotOptions } from './types/TOIMPersistResourceSnapshotOptions';
-import { oimHydratePersistResource } from './utils/oimHydratePersistResource';
+import { hydrateOIMPersistResource } from './utils/hydrateOIMPersistResource';
 
 export class OIMPersistSnapshotResource<TPersistBackend, TWriteBatch, TSourceSnapshot, TPersistedSnapshot>
 implements IOIMPersistResource<TPersistBackend, TWriteBatch> {
@@ -77,7 +77,7 @@ implements IOIMPersistResource<TPersistBackend, TWriteBatch> {
     }
 
     public hydrate(persistBackend: TPersistBackend): Promise<void> {
-        return oimHydratePersistResource({
+        return hydrateOIMPersistResource({
             persistSnapshotSource: this.persistSnapshotSource,
             persistSourceSilencer: this.persistSourceSilencer,
             persistHydrateReconcile: this.persistHydrateReconcile,

@@ -1,5 +1,5 @@
 import type { TOIMStoreKey } from '@oimdb/core';
-import { oimIsSlotReleased } from '@oimdb/core';
+import { isOIMSlotReleased } from '@oimdb/core';
 import {
     OIMPersistCollectionChangeWriteRecordSource,
     OIMPersistRecordsResource,
@@ -38,7 +38,7 @@ function build() {
             entityContentService.updateEntity(entityCollectionService.getSlotByKey(entityStoreSlot, key), patch);
         },
         deleteCardByKey: (key: TOIMStoreKey): void => {
-            const cardSlot = entityCollectionService.findSlotByKey(entityStoreSlot, key);
+            const cardSlot = entityCollectionService.peekSlotByKey(entityStoreSlot, key);
             if (cardSlot !== undefined) entityContentService.clearSlotContent(cardSlot);
         },
     };
@@ -77,7 +77,7 @@ describe('a records write', () => {
         testPersistBackend.writtenPersistRecordsDeltas.length = 0;
 
         deleteCardByKey('c1');
-        expect(oimIsSlotReleased(entitySlot)).toBe(false);
+        expect(isOIMSlotReleased(entitySlot)).toBe(false);
         const upsertedEntitySlot = entityCollectionService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', title: 'alpha again' });
         expect(upsertedEntitySlot).toBe(entitySlot);
         await tick();

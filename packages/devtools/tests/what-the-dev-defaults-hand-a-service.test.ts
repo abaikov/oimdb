@@ -1,14 +1,14 @@
 import { OIMDB, OIMDefaults, createOIMSlotCollectionService, createOIMEntityContentService } from '@oimdb/core';
-import { oimDevDefaults, oimDevRegistry } from '../src';
+import { OIM_DEV_DEFAULTS, OIM_DEV_REGISTRY } from '../src';
 
 type TUser = { id: string; name: string };
 
 describe('what the dev defaults hand a service', () => {
     it('hand the dev registry every store slot a service built with them creates', () => {
-        const heard = jest.spyOn(oimDevRegistry, 'onStoreSlotCreated');
+        const heard = jest.spyOn(OIM_DEV_REGISTRY, 'onStoreSlotCreated');
         const usersService = createOIMSlotCollectionService({
-            defaults: oimDevDefaults,
-            slotContentService: createOIMEntityContentService<TUser>({ defaults: oimDevDefaults }),
+            defaults: OIM_DEV_DEFAULTS,
+            slotContentService: createOIMEntityContentService<TUser>({ defaults: OIM_DEV_DEFAULTS }),
         });
 
         const users = usersService.createStoreSlot(new OIMDB());
@@ -18,7 +18,7 @@ describe('what the dev defaults hand a service', () => {
     });
 
     it('leave a service built without them unheard', () => {
-        const heard = jest.spyOn(oimDevRegistry, 'onStoreSlotCreated');
+        const heard = jest.spyOn(OIM_DEV_REGISTRY, 'onStoreSlotCreated');
         const usersService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
 
         usersService.createStoreSlot(new OIMDB());
@@ -30,12 +30,12 @@ describe('what the dev defaults hand a service', () => {
 
     it('report a store slot registered with the registry', () => {
         const db = new OIMDB();
-        const usersService = createOIMSlotCollectionService({ defaults: oimDevDefaults, slotContentService: createOIMEntityContentService<TUser>() });
+        const usersService = createOIMSlotCollectionService({ defaults: OIM_DEV_DEFAULTS, slotContentService: createOIMEntityContentService<TUser>() });
         const users = usersService.createStoreSlot(db);
         usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Ada' });
 
-        oimDevRegistry.collection('defaults-users', usersService, users);
+        OIM_DEV_REGISTRY.collection('defaults-users', usersService, users);
 
-        expect(oimDevRegistry.inspect().collections['defaults-users']?.count).toBe(1);
+        expect(OIM_DEV_REGISTRY.inspect().collections['defaults-users']?.count).toBe(1);
     });
 });

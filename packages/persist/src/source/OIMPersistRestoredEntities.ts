@@ -1,4 +1,4 @@
-import { oimHaveSameColumns } from './utils/oimHaveSameColumns';
+import { hasOIMSameColumns } from './utils/hasOIMSameColumns';
 
 export class OIMPersistRestoredEntities<TKey, TEntity extends object> {
     private readonly restoredEntityByKey = new Map<TKey, { readonly entity: TEntity | undefined }>();
@@ -14,7 +14,7 @@ export class OIMPersistRestoredEntities<TKey, TEntity extends object> {
         const restoredEntity = restored.entity;
         const isRestored = restoredEntity === undefined
             ? entity === undefined
-            : entity !== undefined && oimHaveSameColumns(restoredEntity, entity);
+            : entity !== undefined && hasOIMSameColumns(restoredEntity, entity);
         if (!isRestored) restoredEntityByKey.delete(key);
         return isRestored;
     }

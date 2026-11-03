@@ -48,7 +48,7 @@ describe('what an entity slot collection store aggregate builds', () => {
         ace.updateEntity({ rank: 14 });
 
         expect(ace.entity).not.toBe(before);
-        expect(cards.slotService.columnSlotService.holdColumn(ace, 'rank')).toBe(ace.getColumn('rank'));
+        expect(cards.slotService.columnSlotService.holdColumnSlot(ace, 'rank')).toBe(ace.getColumnSlot('rank'));
     });
 
     it('refuses a column name the entity does not have', () => {

@@ -3,8 +3,8 @@ import type { TOIMSlotAfterWriteReleasePolicyOptions } from './types/TOIMSlotAft
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { IOIMSlotReleaseDueFramePolicy } from './interfaces/IOIMSlotReleaseDueFramePolicy';
 import { OIMSlotReleaseAutoDueFramePolicy } from './OIMSlotReleaseAutoDueFramePolicy';
-import { oimGetChannelSlot } from '../slot/utils/oimGetChannelSlot';
-import { oimMintAfterWriteSlotReleaseWheel } from './utils/oimMintAfterWriteSlotReleaseWheel';
+import { peekOIMChannelSlot } from '../slot/utils/peekOIMChannelSlot';
+import { mintOIMAfterWriteSlotReleaseWheel } from './utils/mintOIMAfterWriteSlotReleaseWheel';
 
 export class OIMSlotAfterWriteReleasePolicy implements IOIMSlotReleasePolicy {
     public readonly releasesWrittenSlots = true;
@@ -22,11 +22,11 @@ export class OIMSlotAfterWriteReleasePolicy implements IOIMSlotReleasePolicy {
 
     public onSlotWritten(slot: TOIMSlot): void {
         if (!this.slotReleaseDueFramePolicy.isSlotReleaseDueFrameOpen()) return;
-        oimMintAfterWriteSlotReleaseWheel(oimGetChannelSlot(slot).collectorSlot).markSlotReleaseDue(slot, this.keepAfterWriteMs);
+        mintOIMAfterWriteSlotReleaseWheel(peekOIMChannelSlot(slot).collectorSlot).markSlotReleaseDue(slot, this.keepAfterWriteMs);
     }
 
     public onSlotIdle(slot: TOIMSlot): boolean {
-        return oimMintAfterWriteSlotReleaseWheel(oimGetChannelSlot(slot).collectorSlot).isSlotReleasable(slot);
+        return mintOIMAfterWriteSlotReleaseWheel(peekOIMChannelSlot(slot).collectorSlot).isSlotReleasable(slot);
     }
 
     public onSlotUnheld(): void {
@@ -34,7 +34,7 @@ export class OIMSlotAfterWriteReleasePolicy implements IOIMSlotReleasePolicy {
     }
 
     public isSlotReleasable(slot: TOIMSlot): boolean {
-        return oimMintAfterWriteSlotReleaseWheel(oimGetChannelSlot(slot).collectorSlot).isSlotReleasable(slot);
+        return mintOIMAfterWriteSlotReleaseWheel(peekOIMChannelSlot(slot).collectorSlot).isSlotReleasable(slot);
     }
 
     public isEmptySlotReleasable(): boolean {
@@ -42,6 +42,6 @@ export class OIMSlotAfterWriteReleasePolicy implements IOIMSlotReleasePolicy {
     }
 
     public cancelSlotRelease(slot: TOIMSlot): void {
-        oimMintAfterWriteSlotReleaseWheel(oimGetChannelSlot(slot).collectorSlot).cancelSlotRelease(slot);
+        mintOIMAfterWriteSlotReleaseWheel(peekOIMChannelSlot(slot).collectorSlot).cancelSlotRelease(slot);
     }
 }

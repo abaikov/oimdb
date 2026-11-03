@@ -2,9 +2,9 @@ import type { IOIMSlotStoreService } from '../store/interfaces/IOIMSlotStoreServ
 import type { TOIMComputedSlot } from './types/TOIMComputedSlot';
 import type { TOIMComputedSources } from './types/TOIMComputedSources';
 import { OIMComputedService } from './OIMComputedService';
-import { oimResolveSlotStoreService } from '../store/utils/oimResolveSlotStoreService';
+import { resolveOIMSlotStoreService } from '../store/utils/resolveOIMSlotStoreService';
 import type { TOIMComputedServiceFactoryOptions } from './types/TOIMComputedServiceFactoryOptions';
-import { oimResolveComputedDerivationOptions } from './utils/oimResolveComputedDerivationOptions';
+import { resolveOIMComputedDerivationOptions } from './utils/resolveOIMComputedDerivationOptions';
 
 export function createOIMComputedService<
     TKey extends NonNullable<unknown>, TValue, TComputedStore = Map<TKey, TOIMComputedSlot<TValue, TKey>>,
@@ -12,12 +12,12 @@ export function createOIMComputedService<
     options: TOIMComputedServiceFactoryOptions<TValue> & {
         createSources?: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => Partial<TOIMComputedSources>) | undefined;
         derive?: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue) | undefined;
-        computedSlotStoreService?: IOIMSlotStoreService<TKey, TOIMComputedSlot<TValue, TKey>, TComputedStore> | undefined;
+        slotStoreService?: IOIMSlotStoreService<TKey, TOIMComputedSlot<TValue, TKey>, TComputedStore> | undefined;
     },
 ): OIMComputedService<TKey, TValue, TComputedStore> {
     return new OIMComputedService<TKey, TValue, TComputedStore>({
-        computedSlotStoreService: oimResolveSlotStoreService(options.computedSlotStoreService),
-        ...oimResolveComputedDerivationOptions(options),
+        slotStoreService: resolveOIMSlotStoreService(options.slotStoreService),
+        ...resolveOIMComputedDerivationOptions(options),
         createSources: options.createSources,
         derive: options.derive,
     });

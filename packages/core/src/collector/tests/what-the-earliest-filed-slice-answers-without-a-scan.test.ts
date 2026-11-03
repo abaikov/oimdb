@@ -2,8 +2,8 @@ import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
 import { OIM_SLICE_LENGTH_MS } from '../constants/OIM_SLICE_LENGTH_MS';
 import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
 import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE } from '../constants/OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE';
-import { oimGetReleaseDueAfterIdleMs } from '../../slot/utils/oimGetReleaseDueAfterIdleMs';
-import { oimSetReleaseDueAfterIdleMs } from '../../slot/utils/oimSetReleaseDueAfterIdleMs';
+import { peekOIMReleaseDueAfterIdleMs } from '../../slot/utils/peekOIMReleaseDueAfterIdleMs';
+import { setOIMReleaseDueAfterIdleMs } from '../../slot/utils/setOIMReleaseDueAfterIdleMs';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 
 type TCountedSlots = Map<number, TOIMSlot[]> & { keyReads: number };
@@ -20,8 +20,8 @@ function createSlotReleaseQueue(nowMs: () => number) {
         getNowMs: nowMs,
         timer: () => () => undefined,
         errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
-        getReleaseDueMs: oimGetReleaseDueAfterIdleMs,
-        setReleaseDueMs: oimSetReleaseDueAfterIdleMs,
+        getReleaseDueMs: peekOIMReleaseDueAfterIdleMs,
+        setReleaseDueMs: setOIMReleaseDueAfterIdleMs,
         releaseScheduledSlotFlag: OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE,
     });
     const counted = (slotReleaseWheel as unknown as { slotsBySliceNumber: TCountedSlots }).slotsBySliceNumber;

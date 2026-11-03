@@ -26,10 +26,10 @@ There are two kinds of node:
 | a bucket's members as an array, in the order the caller wrote | `createOIMBucketMemoComputedService` and its `createBucketMemoStoreSlot(bucketStoreSlot)` | a computed that copies the bucket by hand |
 | an index's members sorted | `createOIMSortedComputedService` and its `createSortedStoreSlot(indexStoreSlot)` | sorting inside an effect body on every run |
 | something to happen when data moves (render, log, sync) | `effectService.createEffect` / `createAndRunEffect` | a computed whose `derive` has side effects |
-| something to happen when one column of one entity moves | `effectService.createEffect(db, [column], [], body)` | an effect over the whole entity slot |
+| something to happen when one column of one entity moves | `effectService.createEffect(db, body, [column])` | an effect over the whole entity slot |
 
 ```ts setup
-import { OIMDB, OIMEffectService, OIMSlotNeverReleasePolicy, createOIMSortedCollectionSingleSlotStoreAggregate, createOIMComputedService, createOIMSingleComputedService, createOIMSingleSourceTrackingComputedService, createOIMBucketMemoComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, type TOIMEntitySlot, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSlotNeverReleasePolicy, createOIMSortedCollectionSingleSlotStoreAggregate, createOIMComputedService, createOIMSingleComputedService, createOIMSingleSourceTrackingComputedService, createOIMBucketMemoComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, isOIMSameValueZero, type TOIMEntitySlot, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -56,7 +56,7 @@ const totalSlot = totalService.getSingleSlot(total);
 
 ```ts
 const rankService = createOIMSingleComputedService<number>({
-    sameValueGuard: oimSameValueZeroGuard,    // did the derived value move?
+    sameValueGuard: isOIMSameValueZero,    // did the derived value move?
 });
 const rank = rankService.createStoreSlot(
     db,
@@ -132,7 +132,7 @@ previous `computedSlot.value` without deriving.
 
 ### `sameValueGuard` is what buys the short-circuit
 
-`oimSameValueZeroGuard` is `===` with `NaN` equal to itself. Pass your own when the
+`isOIMSameValueZero` is `===` with `NaN` equal to itself. Pass your own when the
 derived value is a structure:
 
 ```ts
@@ -319,7 +319,7 @@ that opened something per run has somewhere to close it. See
 ### An effect over one column
 
 ```ts
-effectService.createEffect(db, () => { render(); }, [slot.holdColumn('rank')]);
+effectService.createEffect(db, () => { render(); }, [slot.holdColumnSlot('rank')]);
 ```
 
 It takes the column slot and a body, and wakes only when that column moves. See
@@ -350,9 +350,9 @@ effectService.createSourceTrackingEffect(db, () => {
   (`slotContentService.…(slot)`) is not tracked;
   read through the slot.
 - A tracked read of `entity` makes the whole entity a source. To wake on some columns only, read
-  `cardSlot.readEntity(columnGroup)`: the same entity, with only that group's columns as the source.
+  `cardSlot.getEntity(columnGroup)`: the same entity, with only that group's columns as the source.
   Build the group once, outside the body (`createOIMColumnGroup(names)`); a group is
-  compared by identity. `readEntity` takes any group; it need not be declared on the service.
+  compared by identity. `getEntity` takes any group; it need not be declared on the service.
 - The body runs once at creation, because the first run is what finds the sources.
 - After each run the effect is subscribed to exactly what that run read. A branch the run
   did not take is unsubscribed, and a slot read twice is subscribed once.
@@ -399,7 +399,7 @@ effectService.createSourceTrackingEffect(db, () => {
   given one derives every listed computed at creation and, after every run and on every frame where the value
   held, compares each computed's root slots with the ones it subscribed to, and re-subscribes when they were
   replaced. An effect without that list does none of this, which is why `sourceComputeds` refuses a
-  source-tracking computed.
+  source-tracking computed. The fifth list itself takes any computed, a plain one included.
 - `sameValueGuard`, `releaseValue`, `initialValue`, `slotReleasePolicy` and the column options are the same
   as for `createOIMSingleComputedService`. There is no `createSources`, and `createStoreSlot(db)` takes
   no per-store `derive`.
@@ -408,7 +408,7 @@ effectService.createSourceTrackingEffect(db, () => {
 
 ```ts setup
 const topRankService = createOIMSingleComputedService<number>({
-    sameValueGuard: oimSameValueZeroGuard,
+    sameValueGuard: isOIMSameValueZero,
     initialValue: -1,
 });
 const topRank = topRankService.createStoreSlot(
@@ -430,7 +430,7 @@ nothing; a `derive` or `createSources` given to the store slot is used in place 
 service's, and each must come from one of the two.
 `sameValueGuard` defaults to `Object.is`. A single is read through the service itself (it extends `OIMSingleSlotService`) —
 `getSingleSlot(storeSlot)` (a slot without a hold, so a fresh one is let go at the next flush
-unless something holds it), `holdSingleSlot(storeSlot)` and `findSingleSlot(storeSlot)`,
+unless something holds it), `holdSingleSlot(storeSlot)` and `peekSingleSlot(storeSlot)`,
 which mints nothing. A slot's give-back is `slot.unholdSlot()`, and its value
 is `slot.value`. The slot is minted on the first get or hold
 and released at its release policy, as in a collection, and the next get or hold mints a fresh one.
@@ -441,7 +441,7 @@ and released at its release policy, as in a collection, and the next get or hold
 
 ```ts setup
 const rankByIdService = createOIMComputedService<TOIMStoreKey, number>({
-    sameValueGuard: oimSameValueZeroGuard,
+    sameValueGuard: isOIMSameValueZero,
     initialValue: -1,
 });
 const ranks = rankByIdService.createStoreSlot(
@@ -453,7 +453,7 @@ const ranks = rankByIdService.createStoreSlot(
 
 `createOIMComputedService(options)` takes no db. On a keyed service every option is
 optional: `derive` and `createSources` (the defaults for every store slot that is given
-none), `computedSlotStoreService` (the store the derivation slots are filed in; a Map store when left out,
+none), `slotStoreService` (the store the derivation slots are filed in; a Map store when left out,
 and required for any other store), `sameValueGuard` (default `Object.is`),
 `initialValue`, `slotReleasePolicy` and `columnSlotStoreService` or
 `columnNames` (left out, a shared map-driven store); left out, a
@@ -494,17 +494,23 @@ the effects on it, and the release policy.
 
 ## Computed columns
 
-A computed's value can be subscribed to by field. `getColumn(slot, columnName)`,
-`holdColumn(slot, columnName)`,
-`getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)` (a group named in the factory's `columnGroups`), `unholdColumn(columnSlot)` and the any-column
-pair `getAnyColumn(slot)` / `holdAnyColumn(slot)` are on the computed service itself
-(so on the sorted and memo services too); for a single computed, the slot is the one
-`getSlotByKey(storeSlot, undefined)` hands out. Column names are typed as the keys of the value.
+A computed's value can be subscribed to by field. A computed's slot carries the same six column
+doors an entity slot does — `getColumnSlot(columnName)`, `holdColumnSlot(columnName)`,
+`getColumnGroupSlot(group)`, `holdColumnGroupSlot(group)` (a group named in the factory's
+`columnGroups`) and `getAnyColumnSlot()` / `holdAnyColumnSlot()` — and the computed service's
+`columnSlotService` has them with the slot first, next to `unholdColumnSlot(columnSlot)`. That slot's type is
+`TOIMComputedCarrierSlot`: `TOIMComputedContentSlot` plus the doors and `watch`; a single computed
+service hands it out. Column names are typed as the keys of the value. The sorted and bucket-memo factories
+take `columnNames` and `columnGroups` too, but their value is an array of slots, so a column of it is a key of
+the array — `length`, say — not a field of the members.
 
-A computed's column slot is itself a computed, `TOIMComputedColumnSlot`, whose value is
-`carrier.value[column]` compared with `Object.is`. It goes in the `sourceComputeds` list of
-`createEffect` and wakes an effect only when that field of the derived value changes. Entity
-and bucket column slots go in the root list instead.
+A computed's column slot is the same `OIMColumnSlot` an entity's is, pulled instead of pushed:
+`TOIMComputedColumnSlot` is a computed whose value is `carrier.value[column]` compared with
+`Object.is`. It goes in the `sourceComputeds` list of `createEffect` and wakes an effect only when
+that field of the derived value changes. Entity and bucket column slots go in the root list instead.
+`TOIMComputedColumnSlot<TSourceTracker>` carries its carrier's tracker type, so a column of a
+source-tracking computed is refused by the `sourceComputeds` list and accepted by the
+`sourceTrackingComputeds` list, the way its carrier is.
 
 ```ts
 type CardSummary = { top: number; count: number };
@@ -514,7 +520,7 @@ const cardSummary = cardSummaryService.createStoreSlot(
     () => ({ top: Math.max(slot.entity?.rank ?? 0, other.entity?.rank ?? 0), count: cardService.getSlotCount(cards) }),
     () => ({ sourceSlots: [slot, other] }),
 );
-const topColumn = cardSummaryService.columnSlotService.holdColumn(cardSummaryService.getSingleSlot(cardSummary), 'top');
+const topColumn = cardSummaryService.getSingleSlot(cardSummary).holdColumnSlot('top');
 const onTop = effectService.createEffect(db, () => { render(topColumn.value); }, [], [topColumn]);
 effectService.disposeEffect(onTop);
 topColumn.unholdSlot();
@@ -546,7 +552,7 @@ effectService.createAndRunEffect(db, () => render(deck.value), [], [deck]);
 `createOIMBucketMemoComputedService(options)` takes no db: a memo store slot runs on the channel slot of
 the bucket store slot it reads. The options object has one required key, `bucketCollectionService`, the
 bucket collection the orders read; `createBucketMemoStoreSlot(bucketStoreSlot)` then names the bucket store
-slot of that collection whose buckets it orders. `computedSlotStoreService` (the store the orders are filed
+slot of that collection whose buckets it orders. `slotStoreService` (the store the orders are filed
 in; a Map store when left out), `slotReleasePolicy` and `columnSlotStoreService` are optional.
 
 Its value is that bucket's slots in the bucket's order, produced on the
@@ -584,7 +590,7 @@ db.createEffect(() => render(everyCardByRank.getSingleSlot().value));
 `indexService` is the `OIMSlotCollectionIndexService` the sorted list reads, and `createSortedStoreSlot(indexStoreSlot)`
 names which of its index store slots. `sortColumns` (`TOIMSortColumn<TEntity>[]`) decide which writes re-sort;
 `comparator: (left, right) => number` decides the order, and without it the order is
-`oimColumnsComparator(sortColumns)`. Its sources are the bucket slot of the key plus one
+`createOIMColumnsComparator(sortColumns)`. Its sources are the bucket slot of the key plus one
 bucket column slot per column, so it re-sorts only when membership changes or a write
 changes one of those columns on a member. Given only a `comparator`, its sources are the
 bucket slot and the bucket's any-column slot, and any member write re-sorts. A re-sort that yields the same
@@ -597,7 +603,7 @@ the comparator, when given as well, still decides the order.
 
 | Given | Sources | Re-sorts on | Order |
 |---|---|---|---|
-| `sortColumns` | bucket slot + one bucket column slot per column | membership, a write to a named column on a member | `oimColumnsComparator(sortColumns)` |
+| `sortColumns` | bucket slot + one bucket column slot per column | membership, a write to a named column on a member | `createOIMColumnsComparator(sortColumns)` |
 | `sortColumns` + `comparator` | the same | the same | `comparator` |
 | `comparator` | bucket slot + the bucket's any-column slot | membership, any member write | `comparator` |
 | neither | bucket slot | membership | a member keeps its place; an arrival is appended |
@@ -605,7 +611,7 @@ the comparator, when given as well, still decides the order.
 On a membership change the previous order is kept for the members that stayed and
 the arrivals are appended before the sort runs; with no membership change the
 previous array is copied and sorted again. An entity slot whose entity is gone sorts
-last. Its slots are filed in a Map store unless the factory is given a `computedSlotStoreService`.
+last. Its slots are filed in a Map store unless the factory is given a `slotStoreService`.
 
 ## Where to next
 

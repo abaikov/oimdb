@@ -58,7 +58,7 @@ export class OIMDevMcpServer {
 
         server.registerTool('oimdb_dump', {
             description:
-                'Get a human-readable text summary of OIMDB state. Same output as oimDevRegistry.dump(). Reads the connected browser tab or an in-process model when configured.',
+                'Get a human-readable text summary of OIMDB state. Same output as OIM_DEV_REGISTRY.dump(). Reads the connected browser tab or an in-process model when configured.',
         }, async () => asText(await this.devStateReader.readDumpText()));
 
         server.registerTool('oimdb_collection', {

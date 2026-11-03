@@ -74,7 +74,7 @@ instance, a store slot, and every store door of the service takes that store slo
 Whatever a read mints is swept at the end of the frame unless something took a real reference to it.
 
 ```ts setup
-import { OIMDB, type TOIMEntitySlot, createOIMSlotCollectionService, createOIMEntityContentService, OIMPositionalArrayBucketContentService, OIMBucketCommands, createOIMSingleComputedService, OIMSingleSlotStoreService, createOIMSingleSlotService, createOIMComputedService, oimSameValueZeroGuard, type TOIMComputedSlot } from '@oimdb/core';
+import { OIMDB, type TOIMEntitySlot, createOIMSlotCollectionService, createOIMEntityContentService, OIMPositionalArrayBucketContentService, OIMBucketCommands, createOIMSingleComputedService, OIMSingleSlotStoreService, createOIMSingleSlotService, createOIMComputedService, isOIMSameValueZero, type TOIMComputedSlot } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; rank: number };
 
@@ -148,7 +148,7 @@ A store aggregate passes its `storeSlot`.
   [the requirement](#the-binding-you-hand-useoimvalue-must-keep-its-identity); breaking it
   causes a hang, not a slow path.
 - **`useOIMSourceTrackingValue(read, deps)`**: the value `read` returns, with no source list. Every
-  `slot.entity`, `slot.readEntity(group)`, `computed.value` and bucket membership read inside `read` becomes a source,
+  `slot.entity`, `slot.getEntity(group)`, `computed.value` and bucket membership read inside `read` becomes a source,
   and the component re-renders when one changes. `deps` lists what `read` closes over, as for `useMemo`.
 
   ```tsx
@@ -169,7 +169,7 @@ A store aggregate passes its `storeSlot`.
   has none, but the mint goes to the database's unused-slot collector, so a render that never commits leaves
   nothing standing past the next `db.flush()`.
 - **`useOIMField(entityCollectionService, slot, name)`**: one field of one identity, through an
-  effect on `entityCollectionService.getColumn(slot, name)`. `name` is a column of that slot's entity, so a typo is a
+  effect on `entityCollectionService.getColumnSlot(slot, name)`. `name` is a column of that slot's entity, so a typo is a
   compile error and the value comes back with the type that column holds. It re-renders when
   that field changes and for no other reason. `slot` is an ENTITY slot: the subscription holds the identity it
   did not resolve.
@@ -284,7 +284,7 @@ import { useOIMSlotsByKeys } from '@oimdb/react';
 const rankService = createOIMComputedService<string, number>({
     createSources: ({ key: id }) => ({ sourceSlots: [cardService.getSlotByKey(cards, id)] }),
     derive: (computedSlot) => cardService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
-    sameValueGuard: oimSameValueZeroGuard,
+    sameValueGuard: isOIMSameValueZero,
 });
 const ranks = rankService.createStoreSlot(db);
 

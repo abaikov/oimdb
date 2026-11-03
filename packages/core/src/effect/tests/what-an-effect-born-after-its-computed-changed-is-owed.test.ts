@@ -20,10 +20,10 @@ const runsOfAnEffectBornAfterTheChange = (writeSomethingElseFirst: boolean): num
     const computedSlot = valueOfSourceService.holdSingleSlot(valueOfSource);
     readValueWithoutTracking(computedSlot);
     db.flush();
-    cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 's')!, { n: 1 });
+    cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 's')!, { n: 1 });
     let runs = 0;
     effectService.createEffect(db, () => { runs++; }, [], [computedSlot]);
-    if (writeSomethingElseFirst) cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'o')!, { n: 1 });
+    if (writeSomethingElseFirst) cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 'o')!, { n: 1 });
     db.flush();
     return runs;
 };

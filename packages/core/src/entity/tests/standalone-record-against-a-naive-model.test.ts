@@ -52,7 +52,7 @@ const run = (seed: number, steps: number): void => {
     // behind a write of the open batch.
     for (const name of FIELDS) {
         fieldWoke[name] = 0;
-        const column = recordService.columnSlotService.holdColumn(recordService.getSingleSlot(record), name);
+        const column = recordService.columnSlotService.holdColumnSlot(recordService.getSingleSlot(record), name);
         effectService.createEffect(db, () => { fieldWoke[name]++; }, [column]);
     }
     effectService.createEffect(db, () => { recordWoke++; }, [recordService.getSingleSlot(record)]);

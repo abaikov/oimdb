@@ -1,13 +1,13 @@
-import { oimDiffEntityKeys } from '../src';
+import { diffOIMEntityKeys } from '../src';
 
-describe('oimDiffEntityKeys', () => {
+describe('diffOIMEntityKeys', () => {
     test('classifies added, updated and removed keys by reference', () => {
         const a = { id: '1' };
         const b = { id: '2' };
         const oldEntities: Record<string, { id: string }> = { '1': a, '2': b };
         const newEntities: Record<string, { id: string }> = { '1': { id: '1' }, '3': { id: '3' } };
 
-        const result = oimDiffEntityKeys(oldEntities, newEntities);
+        const result = diffOIMEntityKeys(oldEntities, newEntities);
         expect(result.added).toEqual(new Set(['3']));
         expect(result.updated).toEqual(new Set(['1']));
         expect(result.removed).toEqual(new Set(['2']));
@@ -16,7 +16,7 @@ describe('oimDiffEntityKeys', () => {
 
     test('an entity kept by the same reference is neither added nor updated', () => {
         const shared = { id: '1' };
-        const result = oimDiffEntityKeys({ '1': shared }, { '1': shared });
+        const result = diffOIMEntityKeys({ '1': shared }, { '1': shared });
         expect(result.all.size).toBe(0);
     });
 
@@ -25,7 +25,7 @@ describe('oimDiffEntityKeys', () => {
         const oldEntities: Record<number, { id: number }> = { 1: one };
         const newEntities: Record<number, { id: number }> = { 1: one, 2: { id: 2 } };
 
-        const result = oimDiffEntityKeys(oldEntities, newEntities);
+        const result = diffOIMEntityKeys(oldEntities, newEntities);
 
         // A plain object files `2` under `'2'`, so the keys are strings, not the
         // population's pks: handed to a `Map`-backed store, `'2'` addresses nothing.

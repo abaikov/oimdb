@@ -1,5 +1,5 @@
 // What is deliberately LEFT IN makes the excised arm larger, so this spec is a LOWER BOUND.
-// The `import { createOIMPushColumnSlotOwner }` line in oimResolveSlotOwnerServiceOptions.ts
+// The `import { createOIMPushColumnSlotOwner }` line in resolveOIMSlotOwnerServiceOptions.ts
 // is NOT removed: with the option that used it gone it is unused and the bundler drops the module,
 // and that module's absence from the excised breakdown is the proof no link was missed.
 // `index.ts`'s re-exports of the column owners are left in on purpose — a named import keeps only what it names.
@@ -7,7 +7,7 @@ import type { TBundleExcision } from './TBundleExcision';
 
 export const fieldMachineryExcision: readonly TBundleExcision[] = [
     {
-        module: 'slot/utils/oimResolveSlotOwnerServiceOptions.ts',
+        module: 'slot/utils/resolveOIMSlotOwnerServiceOptions.ts',
         rules: [
             {
                 kind: 'line',

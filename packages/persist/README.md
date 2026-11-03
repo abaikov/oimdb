@@ -36,7 +36,7 @@ import {
     OIMPersistBucketRecordSource, OIMPersistCollectionChangeWriteRecordSource,
     OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource,
     OIMPersistSnapshotResource, OIMPersistFrameScheduler, OIMPersistMicrotaskScheduler,
-    OIMPersistSingleEntitySnapshotSource, OIMPersistor, oimReconcileByKey,
+    OIMPersistSingleEntitySnapshotSource, OIMPersistor, reconcileOIMByKey,
 } from '@oimdb/persist';
 import type { TOIMPersistVersionedShape } from '@oimdb/persist';
 import { OIMPersistMemoryBackend, OIMPersistMemoryRecordsService, OIMPersistMemoryWriteBatch } from '@oimdb/persist-memory';
@@ -100,7 +100,7 @@ the autosave on the microtask after the write, so the example lets one microtask
 | strategies | `IOIMPersistSnapshotService`, `IOIMPersistRecordsService` |
 | schedulers | `OIMPersistMicrotaskScheduler`, `OIMPersistFrameScheduler`, `TOIMPersistSchedulerFrameDrivenOptions`, `IOIMPersistScheduler` |
 | codecs | `OIMPersistIdentityCodec`, `OIMPersistVersionedCodec`, `TOIMPersistVersionedCodecOptions`, `TOIMPersistVersionedShape`, `IOIMPersistCodec` |
-| hydrate | `oimReconcileByKey`, `TOIMPersistHydrateReconcile` |
+| hydrate | `reconcileOIMByKey`, `TOIMPersistHydrateReconcile` |
 | key-value backend | `OIMPersistKeyValueBackend`, `OIMPersistKeyValueWriteBatch`, `OIMPersistKeyValueEntrySnapshotService`, `OIMPersistKeyValuePathSnapshotService`, `OIMPersistItemKeyValueStorage`, `IOIMPersistKeyValueStorage`, `TOIMPersistKeyValueItemStorage`, `TOIMPersistKeyValueSerializer`, `OIM_PERSIST_KEY_VALUE_JSON_SERIALIZER`, their option types |
 
 Every constructor takes one options object.
@@ -338,13 +338,13 @@ the resource calls the source's `markSourceChanges()`, which returns an
 sources (`OIMPersistSubscriptionSourceChangeMark`). A change made during the read is seen even
 when no frame runs, and the guard runs whether or not the persistor is started.
 
-**The reconcile** merges the stored content onto what is in memory. `oimReconcileByKey` builds one
+**The reconcile** merges the stored content onto what is in memory. `reconcileOIMByKey` builds one
 for records: `resolveEntity(currentEntity, incomingEntity, key)` is called for every stored key and
 returns the entity to keep, or `undefined` to drop it; keys only in memory are kept.
 
 ```ts
 type TAnsweredCard = { id: string; title: string; answer?: string };
-const answeredCardReconcile = oimReconcileByKey<TOIMStoreKey, TAnsweredCard>(
+const answeredCardReconcile = reconcileOIMByKey<TOIMStoreKey, TAnsweredCard>(
     (currentEntity, incomingEntity) => currentEntity === undefined
         ? incomingEntity
         : { ...currentEntity, answer: incomingEntity.answer },
@@ -365,7 +365,7 @@ await persistor.load(cardPersistResourceRecords, ['c1']);
 
 `await persistor.unload(cardPersistResourceRecords, ['c1'])` first writes, in one write batch, the
 resource's pending change and the current value of every unloaded key
-(`readRecordsDelta(findEntitySlotsByKeys(keys))`), so an edit no drain had reached, or one made while the persistor
+(`readRecordsDelta(peekEntitySlotsByKeys(keys))`), so an edit no drain had reached, or one made while the persistor
 was stopped or the resource quarantined, is saved rather than lost. After each commit it
 compares the keys' entity slots, which unload holds while it writes, by their revision stamps (a
 slot's stamp moves only on a real write); it also checks the resource's pending set and whether a
@@ -459,7 +459,7 @@ written as own properties, so a stored `__proto__` is data.
 - A backend implements `IOIMPersistBackend<TWriteBatch>` (`createWriteBatch()`), and its batch
   implements `IOIMPersistWriteBatch` (`commit(): Promise<void>`). A batch collects changes and
   applies them in `commit`; `OIMPersistWriteBatchChanges` is the list to keep them in, and
-  `oimWritePersistRecordsDelta` walks a records delta as upserts, then deletions.
+  `writeOIMPersistRecordsDelta` walks a records delta as upserts, then deletions.
 - A snapshot strategy implements `readSnapshot(persistBackend)`, `writeSnapshot(writeBatch, snapshot)`
   and `deleteSnapshot(writeBatch)`; a records strategy implements `readRecords(persistBackend)`,
   `readRecordsOfKeys(persistBackend, keys)`, `writeRecords(writeBatch, persistRecords)`,
@@ -468,7 +468,7 @@ written as own properties, so a stored `__proto__` is data.
   backend holds and leaves out the rest.
 - A source implements `IOIMPersistSnapshotSource` (`readSnapshot`, `writeSnapshot`,
   `subscribeSnapshotChanged`, `markSourceChanges`) or `IOIMPersistRecordSource`, which adds
-  `subscribeEntitySlotChanged`, `readRecordsDelta(entitySlots)`, `findEntitySlotsByKeys(keys)`, `markEntitySlotChanges(entitySlots)`,
+  `subscribeEntitySlotChanged`, `readRecordsDelta(entitySlots)`, `peekEntitySlotsByKeys(keys)`, `markEntitySlotChanges(entitySlots)`,
   `loadRecords(persistRecords)` and `unloadKeys(keys)`. `markSourceChanges()` returns an `IOIMPersistSourceChangeMark`
   (`isSourceChangedSinceMark()`, `dispose()`); build it with
   `new OIMPersistSlotSourceChangeMark({ slots })` or

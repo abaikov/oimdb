@@ -25,13 +25,13 @@ describe('a caller who never names a slot', () => {
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
 
-        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
+        expect(cardsService.peekSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
     });
 
     it('is answered with nothing for a key nothing wrote, and files no identity for the ask', () => {
         const { cardsService, cards } = createFixture();
 
-        expect(cardsService.findSlotByKey(cards, 'never-written')?.entity).toBeUndefined();
+        expect(cardsService.peekSlotByKey(cards, 'never-written')?.entity).toBeUndefined();
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 
@@ -90,7 +90,7 @@ describe('a caller who never names a slot', () => {
         decksService.slotContentService.writeSlotContent(deck, [cardsService.getSlotByKey(cards, 'c1'), cardsService.getSlotByKey(cards, 'c2')]);
         db.flush();
 
-        const card = cardsService.findSlotByKey(cards, 'c1');
+        const card = cardsService.peekSlotByKey(cards, 'c1');
         if (card !== undefined) cardsService.slotContentService.clearSlotContent(card);
         db.flush();
 

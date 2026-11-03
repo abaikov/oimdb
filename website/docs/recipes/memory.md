@@ -11,7 +11,7 @@ reading without keeping, caches that expire, store slots that never release,
 dropping everything on logout, and which handle to keep in long-lived code.
 
 ```ts setup
-import { OIMDB, oimIsSlotReleased, type TOIMStoreKey, createOIMSingleComputedService, createOIMSlotCollectionService, createOIMEntityContentService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, OIMUnusedSlotCollectorService, createOIMUnusedSlotCollectorSlot, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotNeverReleasePolicy, OIMChannelService, OIMDefaults } from '@oimdb/core';
+import { OIMDB, isOIMSlotReleased, type TOIMStoreKey, createOIMSingleComputedService, createOIMSlotCollectionService, createOIMEntityContentService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, OIMUnusedSlotCollectorService, createOIMUnusedSlotCollectorSlot, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotNeverReleasePolicy, OIMChannelService, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; deckId: string; title: string; rank: number };
 
@@ -69,8 +69,8 @@ Reference: [Slot lifecycle](/docs/core/lifecycle),
 
 ## Read without keeping
 
-Take: `slotContentService.findSlotByKey(storeSlot, key)` for a value you do not keep — it mints nothing — or
-`findSlotByKey(storeSlot, key)` for the slot without minting, `getSlotByKey(storeSlot, key)` when you need a slot
+Take: `slotContentService.peekSlotByKey(storeSlot, key)` for a value you do not keep — it mints nothing — or
+`peekSlotByKey(storeSlot, key)` for the slot without minting, `getSlotByKey(storeSlot, key)` when you need a slot
 whether or not one exists, and `hasSlotContentByKey(storeSlot, key)` when you only need to know whether a value
 exists. Wrap reads in `OIMUnusedSlotCollectorService.INSTANCE.run(db.collectorSlot.unusedSlotCollectorSlot, body)`
 (or `open` / `close`) when they must survive a flush; for a set of reads with its own end, use an unused-slot
@@ -79,7 +79,7 @@ collector slot of your own. Do not use `holdSlotByKey` for a one-off read: that 
 ```ts
 
 const unusedSlotCollectorService = OIMUnusedSlotCollectorService.INSTANCE;
-const title = cardService.findSlotByKey(cards, 'c2')?.entity?.title;
+const title = cardService.peekSlotByKey(cards, 'c2')?.entity?.title;
 const known = cardService.hasSlotContentByKey(cards, 'c3');
 
 unusedSlotCollectorService.run(db.collectorSlot.unusedSlotCollectorSlot, () => {
@@ -98,7 +98,7 @@ Why this way: a getter that finds no identity mints one, so a subscription
 taken right after the read lands on the slot every later write uses. The mint is
 held by the db's unused-slot collector, which gives every such hold back at
 the end of the next flush; an empty slot nothing else keeps then goes.
-`findSlotByKey` and `hasSlotContentByKey` mint nothing. A scope defers the give-back: scopes nest, only
+`peekSlotByKey` and `hasSlotContentByKey` mint nothing. A scope defers the give-back: scopes nest, only
 the close that brings the depth to zero gives the holds back, `close` without an
 `open` throws, and `run` closes from a `finally`. A collector slot of your own holds
 each slot you `holdSlotUntilFlush` until its own `flush`.
@@ -227,7 +227,7 @@ identity once it is released.
 ```ts
 const late = cardService.getSlotByKey(cards, 'c9');
 db.flush();
-const isDead = oimIsSlotReleased(late);
+const isDead = isOIMSlotReleased(late);
 
 try {
     late.holdSlot();

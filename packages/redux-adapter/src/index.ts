@@ -17,11 +17,11 @@ export type { TOIMReduxCollectionReducerChildOptions } from './types/TOIMReduxCo
 export type { TOIMReduxLinkedIndex } from './types/TOIMReduxLinkedIndex';
 export type { TOIMReduxIndexReducerChildOptions } from './types/TOIMReduxIndexReducerChildOptions';
 
-export { oimDefaultCollectionMapper } from './core/oimDefaultCollectionMapper';
-export { oimDefaultKeyedIndexMapper } from './core/oimDefaultKeyedIndexMapper';
-export { oimDefaultGlobalIndexMapper } from './core/oimDefaultGlobalIndexMapper';
+export { mapOIMCollection } from './core/mapOIMCollection';
+export { mapOIMKeyedIndex } from './core/mapOIMKeyedIndex';
+export { mapOIMGlobalIndex } from './core/mapOIMGlobalIndex';
 
 export { OIMReduxLinkedIndexesUpdater } from './core/OIMReduxLinkedIndexesUpdater';
 
-export { oimDiffEntityKeys } from './utils/oimDiffEntityKeys';
+export { diffOIMEntityKeys } from './utils/diffOIMEntityKeys';
 export type { TOIMReduxEntityKeysDiff } from './types/TOIMReduxEntityKeysDiff';

@@ -1,3 +1,4 @@
+import type { IOIMSlotSubscriptionListener } from '../../slot/interfaces/IOIMSlotSubscriptionListener';
 import type { IOIMSlotReleasePolicy } from '../../collector/interfaces/IOIMSlotReleasePolicy';
 import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreService';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
@@ -12,6 +13,7 @@ export type TOIMComputedServiceFactoryOptions<TValue> = {
     releaseValue?: TOIMComputedValueReleaser<TValue> | undefined;
     initialValue?: TValue | undefined;
     slotReleasePolicy?: IOIMSlotReleasePolicy | undefined;
+    slotSubscriptionListener?: IOIMSlotSubscriptionListener | undefined;
     columnSlotStoreService?: IOIMSlotStoreService<string, TOIMComputedColumnSlot> | undefined;
     columnNames?: readonly Extract<keyof TValue, string>[] | undefined;
     columnGroups?: readonly TOIMColumnGroup<Extract<keyof TValue, string>>[] | undefined;

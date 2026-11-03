@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
@@ -31,10 +31,10 @@ describe('what a single entity column hears', () => {
             const { db, effectService, sessionService, session } = createFixture(columns);
             let themeRuns = 0;
             let groupRuns = 0;
-            effectService.createEffect(db, () => { themeRuns++; }, [sessionService.columnSlotService.holdColumn(sessionService.getSingleSlot(session), 'theme')]);
+            effectService.createEffect(db, () => { themeRuns++; }, [sessionService.columnSlotService.holdColumnSlot(sessionService.getSingleSlot(session), 'theme')]);
             effectService.createEffect(db, () => {
                 groupRuns++;
-            }, [sessionService.columnSlotService.holdColumnGroup(sessionService.getSingleSlot(session), themeAndLocale)]);
+            }, [sessionService.columnSlotService.holdColumnGroupSlot(sessionService.getSingleSlot(session), themeAndLocale)]);
             db.flush();
             sessionService.slotContentService.updateEntity(sessionService.getSingleSlot(session), { userId: 'u2' });
             db.flush();
@@ -48,16 +48,16 @@ describe('what a single entity column hears', () => {
 
     it('refuses a slot for a column it was not given', () => {
         const { sessionService, session } = createFixture(['theme']);
-        expect(() => sessionService.columnSlotService.holdColumn(sessionService.getSingleSlot(session), 'locale')).toThrow('"locale" is not among the columns');
+        expect(() => sessionService.columnSlotService.holdColumnSlot(sessionService.getSingleSlot(session), 'locale')).toThrow('"locale" is not among the columns');
     });
 
     it('gives a column slot back and drops the store it filed it in', () => {
         const { db, sessionService, session } = createFixture();
         const sessionSlot = sessionService.getSingleSlot(session);
-        const themeSlot = sessionService.columnSlotService.getColumn(sessionSlot, 'theme');
+        const themeSlot = sessionService.columnSlotService.getColumnSlot(sessionSlot, 'theme');
         expect(sessionSlot.columnSlotStore === undefined).toBe(false);
         db.flush();
         expect(sessionService.getSingleSlot(session)).toBe(sessionSlot);
-        expect(oimIsSlotReleased(themeSlot) && sessionSlot.columnSlotStore === undefined).toBe(true);
+        expect(isOIMSlotReleased(themeSlot) && sessionSlot.columnSlotStore === undefined).toBe(true);
     });
 });

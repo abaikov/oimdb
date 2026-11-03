@@ -9,7 +9,7 @@ import type { TOIMColumnGroup } from '../../column/types/TOIMColumnGroup';
 export type TOIMEffect = TOIMComputedDerivation & {
     readonly effectService: IOIMEffectService;
     readonly channelSlot: TOIMChannelSlot;
-    readonly allRootSlots: readonly TOIMSlot[];
+    readonly rootSlots: readonly TOIMSlot[];
     positionInFirstSubscribedSlot: number;
     positionsInOtherSubscribedSlots: number[] | undefined;
     columnGroupsByEdge: (TOIMColumnGroup | undefined)[] | undefined;

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import { OIMDB, createOIMComputedService, oimSameValueZeroGuard } from '@oimdb/core';
+import { OIMDB, createOIMComputedService, isOIMSameValueZero } from '@oimdb/core';
 import { OIMDBProvider, useOIMComputedValue } from '../src/index';
 import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
@@ -14,7 +14,7 @@ function build() {
     const ranksService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const ranks = ranksService.createStoreSlot(db);
     return { db, cardsService, cards, ranksService, ranks };

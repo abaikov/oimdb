@@ -63,11 +63,11 @@ function ordered(entities: readonly TRanked[]) {
         cardsService.writeSlotContentByKey(cards, entity.id, entity);
     };
     const updateEntityByKey = (id: string, patch: Partial<TRanked>): void => {
-        const slot = cardsService.findSlotByKey(cards, id);
+        const slot = cardsService.peekSlotByKey(cards, id);
         if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
     };
     const deleteEntityByKey = (id: string): void => {
-        const slot = cardsService.findSlotByKey(cards, id);
+        const slot = cardsService.peekSlotByKey(cards, id);
         if (slot !== undefined) cardsService.slotContentService.clearSlotContent(slot);
     };
     upsertEntities(entities);

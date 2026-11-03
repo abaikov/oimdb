@@ -19,7 +19,7 @@ const passThroughChildReducer = (state: TDeckState | undefined): TDeckState =>
     state ?? { entities: {}, ids: [] };
 
 const slotKeysOf = (cardsByDeckService: TBucketService<TCard>, cardsByDeck: TBucketStoreSlot<TCard>, key: string): unknown[] => {
-    const bucket = cardsByDeckService.findSlotByKey(cardsByDeck, key);
+    const bucket = cardsByDeckService.peekSlotByKey(cardsByDeck, key);
     if (bucket === undefined) return [];
     return Array.from(cardsByDeckService.slotContentService.getBucketMemberSlots(bucket)).map(slot => slot.key);
 };

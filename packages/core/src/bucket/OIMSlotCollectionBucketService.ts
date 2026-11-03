@@ -13,9 +13,9 @@ import { OIMSingleSlotService } from '../slot/OIMSingleSlotService';
 import { OIMSingleSlotStoreService } from '../store/OIMSingleSlotStoreService';
 import { OIMDefaults } from '../db/OIMDefaults';
 import { OIM_DEFAULT_STORE_SLOT_LISTENER } from '../db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER';
-import { oimResolveSlotOwnerServiceOptions } from '../slot/utils/oimResolveSlotOwnerServiceOptions';
-import { oimIsSlotEmpty } from '../slot/utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
+import { resolveOIMSlotOwnerServiceOptions } from '../slot/utils/resolveOIMSlotOwnerServiceOptions';
+import { isOIMSlotEmpty } from '../slot/utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../slot/utils/isOIMSlotReleased';
 
 type TBucketStoreSlot = ReturnType<OIMSlotCollectionBucketService['collectionBucketSingleSlotService']['createStoreSlot']>;
 
@@ -27,7 +27,7 @@ export class OIMSlotCollectionBucketService {
     private readonly collectionBucketSingleSlotService = new OIMSingleSlotService<
         TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>, OIMCollectionSetBucketContentService, string, TOIMColumnSlot
     >({
-        ...oimResolveSlotOwnerServiceOptions(OIMDefaults.INSTANCE, { slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE }),
+        ...resolveOIMSlotOwnerServiceOptions(OIMDefaults.INSTANCE, { slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE }),
         slotStoreService: OIMSingleSlotStoreService.INSTANCE as OIMSingleSlotStoreService<TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>>,
         slotContentService: this.collectionSetBucketContentService,
         storeSlotListener: OIMDefaults.INSTANCE.storeSlotListener ?? OIM_DEFAULT_STORE_SLOT_LISTENER.getValue(),
@@ -35,7 +35,7 @@ export class OIMSlotCollectionBucketService {
 
     public getBucketSlot<TSlot extends TOIMSlot>(storeSlot: TOIMSlotCollectionStoreSlot<TSlot>): TOIMCollectionBucketSlot<TSlot> {
         const collectionBucketSlot = storeSlot.collectionBucketSlot;
-        if (collectionBucketSlot !== undefined && !oimIsSlotReleased(collectionBucketSlot)) return collectionBucketSlot;
+        if (collectionBucketSlot !== undefined && !isOIMSlotReleased(collectionBucketSlot)) return collectionBucketSlot;
         const bucketStoreSlot = this.getBucketStoreSlot(storeSlot, collectionBucketSlot);
         return this.fillCollectionBucketSlot(storeSlot, this.collectionBucketSingleSlotService.getSingleSlot(bucketStoreSlot));
     }
@@ -46,28 +46,28 @@ export class OIMSlotCollectionBucketService {
         return collectionBucketSlot;
     }
 
-    public getBucketColumn<TSlot extends TOIMSlot>(storeSlot: TOIMSlotCollectionStoreSlot<TSlot>, columnName: string): TOIMColumnSlot {
+    public getBucketColumnSlot<TSlot extends TOIMSlot>(storeSlot: TOIMSlotCollectionStoreSlot<TSlot>, columnName: string): TOIMColumnSlot {
         const collectionBucketSlot = this.getBucketSlot(storeSlot);
         this.collectionSetBucketContentService.addCollectionColumnRead(collectionBucketSlot as TOIMCollectionBucketSlot, columnName);
-        return this.collectionBucketSingleSlotService.columnSlotService.getColumn(collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>, columnName);
+        return this.collectionBucketSingleSlotService.columnSlotService.getColumnSlot(collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>, columnName);
     }
 
-    public holdBucketColumn<TSlot extends TOIMSlot>(storeSlot: TOIMSlotCollectionStoreSlot<TSlot>, columnName: string): TOIMColumnSlot {
+    public holdBucketColumnSlot<TSlot extends TOIMSlot>(storeSlot: TOIMSlotCollectionStoreSlot<TSlot>, columnName: string): TOIMColumnSlot {
         const collectionBucketSlot = this.getBucketSlot(storeSlot);
         this.collectionSetBucketContentService.addCollectionColumnRead(collectionBucketSlot as TOIMCollectionBucketSlot, columnName);
-        return this.collectionBucketSingleSlotService.columnSlotService.holdColumn(collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>, columnName);
+        return this.collectionBucketSingleSlotService.columnSlotService.holdColumnSlot(collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>, columnName);
     }
 
-    public getAnyBucketColumn<TSlot extends TOIMSlot>(storeSlot: TOIMSlotCollectionStoreSlot<TSlot>): TOIMColumnSlot {
+    public getAnyBucketColumnSlot<TSlot extends TOIMSlot>(storeSlot: TOIMSlotCollectionStoreSlot<TSlot>): TOIMColumnSlot {
         const collectionBucketSlot = this.getBucketSlot(storeSlot);
         this.collectionSetBucketContentService.addCollectionAnyColumnRead(collectionBucketSlot as TOIMCollectionBucketSlot);
-        return this.collectionBucketSingleSlotService.columnSlotService.getAnyColumn(collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>);
+        return this.collectionBucketSingleSlotService.columnSlotService.getAnyColumnSlot(collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>);
     }
 
-    public holdAnyBucketColumn<TSlot extends TOIMSlot>(storeSlot: TOIMSlotCollectionStoreSlot<TSlot>): TOIMColumnSlot {
+    public holdAnyBucketColumnSlot<TSlot extends TOIMSlot>(storeSlot: TOIMSlotCollectionStoreSlot<TSlot>): TOIMColumnSlot {
         const collectionBucketSlot = this.getBucketSlot(storeSlot);
         this.collectionSetBucketContentService.addCollectionAnyColumnRead(collectionBucketSlot as TOIMCollectionBucketSlot);
-        return this.collectionBucketSingleSlotService.columnSlotService.holdAnyColumn(collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>);
+        return this.collectionBucketSingleSlotService.columnSlotService.holdAnyColumnSlot(collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>);
     }
 
     private getBucketStoreSlot(storeSlot: TOIMStoreSlot, releasedBucketSlot: TOIMCollectionBucketSlot | undefined): TBucketStoreSlot {
@@ -81,7 +81,7 @@ export class OIMSlotCollectionBucketService {
         storeSlot: TOIMSlotCollectionStoreSlot<TSlot>, mintedBucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TOIMSlot>>,
     ): TOIMCollectionBucketSlot<TSlot> {
         const filledSlots: TSlot[] = [];
-        for (const slot of storeSlot.slotService.getSlots(storeSlot)) if (!oimIsSlotEmpty(slot)) filledSlots.push(slot);
+        for (const slot of storeSlot.slotService.getSlots(storeSlot)) if (!isOIMSlotEmpty(slot)) filledSlots.push(slot);
         this.collectionSetBucketContentService.fillBucketMemberSlots(mintedBucketSlot, filledSlots);
         (mintedBucketSlot.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsSetStore<TOIMSlot>>).settleEmptiness(mintedBucketSlot, filledSlots.length === 0);
         const collectionBucketSlot = mintedBucketSlot as unknown as TOIMCollectionBucketSlot<TSlot>;

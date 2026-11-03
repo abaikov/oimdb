@@ -145,7 +145,7 @@ number in it is re-attributed to the current one.** A write reaches no index at
 all. The column is addressed by a per-column identity —
 `TOIMEntitySlot.columnSlotStore`, minted on the first subscription to that column and
 written only by `packages/core/src/column/OIMColumnSlotOwner.ts`. The one
-door onto a column is `holdColumn(slot, name)` on the collection, which mints the
+door onto a column is `holdColumnSlot(slot, name)` on the collection, which mints the
 column identity, handed to `OIMChannel.effectOnColumn(column, body)`, which builds
 an ordinary effect on it. Nothing has re-run this row since.
 
@@ -170,7 +170,7 @@ subscribed to.
 **CORRECTION, 2026-10-22.** "Per VISIBLE SLOT, not per column" no longer describes
 the adapter, and the `src/adapters/oimdb.ts:213` it cites no longer exists. A window
 view now holds, per visible row, a column-group slot over `rank` and `label`
-(`entityService.slotContentOwner.holdColumnGroup(slot, renderedColumns)`, with
+(`entityService.slotContentOwner.holdColumnGroupSlot(slot, renderedColumns)`, with
 `renderedColumns` from `getColumnGroup(['rank', 'label'])`, `src/adapters/oimdb.ts:316`
 and `:364`), and one effect over all of those column-group slots
 (`effectService.createEffect(watchedColumnGroupSlots, NO_SOURCE_COMPUTEDS, state.markPending)`,
@@ -205,7 +205,7 @@ What the bucket holds, and in what order, already has its OWN effect over the or
 (`src/adapters/oimdb.ts:319-320`), separate from the per-slot one. So a window bound
 with `effectOnColumn` on the column it renders would be faithful to what the view
 reads, not a weakened arm — and the same adapter already does exactly that for
-the cell views, `effectService.createEffect([columnSlot], …)` on `entityService.slotContentOwner.holdColumn(slot, 'label'/'note')`
+the cell views, `effectService.createEffect([columnSlot], …)` on `entityService.slotContentOwner.holdColumnSlot(slot, 'label'/'note')`
 at `src/adapters/oimdb.ts:508` and `:512`.
 
 **SO THE NUMBER IS HONEST AND THE LOSS IS NOT ESTABLISHED.** 17× is a figure
@@ -640,7 +640,7 @@ same reason in three different vocabularies: their routing is at the LEAF, so th
 row is its own identity, minted lazily on the first subscription and hanging on
 the row (`TOIMEntitySlot.columnSlotStore`, sole writer
 `packages/core/src/column/OIMColumnSlotOwner.ts`); subscribing to a column
-is an ordinary effect on THAT identity: `holdColumn` mints and resolves the
+is an ordinary effect on THAT identity: `holdColumnSlot` mints and resolves the
 column through `OIMColumnSlotOwner`, and `OIMChannel.effectOnColumn` hands it to
 `OIMChannel.effect` as its single root. A write marks only the column identities that already
 exist (`OIMEntityCollection` → `OIMColumnSlotOwner.markColumnsChanged`, which
@@ -799,10 +799,10 @@ Read against the engine that ships:
 **What the question survives on instead**, stated as what was found rather than
 as a replacement for the sentence: the engine does carry bounded working state
 between calls, but in the ORDERED-LIST machinery and not in delivery.
-`oimOrderedListCommandsOfTransition` reuses six scratch buffers rather than reallocating them and
+`getOIMOrderedListCommands` reuses six scratch buffers rather than reallocating them and
 DROPS one above `OIM_MAX_DIFF_SCRATCH_SLOTS = 4096` entries — "one
 allocation on the call after a giant one, and none on any call that stays under
-it" (`packages/core/src/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts`,
+it" (`packages/core/src/bucket/commands/utils/getOIMOrderedListCommands.ts`,
 against `packages/core/src/bucket/commands/constants/OIM_MAX_DIFF_SCRATCH_SLOTS.ts`);
 the ordered bucket service keeps three working buffers between settles "so that a
 steady-state frame allocates nothing here", dropped above
@@ -1118,7 +1118,7 @@ Insert a population, read one row back by key. **One axis varies: the write
 strategy**, and the sweep's job is to find out whether the fork is *free* here
 rather than to find a winner. `createOIMInPlaceEntityWriter.ts` and
 `createOIMReplacingEntityWriter.ts` both default `entityInserter` to the same
-strategy (the copying one when this was measured; `oimInsertEntityWithoutCopy` since 2026-10-21), and `upsert`'s insert branch calls
+strategy (the copying one when this was measured; `insertOIMEntityWithoutCopy` since 2026-10-21), and `upsert`'s insert branch calls
 `fillSlot` and no other method of the strategy
 (`packages/core/src/facade/entity/OIMEntityCollection.ts`, `upsert`). The two arms should be the
 same machine code on this path; the row turns that source claim into a reading.
@@ -1456,8 +1456,8 @@ instead of iterating `byGroup.read(bucket)`.
 `OIMBucketCollection.write` ends in `this.channel.write(bucket)`
 (`packages/core/src/facade/bucket/OIMBucketCollection.ts`, `write`), and the two-call
 protocol for an in-place sort-key change ends the same way. The filter lives in
-`oimRefreshComputedSlot`, which advances `changedAt*` only when its `held` says
-the value changed (`packages/core/src/computed/utils/oimRefreshComputedSlot.ts`), and
+`refreshOIMComputedSlot`, which advances `changedAt*` only when its `held` says
+the value changed (`packages/core/src/computed/utils/refreshOIMComputedSlot.ts`), and
 `OIMEffect.run` returns without calling the body when nothing it reads has moved
 (`packages/core/src/engine/computed/OIMEffect.ts`, `run`). An effect over the raw bucket sits upstream of that
 filter and receives every report. Measuring it compared sixteen libraries against
@@ -1884,7 +1884,7 @@ in the constructor, so each instance's hidden class is reached through map trans
 and V8 holds those transitions weakly. `churnChain` unmounts every tile each cycle, so at
 the `gc()` the harness runs between samples (`src/harness/measure.ts:74`) no instance is
 alive, the hidden class is collected, and every optimized function that embedded it
-(`OIMEffect`, `dispose`, `enlist`, `flush`, `oimRefreshComputedSlot`, `updateEmptiness`, …)
+(`OIMEffect`, `dispose`, `enlist`, `flush`, `refreshOIMComputedSlot`, `updateEmptiness`, …)
 is deoptimized. The next sample runs before reoptimization — the slow mode of the spread.
 
 **Evidence, deopt counts only.** The real adapter, the chain script, `gc()` every 400 runs:
@@ -1928,11 +1928,11 @@ churn scripts a resident subscriber, change the engine's node construction, or s
 | oimdb, every removable step off | 79–80 |
 
 Removing one step at a time moves the median by: the generic patch walk
-(`patchEntityColumns`: `for…in`, `oimIsProtoKey`, `oimIsPlainObject`, the guard) −22 to −26 ns; each of
+(`patchEntityColumns`: `for…in`, `isOIMProtoKey`, `isOIMPlainObject`, the guard) −22 to −26 ns; each of
 assert, subframe open/close, `hasChangedColumnReaders`, column marking, `updateEmptiness`,
 content-change listeners, the flush tail (collector + after-each-flush), the frame tail
-(`cancelSchedule`, after-each-frame) and the effect gate (`oimRefreshSourceComputeds`,
-`oimHasSourceChangedSinceLastRun`, `runCleanup`) between −9 and +11 ns, inside run-to-run noise.
+(`cancelSchedule`, after-each-frame) and the effect gate (`refreshOIMSourceComputeds`,
+`hasOIMSourceChangedSinceLastRun`, `runCleanup`) between −9 and +11 ns, inside run-to-run noise.
 
 **What this row therefore reads.** One write plus a frame is ~2.1× a signal set, ~70 ns
 more. A third of it is the patch walk; the other two thirds has no owner and is spread over
@@ -2010,16 +2010,16 @@ A diamond's join has no direct roots, so its `sourceSlots` is the frozen empty a
 loop of `push` into `[]`. A diamond probe (32 subscribers mounted, written, unmounted, written;
 load 2.7, three runs): 24.0–24.6 → 20.1–21.3 µs a cycle. The cell, worker, three runs: oimdb
 180–192 µs, alien 100–103 — 2.3× before, 1.8× after. What is left in the profile is the mount
-itself: `oimRefreshComputedSlot`, `mintComputedSlot`, `createEffect`, `releaseSlot`,
+itself: `refreshOIMComputedSlot`, `mintComputedSlot`, `createEffect`, `releaseSlot`,
 `disposeEffect`, and the adapter's own closures — the "MOUNT is not comparable" of this row's B1.
 
 ## `singleResend` — `Object.getPrototypeOf` and a frame with nothing in it
 
-A profile of the cell put `oimIsPlainObject` at 17% and `flush` at 18%. `oimIsPlainObject` was one
+A profile of the cell put `isOIMPlainObject` at 17% and `flush` at 18%. `isOIMPlainObject` was one
 `Object.getPrototypeOf` per patch so that a plain source skipped the per-key own-property
 check; measured, the check per key is cheaper than the one prototype read. Probe, one
 `OIMSingleEntity.update` of the value it holds + `flush`, load 3.5, three runs: 32.2–33.3 ns as
-it was, 17.7–18.7 with the per-key check and no `oimIsPlainObject`; a 10-column patch 134–136 → 123–125,
+it was, 17.7–18.7 with the per-key check and no `isOIMPlainObject`; a 10-column patch 134–136 → 123–125,
 a 10-column put 160–166 → 149–155. `patchEntityColumns` and `putEntityColumns` now check
 every key, and the two proxy-count tests that pinned "a plain source pays no own check" count
 the extra descriptor reads. `OIMChannel.flush` skips `runFrame` when the clock has not moved
@@ -2128,7 +2128,7 @@ yet show the ~4 ns the ladder's channel rung predicts. A quiet-machine run decid
 
 ## the column patch: megamorphic in a many-type process, monomorphic in every cell
 
-`oimPatchEntityColumns` and `oimPatchEntityColumn` reach a column by name (`entity[name]`), and one
+`patchOIMEntityColumns` and `patchOIMEntityColumn` reach a column by name (`entity[name]`), and one
 function serves every entity type, so in a process with many types the keyed load and store go
 megamorphic. On a 6-field entity a one-column patch costs 27–28 ns there, 9.9 ns when the site saw one
 shape, 8.4–9.4 ns with code generated per type (scratch microbench, 2026-10-21, deferred to the next
@@ -2140,8 +2140,8 @@ further:
 - batchPatch, patchMostRows: the patch functions are never compiled. A label or note write assigns
   `slot.entity` in place and calls `markEntityChanged` with that column (adapters/oimdb.ts:253, 260).
 - moveGroup, sortKeyMove, relationWrite, singleWrite: `updateEntityColumn` →
-  `oimPatchEntityColumn`, keyed load and store of `group`/`rank` monomorphic.
-- batchInsert, resendUnchanged: `upsertEntities` → `oimPutEntityColumns` → `oimPatchEntityColumns`,
+  `patchOIMEntityColumn`, keyed load and store of `group`/`rank` monomorphic.
+- batchInsert, resendUnchanged: `upsertEntities` → `putOIMEntityColumns` → `patchOIMEntityColumns`,
   monomorphic.
 
 So the bench prices this path at its best case, and an application with dozens of entity types pays up

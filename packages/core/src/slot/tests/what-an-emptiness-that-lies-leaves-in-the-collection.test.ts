@@ -3,8 +3,8 @@ import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 
 import { OIMDB } from '../../db/OIMDB';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotEmpty } from '../utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
@@ -23,7 +23,7 @@ describe('an emptiness the collection was handed', () => {
 
         const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'alpha' });
 
-        expect(oimIsSlotEmpty(slot)).toBe(true);
+        expect(isOIMSlotEmpty(slot)).toBe(true);
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(slot);
     });
 
@@ -33,7 +33,7 @@ describe('an emptiness the collection was handed', () => {
         const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'alpha' });
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
         expect(Array.from(cardsService.getSlots(cards))).not.toContain(slot);
     });
@@ -44,12 +44,12 @@ describe('an emptiness the collection was handed', () => {
         const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'alpha' });
 
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(slot);
-        expect(oimIsSlotEmpty(slot)).toBe(false);
+        expect(isOIMSlotEmpty(slot)).toBe(false);
 
         cardsService.slotContentService.clearSlotContent(slot);
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
-        expect(oimIsSlotEmpty(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotEmpty(slot)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 });

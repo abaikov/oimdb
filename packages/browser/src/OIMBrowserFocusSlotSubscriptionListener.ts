@@ -1,7 +1,7 @@
 import type { TOIMDisposer } from '@oimdb/core';
 import type { TOIMBrowserFocusEntity } from './types/TOIMBrowserFocusEntity';
 import { OIMBrowserSlotSubscriptionListener } from './OIMBrowserSlotSubscriptionListener';
-import { oimListenToBrowserWindow } from './utils/oimListenToBrowserWindow';
+import { listenToOIMBrowserWindow } from './utils/listenToOIMBrowserWindow';
 
 export class OIMBrowserFocusSlotSubscriptionListener extends OIMBrowserSlotSubscriptionListener<TOIMBrowserFocusEntity> {
     protected readCurrentEntity(): TOIMBrowserFocusEntity {
@@ -10,6 +10,6 @@ export class OIMBrowserFocusSlotSubscriptionListener extends OIMBrowserSlotSubsc
     }
 
     protected listenToBrowser(onBrowserChanged: () => void): TOIMDisposer {
-        return oimListenToBrowserWindow(['focus', 'blur'], onBrowserChanged);
+        return listenToOIMBrowserWindow(['focus', 'blur'], onBrowserChanged);
     }
 }

@@ -1,4 +1,4 @@
-import { OIMDB, OIM_FROZEN_EMPTY_SLOTS, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIM_FROZEN_EMPTY_SLOTS, isOIMSlotReleased } from '../../index';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
@@ -11,10 +11,10 @@ describe('a held column is given back through the same door that held it', () =>
         const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
-        const titleColumn = cardsService.columnSlotService.holdColumn(card, 'title');
+        const titleColumn = cardsService.columnSlotService.holdColumnSlot(card, 'title');
         expect(titleColumn.holdCount).toBe(1);
-        cardsService.columnSlotService.unholdColumn(titleColumn);
-        expect(oimIsSlotReleased(titleColumn)).toBe(true);
+        cardsService.columnSlotService.unholdColumnSlot(titleColumn);
+        expect(isOIMSlotReleased(titleColumn)).toBe(true);
     });
 
     it('a single entity hands back the column it held', () => {
@@ -22,10 +22,10 @@ describe('a held column is given back through the same door that held it', () =>
         const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<{ theme: string }>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
-        const themeColumn = settingsService.columnSlotService.holdColumn(settingsService.getSingleSlot(settings), 'theme');
+        const themeColumn = settingsService.columnSlotService.holdColumnSlot(settingsService.getSingleSlot(settings), 'theme');
         expect(themeColumn.holdCount).toBe(1);
-        settingsService.columnSlotService.unholdColumn(themeColumn);
-        expect(oimIsSlotReleased(themeColumn)).toBe(true);
+        settingsService.columnSlotService.unholdColumnSlot(themeColumn);
+        expect(isOIMSlotReleased(themeColumn)).toBe(true);
     });
 
     it('the frozen empty slot list is exported, and frozen', () => {

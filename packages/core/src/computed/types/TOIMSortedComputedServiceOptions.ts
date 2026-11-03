@@ -1,3 +1,5 @@
+import type { IOIMSlotSubscriptionListener } from '../../slot/interfaces/IOIMSlotSubscriptionListener';
+import type { TOIMColumnSlotOwnerOptions } from '../../column/types/TOIMColumnSlotOwnerOptions';
 import type { IOIMSlotReleasePolicy } from '../../collector/interfaces/IOIMSlotReleasePolicy';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import type { TOIMComputedSlot } from './TOIMComputedSlot';
@@ -11,8 +13,9 @@ export type TOIMSortedComputedServiceOptions<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore, TComputedStore,
 > = {
     indexService: OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore>;
-    computedSlotStoreService: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity, TSourceKey>[], TKey>, TComputedStore>;
-    columnSlotStoreService: IOIMSlotStoreService<string, TOIMComputedColumnSlot>;
+    slotStoreService: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity, TSourceKey>[], TKey>, TComputedStore>;
+    columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMComputedColumnSlot, string>;
+    slotSubscriptionListener?: IOIMSlotSubscriptionListener | undefined;
     sortColumns?: readonly TOIMSortColumn<TEntity>[] | undefined;
     comparator?: ((left: TEntity, right: TEntity) => number) | undefined;
     slotReleasePolicy: IOIMSlotReleasePolicy;

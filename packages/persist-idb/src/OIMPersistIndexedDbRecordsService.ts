@@ -1,4 +1,4 @@
-import { oimWritePersistRecordsDelta } from '@oimdb/persist';
+import { writeOIMPersistRecordsDelta } from '@oimdb/persist';
 import type {
     IOIMPersistRecordsService, TOIMPersistRecord, TOIMPersistRecords, TOIMPersistRecordsDelta,
 } from '@oimdb/persist';
@@ -50,7 +50,7 @@ implements IOIMPersistRecordsService<OIMPersistIndexedDbBackend, OIMPersistIndex
         persistIndexedDbWriteBatch: OIMPersistIndexedDbWriteBatch, persistRecordsDelta: TOIMPersistRecordsDelta<TKey, TEntity>,
     ): void {
         const tableName = this.tableName;
-        oimWritePersistRecordsDelta(
+        writeOIMPersistRecordsDelta(
             persistRecordsDelta,
             (key, entity) => { persistIndexedDbWriteBatch.putTableValue(tableName, key, entity); },
             key => { persistIndexedDbWriteBatch.deleteTableValue(tableName, key); },

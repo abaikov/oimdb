@@ -23,7 +23,7 @@ describe('a standalone record does not tear its value in half', () => {
     it('marks the record before any frame a column write asks for can run', () => {
         const { db, profileService, profile } = createFixture();
         const seen: string[] = [];
-        effectService.createEffect(db, () => { seen.push('column'); }, [profileService.columnSlotService.getColumn(profileService.getSingleSlot(profile), 'city')]);
+        effectService.createEffect(db, () => { seen.push('column'); }, [profileService.columnSlotService.getColumnSlot(profileService.getSingleSlot(profile), 'city')]);
         effectService.createEffect(db, () => { seen.push('record'); }, [profileService.getSingleSlot(profile)]);
         seen.length = 0;
 
@@ -43,10 +43,10 @@ describe('a standalone record does not tear its value in half', () => {
         OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defaultChannelSlot, () => { frames++; });
         effectService.createEffect(db, () => {
             seen.push(`city ${profileSlot.entity?.city} ${profileSlot.entity?.age}`);
-        }, [profileService.columnSlotService.getColumn(profileSlot, 'city')]);
+        }, [profileService.columnSlotService.getColumnSlot(profileSlot, 'city')]);
         effectService.createEffect(db, () => {
             seen.push(`age ${profileSlot.entity?.city} ${profileSlot.entity?.age}`);
-        }, [profileService.columnSlotService.getColumn(profileSlot, 'age')]);
+        }, [profileService.columnSlotService.getColumnSlot(profileSlot, 'age')]);
         seen.length = 0;
         frames = 0;
 
@@ -59,7 +59,7 @@ describe('a standalone record does not tear its value in half', () => {
     it('does the same for a removal, which takes the other door', () => {
         const { db, profileService, profile } = createFixture();
         const seen: string[] = [];
-        effectService.createEffect(db, () => { seen.push('column'); }, [profileService.columnSlotService.getColumn(profileService.getSingleSlot(profile), 'city')]);
+        effectService.createEffect(db, () => { seen.push('column'); }, [profileService.columnSlotService.getColumnSlot(profileService.getSingleSlot(profile), 'city')]);
         effectService.createEffect(db, () => { seen.push('record'); }, [profileService.getSingleSlot(profile)]);
         seen.length = 0;
 

@@ -14,16 +14,20 @@ import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMBucketContentServiceOptions } from './types/TOIMBucketContentServiceOptions';
 import { createOIMBucketContentSlot } from './utils/createOIMBucketContentSlot';
 import { OIMNoBucketCommands } from './commands/OIMNoBucketCommands';
-import { oimUnholdSlotIfAlive } from '../slot/utils/oimUnholdSlotIfAlive';
+import { unholdOIMSlotIfAlive } from '../slot/utils/unholdOIMSlotIfAlive';
 import type { OIMChannelQueue } from '../channel/OIMChannelQueue';
 import { OIM_NOTHING_WAS_REMOVED } from './constants/OIM_NOTHING_WAS_REMOVED';
 import { OIM_REMOVED_WITHOUT_A_POSITION } from './constants/OIM_REMOVED_WITHOUT_A_POSITION';
 import { createOIMBucketSlot } from './utils/createOIMBucketSlot';
-import { oimGetChannelQueueAtDepth } from '../channel/utils/oimGetChannelQueueAtDepth';
-import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
-import { oimGetChannelSlot } from '../slot/utils/oimGetChannelSlot';
+import { getOIMChannelQueueAtDepth } from '../channel/utils/getOIMChannelQueueAtDepth';
+import { isOIMSlotReleased } from '../slot/utils/isOIMSlotReleased';
+import { peekOIMChannelSlot } from '../slot/utils/peekOIMChannelSlot';
 import { OIMUnusedSlotCollectorService } from '../collector/OIMUnusedSlotCollectorService';
-import { oimAssertSlotUnheld } from '../slot/utils/oimAssertSlotUnheld';
+import { assertOIMSlotUnheld } from '../slot/utils/assertOIMSlotUnheld';
+import { peekOIMBucketMemberColumnValues } from './utils/peekOIMBucketMemberColumnValues';
+import { peekOIMBucketMemberColumnGroupValues } from './utils/peekOIMBucketMemberColumnGroupValues';
+import { peekOIMBucketMemberAnyColumnValues } from './utils/peekOIMBucketMemberAnyColumnValues';
+import { markOIMBucketMembershipChanged } from './utils/markOIMBucketMembershipChanged';
 
 export abstract class OIMBucketContentService<
     TBucketMemberSlot extends TOIMSlot, TSlots, TKey extends NonNullable<unknown> = TOIMStoreKey,
@@ -61,6 +65,18 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     /** @deprecated Use `slot.getBucketMemberSlotCount(…)`; removed in 5.0. */
     public abstract getBucketMemberSlotCount(bucketSlot: TOIMBucketContentSlot<TSlots>): number;
 
+    public peekColumnValue(bucketSlot: TOIMBucketContentSlot<TSlots>, columnName: string): unknown {
+        return peekOIMBucketMemberColumnValues(this.getBucketMemberSlots(bucketSlot), columnName);
+    }
+
+    public peekColumnGroupValue(bucketSlot: TOIMBucketContentSlot<TSlots>, columnNames: readonly string[]): unknown {
+        return peekOIMBucketMemberColumnGroupValues(this.getBucketMemberSlots(bucketSlot), columnNames);
+    }
+
+    public peekAnyColumnValue(bucketSlot: TOIMBucketContentSlot<TSlots>): unknown {
+        return peekOIMBucketMemberAnyColumnValues(this.getBucketMemberSlots(bucketSlot));
+    }
+
     /** @deprecated Use `slot.getBucketMemberSlots(…)`; removed in 5.0. */
     public abstract getBucketMemberSlots(bucketSlot: TOIMBucketContentSlot<TSlots>): Iterable<TBucketMemberSlot>;
 
@@ -93,7 +109,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     }
 
     public releaseSlotContent(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
-        oimAssertSlotUnheld(bucketSlot);
+        assertOIMSlotUnheld(bucketSlot);
         this.unholdAllBucketMemberSlots(bucketSlot);
     }
 
@@ -148,8 +164,8 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         slotOwnerService.assertWritable(bucketSlot);
         const editableStoreSlot = bucketSlot.storeSlot as TOIMEditable<TOIMStoreSlot>;
         const writeDepth = editableStoreSlot.writeDepth++;
-        const removedChannelQueue = oimGetChannelQueueAtDepth(editableStoreSlot.departedBucketMemberSlotChannelQueues ??= [], writeDepth);
-        const removedAtChannelQueue = oimGetChannelQueueAtDepth(editableStoreSlot.removedAtChannelQueues ??= [], writeDepth);
+        const removedChannelQueue = getOIMChannelQueueAtDepth(editableStoreSlot.departedBucketMemberSlotChannelQueues ??= [], writeDepth);
+        const removedAtChannelQueue = getOIMChannelQueueAtDepth(editableStoreSlot.removedAtChannelQueues ??= [], writeDepth);
         try {
             this.removeSlots(bucketSlot, bucketMemberSlots, removedChannelQueue, removedAtChannelQueue);
             const removedCount = removedChannelQueue.getEntryCount();
@@ -177,7 +193,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
             throw refusal;
         }
         if (!isWritten) {
-            OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(oimGetChannelSlot(bucketSlot).collectorSlot.unusedSlotCollectorSlot, bucketSlot);
+            OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(peekOIMChannelSlot(bucketSlot).collectorSlot.unusedSlotCollectorSlot, bucketSlot);
         } else if (changedBucketSlots !== undefined) changedBucketSlots.push(bucketSlot);
     }
 
@@ -230,17 +246,17 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     }
 
     protected announceBucketSlotChanged(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
-        (bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>).markSlotContentChanged(bucketSlot, this.isSlotEmpty(bucketSlot));
+        markOIMBucketMembershipChanged(bucketSlot, this.isSlotEmpty(bucketSlot));
     }
 
     protected letGoOfRemovedBucketMemberSlot(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TOIMSlot, at: number): void {
-        oimUnholdSlotIfAlive(bucketMemberSlot);
+        unholdOIMSlotIfAlive(bucketMemberSlot);
         if (at === OIM_REMOVED_WITHOUT_A_POSITION) this.bucketCommands.recordWholeList(bucketSlot);
         else this.bucketCommands.recordRemove(bucketSlot, at, 1, this.getBucketMemberSlotCount(bucketSlot));
     }
 
     protected assertBucketMemberSlotNotReleased(bucketMemberSlot: TOIMSlot): void {
-        if (!oimIsSlotReleased(bucketMemberSlot)) return;
+        if (!isOIMSlotReleased(bucketMemberSlot)) return;
         throw new Error(
             'OIMBucketContentService: an identity handed to a bucket was released — it is filed under no key '
             + 'and nothing may hold it, so a bucket keeping it would keep a slot no lookup returns. The '
@@ -267,8 +283,8 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         this.assertBucketMemberSlotsNotReleased(bucketMemberSlots);
         const editableStoreSlot = bucketSlot.storeSlot as TOIMEditable<TOIMStoreSlot>;
         const writeDepth = editableStoreSlot.writeDepth++;
-        const arrivedChannelQueue = oimGetChannelQueueAtDepth(editableStoreSlot.arrivedBucketMemberSlotChannelQueues ??= [], writeDepth);
-        const departedChannelQueue = oimGetChannelQueueAtDepth(editableStoreSlot.departedBucketMemberSlotChannelQueues ??= [], writeDepth);
+        const arrivedChannelQueue = getOIMChannelQueueAtDepth(editableStoreSlot.arrivedBucketMemberSlotChannelQueues ??= [], writeDepth);
+        const departedChannelQueue = getOIMChannelQueueAtDepth(editableStoreSlot.departedBucketMemberSlotChannelQueues ??= [], writeDepth);
         try {
             this.reconcileSlots(bucketSlot, bucketMemberSlots, arrivedChannelQueue, departedChannelQueue);
             const arrivedCount = arrivedChannelQueue.getEntryCount();
@@ -278,7 +294,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
                 const arrivedBucketMemberSlot = arrivedChannelQueue.getEntryAt(i);
                 arrivedBucketMemberSlot.owner.holdSlot(arrivedBucketMemberSlot);
             }
-            for (let i = 0; i < departedCount; i++) oimUnholdSlotIfAlive(departedChannelQueue.getEntryAt(i));
+            for (let i = 0; i < departedCount; i++) unholdOIMSlotIfAlive(departedChannelQueue.getEntryAt(i));
             this.bucketCommands.recordWholeList(bucketSlot);
             return true;
         } finally {
@@ -298,11 +314,11 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     private unholdAllBucketMemberSlots(bucketSlot: TOIMBucketContentSlot<TSlots>): number {
         const editableStoreSlot = bucketSlot.storeSlot as TOIMEditable<TOIMStoreSlot>;
         const writeDepth = editableStoreSlot.writeDepth++;
-        const departedChannelQueue = oimGetChannelQueueAtDepth(editableStoreSlot.departedBucketMemberSlotChannelQueues ??= [], writeDepth);
+        const departedChannelQueue = getOIMChannelQueueAtDepth(editableStoreSlot.departedBucketMemberSlotChannelQueues ??= [], writeDepth);
         try {
             this.drainSlots(bucketSlot, departedChannelQueue);
             const drainedCount = departedChannelQueue.getEntryCount();
-            for (let i = 0; i < drainedCount; i++) oimUnholdSlotIfAlive(departedChannelQueue.getEntryAt(i));
+            for (let i = 0; i < drainedCount; i++) unholdOIMSlotIfAlive(departedChannelQueue.getEntryAt(i));
             return drainedCount;
         } finally {
             departedChannelQueue.keepFirstEntries(0);

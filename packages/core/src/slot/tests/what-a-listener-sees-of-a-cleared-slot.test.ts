@@ -1,4 +1,4 @@
-import { OIMDB, OIMSetBucketContentService, OIMSlotAtEmptyReleasePolicy, createOIMSlotCollectionIndexService, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMSetBucketContentService, OIMSlotAtEmptyReleasePolicy, createOIMSlotCollectionIndexService, isOIMSlotReleased } from '../../index';
 import type { TOIMEntitySlot } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
@@ -39,6 +39,6 @@ describe('what a listener sees of a cleared slot', () => {
         cardsService.slotContentService.clearSlotContent(card);
 
         expect(slotReleasePolicy.asked).toEqual(['empty']);
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 });

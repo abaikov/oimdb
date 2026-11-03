@@ -4,7 +4,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../../computed/createOIMComputedService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
-import { oimSameValueZeroGuard } from '../utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../utils/isOIMSameValueZero';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
@@ -31,7 +31,7 @@ const createFixture =() => {
             return { sourceSlots: [cardsService.getSlotByKey(cards, id)] };
         },
         derive: (computedSlot) => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.title ?? '').length,
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const titleLengths = titleLengthsService.createStoreSlot(db);
 
@@ -81,7 +81,7 @@ describe('a graph node is built fresh per call, and could not be otherwise', () 
         let runs = 0;
         const derive = (): number => { runs++; return 1; };
         const createDerivation = () => {
-            const derivationService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+            const derivationService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
             const derivation = derivationService.createStoreSlot(db, derive, () => ({ sourceSlots: [slot] }));
             return { derivationService, derivation };
         };
@@ -105,9 +105,9 @@ describe('an identity is the same object every time, and a read of an untaken ke
         const { db, cardsService, slot } = createFixture();
 
         const onTitle = OIMEffectService.INSTANCE.createEffect(
-            db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+            db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         const onDeck = OIMEffectService.INSTANCE.createEffect(
-            db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'deckId')]);
+            db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'deckId')]);
 
         const title = (slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title');
         const deck = (slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('deckId');
@@ -117,7 +117,7 @@ describe('an identity is the same object every time, and a read of an untaken ke
         // And each is the same identity on the next ask: a second subscriber to
         // one column joins the one that is filed rather than minting a second.
         const alsoOnTitle = OIMEffectService.INSTANCE.createEffect(
-            db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+            db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title')).toBe(title);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(2);
 
@@ -164,9 +164,9 @@ describe('two readers of one identity behave as one', () => {
         let oneWoke = 0;
         let twoWoke = 0;
         const one = OIMEffectService.INSTANCE.createEffect(
-            db, () => { oneWoke++; }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+            db, () => { oneWoke++; }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         const two = OIMEffectService.INSTANCE.createEffect(
-            db, () => { twoWoke++; }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+            db, () => { twoWoke++; }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         db.flush();
         oneWoke = 0;
         twoWoke = 0;

@@ -1,22 +1,22 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMSingleSlotStore } from '../../store/types/TOIMSingleSlotStore';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import type { TOIMComputedStoreSlot } from '../types/TOIMComputedStoreSlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
+import type { TOIMComputedCarrierSlot } from '../types/TOIMComputedCarrierSlot';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
 import type { OIMSingleComputedService } from '../OIMSingleComputedService';
 import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TRow = { id: string; n: number };
-type TSingleComputedStore = TOIMSingleSlotStore<TOIMComputedContentSlot<number>>;
+type TSingleComputedStore = TOIMSingleSlotStore<TOIMComputedCarrierSlot<number>>;
 type TSingleComputedService = OIMSingleComputedService<number>;
-type TSingleComputedStoreSlot = TOIMComputedStoreSlot<TSingleComputedStore, number, TOIMComputedContentSlot<number>>;
+type TSingleComputedStoreSlot = TOIMComputedStoreSlot<TSingleComputedStore, number, TOIMComputedCarrierSlot<number>>;
 
-const createSingleComputedService = (): TSingleComputedService => createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+const createSingleComputedService = (): TSingleComputedService => createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
 
 const readsOf = (service: TSingleComputedService) => ({
     getSingleSlot: (storeSlot: TSingleComputedStoreSlot) => service.getSingleSlot(storeSlot),
@@ -34,7 +34,7 @@ const createFixture =() => {
     rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 0 });
     db.flush();
     const updateRow = (key: string, patch: Partial<TRow>): void => {
-        const rowSlot = rowsService.findSlotByKey(rows, key);
+        const rowSlot = rowsService.peekSlotByKey(rows, key);
         if (rowSlot !== undefined) rowsService.slotContentService.updateEntity(rowSlot, patch);
     };
     return { db, effectService, updateRow, slot: rowsService.getSlotByKey(rows, 'r1') };
@@ -165,7 +165,7 @@ describe('a body runs on a settled graph and never on a half-built one', () => {
          * settle that recomputes to the same value moves no stamp, so the
          * `held` swallows it and the effect over it is not run. Returning
          * `shallowRan` and resetting it between the two frames makes the second
-         * settle produce 1 again, exactly equal to the first, so `oimSameValueZeroGuard`
+         * settle produce 1 again, exactly equal to the first, so `isOIMSameValueZero`
          * holds the value and the body never runs — `shallowRan` reads 1 and
          * `shallowAtBody` stays at -1, the settle assertion passing and the
          * delivery assertion unable to.

@@ -269,7 +269,7 @@ const columnSubscriptionSide = (byColumn: boolean): TPriceSide => {
     for (let i = 0; i < slots.length; i++) {
         const slot = slots[i];
         if (byColumn) {
-            effectService.createEffect(db, () => { woke[0]++; }, [entityService.columnSlotService.holdColumn(slot, 'title')]);
+            effectService.createEffect(db, () => { woke[0]++; }, [entityService.columnSlotService.holdColumnSlot(slot, 'title')]);
             continue;
         }
         effectService.createEffect(db, () => {
@@ -327,7 +327,7 @@ export const alternativePairsDispatch: readonly TPricePair[] = [
     {
         id: 'alt.column-subscription.by-column-vs-by-row.1024-rows',
         path: EPricePath.PerRowPerWrite,
-        ours: 'effectService.createEffect(db, [entityService.holdColumn(slot, \'title\')], [], body) — per row',
+        ours: 'effectService.createEffect(db, [entityService.holdColumnSlot(slot, \'title\')], [], body) — per row',
         floor: 'effectService.createEffect(db, [slot], [], body) with the body comparing `title` against what it saw last',
         caveat:
             'ONE OPERATION IS ONE ROW WRITE, AND A PASS IS TWO OF THEM PER ROW: every row\'s `note` ' +

@@ -1,4 +1,4 @@
-import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, OIMUnusedSlotCollectorService, oimMintAfterIdleSlotReleaseWheel, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, OIMUnusedSlotCollectorService, mintOIMAfterIdleSlotReleaseWheel, isOIMSlotReleased } from '../../index';
 import type { TOIMDisposer } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -16,7 +16,7 @@ const createFixtureAt = (after: number) => {
 };
 
 const flushAfterIdle = (db: OIMDB): void => {
-    oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+    mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
 };
 
 describe('a sweep that meets a slot somebody watches by column', () => {
@@ -26,7 +26,7 @@ describe('a sweep that meets a slot somebody watches by column', () => {
         fixture.db.flush();
 
         let heard = 0;
-        const watching = OIMEffectService.INSTANCE.createEffect(fixture.db, () => { heard++; }, [fixture.cardsService.columnSlotService.getColumn(slot, 'title')]);
+        const watching = OIMEffectService.INSTANCE.createEffect(fixture.db, () => { heard++; }, [fixture.cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
 
         fixture.at(START + 31_000);
         flushAfterIdle(fixture.db);
@@ -47,7 +47,7 @@ describe('a sweep that meets a slot somebody watches by column', () => {
         const fixture =createFixtureAt(30_000);
         const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
-        const watching = OIMEffectService.INSTANCE.createEffect(fixture.db, () => undefined, [fixture.cardsService.columnSlotService.getColumn(slot, 'title')]);
+        const watching = OIMEffectService.INSTANCE.createEffect(fixture.db, () => undefined, [fixture.cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
 
         fixture.at(START + 31_000);
         flushAfterIdle(fixture.db);
@@ -59,7 +59,7 @@ describe('a sweep that meets a slot somebody watches by column', () => {
         OIMEffectService.INSTANCE.disposeEffect(watching);
         expect(fixture.cardsService.getSlotByKey(fixture.cards, 'c1')).toBe(slot);
         OIMUnusedSlotCollectorService.INSTANCE.flush(fixture.db.collectorSlot.unusedSlotCollectorSlot);
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 });

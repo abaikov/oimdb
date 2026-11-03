@@ -3,7 +3,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotAtUnholdReleasePolicy } from '../OIMSlotAtUnholdReleasePolicy';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -29,11 +29,11 @@ describe('a write into a row nobody holds, under the at-unhold policy', () => {
         const { cards, cardsService } = setUp();
 
         const first = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'one' });
-        expect(oimIsSlotReleased(first)).toBe(true);
+        expect(isOIMSlotReleased(first)).toBe(true);
         expect(cardsService.hasSlotContentByKey(cards, 'c1')).toBe(false);
 
         const second = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'two' });
-        expect(oimIsSlotReleased(second)).toBe(true);
+        expect(isOIMSlotReleased(second)).toBe(true);
         expect(cardsService.hasSlotContentByKey(cards, 'c1')).toBe(false);
     });
 
@@ -44,7 +44,7 @@ describe('a write into a row nobody holds, under the at-unhold policy', () => {
 
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'one' });
 
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
         expect(byDeckService.getEntitiesByKey(byDeck, 'spades').map(entity => entity?.id)).toEqual(['c1']);
         spades.owner.unholdSlot(spades);
     });

@@ -144,7 +144,7 @@ export class OIMDevUIServer {
         this.bridge.start();
         this.setupHTTP();
         process.stderr.write(
-            `[OIMDB DevTools] Add to debug.ts: oimDevRegistry.connect();\n`
+            `[OIMDB DevTools] Add to debug.ts: OIM_DEV_REGISTRY.connect();\n`
         );
     }
 }

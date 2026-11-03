@@ -1,9 +1,9 @@
 import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 
-import { OIM_SLICE_LENGTH_MS, oimSliceOfMs } from '../../index';
+import { OIM_SLICE_LENGTH_MS, getOIMSliceOfMs } from '../../index';
 import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
-import { oimGetReleaseDueAfterWriteMs } from '../../slot/utils/oimGetReleaseDueAfterWriteMs';
-import { oimSetReleaseDueAfterWriteMs } from '../../slot/utils/oimSetReleaseDueAfterWriteMs';
+import { peekOIMReleaseDueAfterWriteMs } from '../../slot/utils/peekOIMReleaseDueAfterWriteMs';
+import { setOIMReleaseDueAfterWriteMs } from '../../slot/utils/setOIMReleaseDueAfterWriteMs';
 import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
 import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE } from '../constants/OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE';
 import type { TOIMSlot } from '../../index';
@@ -51,8 +51,8 @@ const createFixture =() => {
         getNowMs: () => ms,
         timer: () => () => undefined,
         errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
-        getReleaseDueMs: oimGetReleaseDueAfterWriteMs,
-        setReleaseDueMs: oimSetReleaseDueAfterWriteMs,
+        getReleaseDueMs: peekOIMReleaseDueAfterWriteMs,
+        setReleaseDueMs: setOIMReleaseDueAfterWriteMs,
         releaseScheduledSlotFlag: OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE,
     });
     const slotReleaseQueue = {
@@ -70,8 +70,8 @@ const createFixture =() => {
 describe('the slice arithmetic every case below rests on', () => {
     it('puts the whole reproduction inside one slice', () => {
         expect(OIM_SLICE_LENGTH_MS).toBeGreaterThan(WINDOW * 2);
-        expect(oimSliceOfMs(START + WINDOW)).toBe(oimSliceOfMs(START));
-        expect(oimSliceOfMs(START + 2 * WINDOW + WINDOW)).toBe(oimSliceOfMs(START));
+        expect(getOIMSliceOfMs(START + WINDOW)).toBe(getOIMSliceOfMs(START));
+        expect(getOIMSliceOfMs(START + 2 * WINDOW + WINDOW)).toBe(getOIMSliceOfMs(START));
     });
 });
 
@@ -89,7 +89,7 @@ describe('an identity admitted from inside a running sweep', () => {
         fixture.slotReleaseQueue.scheduleSlotRelease(doomed, fixture.slotReleaseQueue.getNowMs());
 
         fixture.at(START + 2 * WINDOW);
-        fixture.slotReleaseQueue.releaseDueUpToSliceNumber(oimSliceOfMs(fixture.nowMs()));
+        fixture.slotReleaseQueue.releaseDueUpToSliceNumber(getOIMSliceOfMs(fixture.nowMs()));
 
         // NOT CONDEMNED is the whole claim: the identity was filed after the pass
         // had emptied the slice it landed in, so the walk met it, found
@@ -108,7 +108,7 @@ describe('an identity admitted from inside a running sweep', () => {
         fixture.slotReleaseQueue.scheduleSlotRelease(doomed, fixture.slotReleaseQueue.getNowMs());
 
         fixture.at(START + 2 * WINDOW);
-        const upTo = oimSliceOfMs(fixture.nowMs());
+        const upTo = getOIMSliceOfMs(fixture.nowMs());
         fixture.slotReleaseQueue.releaseDueUpToSliceNumber(upTo);
 
         expect(fixture.slotReleaseQueue.nextReleaseSliceNumber).toBe(upTo);
@@ -125,10 +125,10 @@ describe('an identity admitted from inside a running sweep', () => {
         fixture.slotReleaseQueue.scheduleSlotRelease(doomed, fixture.slotReleaseQueue.getNowMs());
 
         fixture.at(START + 2 * WINDOW);
-        fixture.slotReleaseQueue.releaseDueUpToSliceNumber(oimSliceOfMs(fixture.nowMs()));
+        fixture.slotReleaseQueue.releaseDueUpToSliceNumber(getOIMSliceOfMs(fixture.nowMs()));
 
         fixture.at(START + 4 * OIM_SLICE_LENGTH_MS);
-        fixture.slotReleaseQueue.releaseDueUpToSliceNumber(oimSliceOfMs(fixture.nowMs()));
+        fixture.slotReleaseQueue.releaseDueUpToSliceNumber(getOIMSliceOfMs(fixture.nowMs()));
         expect(pokedMinted).toBe(true);
     });
 });
@@ -140,7 +140,7 @@ describe('outside a sweep there is no floor', () => {
         const fixture = createFixture();
         const one = slot();
         fixture.slotReleaseQueue.scheduleSlotRelease(one, fixture.slotReleaseQueue.getNowMs());
-        expect(fixture.slotReleaseQueue.nextReleaseSliceNumber).toBe(oimSliceOfMs(START + WINDOW));
+        expect(fixture.slotReleaseQueue.nextReleaseSliceNumber).toBe(getOIMSliceOfMs(START + WINDOW));
     });
 
     it('and an admission after a sweep has finished is not pushed past it', () => {
@@ -150,13 +150,13 @@ describe('outside a sweep there is no floor', () => {
         fixture.slotReleaseQueue.scheduleSlotRelease(doomed, fixture.slotReleaseQueue.getNowMs());
 
         fixture.at(START + 2 * WINDOW);
-        const upTo = oimSliceOfMs(fixture.nowMs());
+        const upTo = getOIMSliceOfMs(fixture.nowMs());
         fixture.slotReleaseQueue.releaseDueUpToSliceNumber(upTo);
 
         const after = slot();
         fixture.slotReleaseQueue.scheduleSlotRelease(after, fixture.slotReleaseQueue.getNowMs());
-        expect(fixture.slotReleaseQueue.nextReleaseSliceNumber).toBe(oimSliceOfMs(fixture.nowMs() + WINDOW));
-        expect(oimSliceOfMs(fixture.nowMs() + WINDOW)).toBeLessThanOrEqual(upTo);
+        expect(fixture.slotReleaseQueue.nextReleaseSliceNumber).toBe(getOIMSliceOfMs(fixture.nowMs() + WINDOW));
+        expect(getOIMSliceOfMs(fixture.nowMs() + WINDOW)).toBeLessThanOrEqual(upTo);
     });
 
     it('and a release that THROWS does not leave the floor standing', () => {
@@ -166,13 +166,13 @@ describe('outside a sweep there is no floor', () => {
         fixture.slotReleaseQueue.scheduleSlotRelease(angry, fixture.slotReleaseQueue.getNowMs());
 
         fixture.at(START + 2 * WINDOW);
-        const upTo = oimSliceOfMs(fixture.nowMs());
+        const upTo = getOIMSliceOfMs(fixture.nowMs());
         expect(() => { fixture.slotReleaseQueue.releaseDueUpToSliceNumber(upTo); }).toThrow('a release handler threw');
 
         // Left set, every admission for the rest of the process would be filed at
         // `upTo + 1` or later, whatever window its service asked for.
         const after = slot();
         fixture.slotReleaseQueue.scheduleSlotRelease(after, fixture.slotReleaseQueue.getNowMs());
-        expect(fixture.slotReleaseQueue.nextReleaseSliceNumber).toBe(oimSliceOfMs(fixture.nowMs() + WINDOW));
+        expect(fixture.slotReleaseQueue.nextReleaseSliceNumber).toBe(getOIMSliceOfMs(fixture.nowMs() + WINDOW));
     });
 });

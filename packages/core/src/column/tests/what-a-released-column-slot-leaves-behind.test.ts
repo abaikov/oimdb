@@ -30,9 +30,9 @@ describe('what a released column slot leaves behind', () => {
 
     it('keeps no record of column readers on the store slot at all', () => {
         const { cardsService, cards, firstCard } = createFixture();
-        cardsService.columnSlotService.holdColumn(firstCard, 'rank');
-        cardsService.columnSlotService.holdColumnGroup(firstCard, rankLabelColumns);
-        cardsService.columnSlotService.holdAnyColumn(firstCard);
+        cardsService.columnSlotService.holdColumnSlot(firstCard, 'rank');
+        cardsService.columnSlotService.holdColumnGroupSlot(firstCard, rankLabelColumns);
+        cardsService.columnSlotService.holdAnyColumnSlot(firstCard);
         expect(STORE_SLOT_COLUMN_FIELDS.filter(field => field in cards)).toEqual([]);
     });
 
@@ -43,10 +43,10 @@ describe('what a released column slot leaves behind', () => {
     ] as const)('is nothing, for %s, and the next write takes no column path', (_label, kind) => {
         const { db, cardsService, firstCard } = createFixture();
         const columnSlotService = cardsService.columnSlotService;
-        const columnSlot = kind === 'rank' ? columnSlotService.holdColumn(firstCard, 'rank')
-            : kind === 'group' ? columnSlotService.holdColumnGroup(firstCard, rankLabelColumns)
-                : columnSlotService.holdAnyColumn(firstCard);
-        columnSlotService.unholdColumn(columnSlot);
+        const columnSlot = kind === 'rank' ? columnSlotService.holdColumnSlot(firstCard, 'rank')
+            : kind === 'group' ? columnSlotService.holdColumnGroupSlot(firstCard, rankLabelColumns)
+                : columnSlotService.holdAnyColumnSlot(firstCard);
+        columnSlotService.unholdColumnSlot(columnSlot);
         expect(firstCard.columnSlotStore).toBeUndefined();
 
         const markColumnsChanged = jest.spyOn(OIMPushColumnSlotOwner.prototype, 'markColumnsChanged');
@@ -57,10 +57,10 @@ describe('what a released column slot leaves behind', () => {
 
     it('keeps waking a group after the single column of one of its names is released', () => {
         const { db, cardsService, firstCard } = createFixture();
-        const groupSlot = cardsService.columnSlotService.holdColumnGroup(firstCard, rankLabelColumns);
+        const groupSlot = cardsService.columnSlotService.holdColumnGroupSlot(firstCard, rankLabelColumns);
         let runs = 0;
         OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [groupSlot]);
-        cardsService.columnSlotService.unholdColumn(cardsService.columnSlotService.holdColumn(firstCard, 'rank'));
+        cardsService.columnSlotService.unholdColumnSlot(cardsService.columnSlotService.holdColumnSlot(firstCard, 'rank'));
         db.flush();
         const runsBefore = runs;
         cardsService.slotContentService.updateEntityColumn(firstCard, 'rank', 7);
@@ -70,12 +70,12 @@ describe('what a released column slot leaves behind', () => {
 
     it('keeps a column another carrier still reads, so that carrier still hears the write', () => {
         const { db, cardsService, firstCard, secondCard } = createFixture();
-        const firstRankSlot = cardsService.columnSlotService.holdColumn(firstCard, 'rank');
-        const secondRankSlot = cardsService.columnSlotService.holdColumn(secondCard, 'rank');
+        const firstRankSlot = cardsService.columnSlotService.holdColumnSlot(firstCard, 'rank');
+        const secondRankSlot = cardsService.columnSlotService.holdColumnSlot(secondCard, 'rank');
         let secondRuns = 0;
         OIMEffectService.INSTANCE.createEffect(db, () => { secondRuns++; }, [secondRankSlot]);
         db.flush();
-        cardsService.columnSlotService.unholdColumn(firstRankSlot);
+        cardsService.columnSlotService.unholdColumnSlot(firstRankSlot);
         const runsBefore = secondRuns;
         cardsService.slotContentService.updateEntity(secondCard, { rank: 9 });
         db.flush();
@@ -86,27 +86,27 @@ describe('what a released column slot leaves behind', () => {
         const { cardsService, firstCard, secondCard } = createFixture();
         const columnSlotService = cardsService.columnSlotService;
         const kept = [
-            columnSlotService.holdColumn(secondCard, 'rank'),
-            columnSlotService.holdColumnGroup(secondCard, rankLabelColumns),
-            columnSlotService.holdAnyColumn(secondCard),
+            columnSlotService.holdColumnSlot(secondCard, 'rank'),
+            columnSlotService.holdColumnGroupSlot(secondCard, rankLabelColumns),
+            columnSlotService.holdAnyColumnSlot(secondCard),
         ];
         const released = [
-            columnSlotService.holdColumn(firstCard, 'rank'),
-            columnSlotService.holdColumnGroup(firstCard, rankLabelColumns),
-            columnSlotService.holdAnyColumn(firstCard),
+            columnSlotService.holdColumnSlot(firstCard, 'rank'),
+            columnSlotService.holdColumnGroupSlot(firstCard, rankLabelColumns),
+            columnSlotService.holdAnyColumnSlot(firstCard),
         ];
-        for (const columnSlot of released) columnSlotService.unholdColumn(columnSlot);
+        for (const columnSlot of released) columnSlotService.unholdColumnSlot(columnSlot);
         for (const columnSlot of released) columnSlot.owner.releaseSlotIfUnheld(columnSlot);
         expect(firstCard.columnSlotStore).toBeUndefined();
-        expect(columnSlotService.holdColumn(secondCard, 'rank')).toBe(kept[0]);
-        expect(columnSlotService.holdColumnGroup(secondCard, rankLabelColumns)).toBe(kept[1]);
-        expect(columnSlotService.holdAnyColumn(secondCard)).toBe(kept[2]);
+        expect(columnSlotService.holdColumnSlot(secondCard, 'rank')).toBe(kept[0]);
+        expect(columnSlotService.holdColumnGroupSlot(secondCard, rankLabelColumns)).toBe(kept[1]);
+        expect(columnSlotService.holdAnyColumnSlot(secondCard)).toBe(kept[2]);
     });
 
     it('refuses a group of no columns, so the any-column slot keeps hearing writes', () => {
         const { db, cardsService, firstCard } = createFixture();
         expect(() => createOIMColumnGroup([])).toThrow(/at least one column/);
-        const anyColumnSlot = cardsService.columnSlotService.holdAnyColumn(firstCard);
+        const anyColumnSlot = cardsService.columnSlotService.holdAnyColumnSlot(firstCard);
         let runs = 0;
         OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [anyColumnSlot]);
         db.flush();
@@ -118,13 +118,13 @@ describe('what a released column slot leaves behind', () => {
 
     it('refuses a group the collection was not created with', () => {
         const { cardsService, firstCard } = createFixture();
-        expect(() => cardsService.columnSlotService.holdColumnGroup(firstCard, { key: 'rank', columnNames: ['rank'] }))
+        expect(() => cardsService.columnSlotService.holdColumnGroupSlot(firstCard, { key: 'rank', columnNames: ['rank'] }))
             .toThrow('Name it in `columnGroups`');
     });
 
     it('files a group asked for by its key alone as that group, and gives it back at the flush', () => {
         const { db, cardsService, firstCard } = createFixture();
-        const groupSlot = cardsService.columnSlotService.getColumn(firstCard, rankLabelColumns.key as 'rank');
+        const groupSlot = cardsService.columnSlotService.getColumnSlot(firstCard, rankLabelColumns.key as 'rank');
         expect(groupSlot).toBe(cardsService.columnSlotService.getColumnGroupSlot(firstCard, rankLabelColumns));
         db.flush();
         expect(firstCard.columnSlotStore).toBeUndefined();

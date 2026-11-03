@@ -1,3 +1,4 @@
+import type { IOIMSlotSubscriptionListener } from '../../slot/interfaces/IOIMSlotSubscriptionListener';
 import type { IOIMSlotReleasePolicy } from '../../collector/interfaces/IOIMSlotReleasePolicy';
 import type { IOIMStoreSlotListener } from '../../slot/interfaces/IOIMStoreSlotListener';
 import type { TOIMSameValueGuard } from '../../slot/types/TOIMSameValueGuard';
@@ -11,6 +12,7 @@ export type TOIMComputedDerivationOptions<TValue, TComputedSlot extends TOIMComp
     columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMComputedColumnSlot, Extract<keyof TValue, string>>;
     slotReleasePolicy: IOIMSlotReleasePolicy;
     storeSlotListener: IOIMStoreSlotListener;
+    slotSubscriptionListener?: IOIMSlotSubscriptionListener | undefined;
     createSources?: ((computedSlot: TComputedSlot) => Partial<TOIMComputedSources>) | undefined;
     derive?: ((computedSlot: TComputedSlot) => TValue) | undefined;
     sameValueGuard?: TOIMSameValueGuard<TValue> | undefined;

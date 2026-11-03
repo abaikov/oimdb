@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.0
+
+### Changed
+
+- Requires `@oimdb/core` 4.9.0; `computed(name, service, storeSlot)` takes the `TOIMComputedCarrierSlot` store slot.
+- `oimDevRegistry` → `OIM_DEV_REGISTRY`, `oimDevDefaults` → `OIM_DEV_DEFAULTS`.
+
 ## 2.2.2
 
 ### Changed

@@ -1,5 +1,5 @@
 import { OIMDefaults } from '../../index';
-import { OIMDB, OIMSlotAfterWriteReleasePolicy, createOIMInPlaceEntityWriter, oimIsSlotReleased, oimMintAfterWriteSlotReleaseWheel } from '../../index';
+import { OIMDB, OIMSlotAfterWriteReleasePolicy, createOIMInPlaceEntityWriter, isOIMSlotReleased, mintOIMAfterWriteSlotReleaseWheel } from '../../index';
 import type { IOIMEntityWriter } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -21,7 +21,7 @@ describe('a throw in one release, in the middle of a slice of the release clock'
         };
         const defaults = new OIMDefaults({ entityWriter, slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 100 }) });
         const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer: (_run, inMs) => { armedFor.push(inMs); return () => undefined; } });
-        const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
+        const afterWriteSlotReleaseWheel = mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot);
         const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard, string>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a' });
@@ -32,13 +32,13 @@ describe('a throw in one release, in the middle of a slice of the release clock'
 
         expect(() => { afterWriteSlotReleaseWheel.flush(); })
             .toThrow('the clear of a threw');
-        expect(oimIsSlotReleased(b) || armedFor.length > 0).toBe(true);
+        expect(isOIMSlotReleased(b) || armedFor.length > 0).toBe(true);
 
         refuse = false;
         nowMs = 5000;
         afterWriteSlotReleaseWheel.flush();
 
-        expect(oimIsSlotReleased(b)).toBe(true);
+        expect(isOIMSlotReleased(b)).toBe(true);
         expect(afterWriteSlotReleaseWheel.isSlotReleaseScheduled(b)).toBe(false);
     });
 });

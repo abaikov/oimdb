@@ -9,8 +9,8 @@ import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -134,7 +134,7 @@ describe('a collection keyed by a combination of identities', () => {
 
         let runCount = 0;
         OIMEffectService.INSTANCE.createEffect(db, () => { runCount++; }, [progressService.getSlotByKey(progress, at('u1', 'c1'))!]);
-        progressService.slotContentService.updateEntity(progressService.findSlotByKey(progress, at('u1', 'c1'))!, { box: 5 });
+        progressService.slotContentService.updateEntity(progressService.peekSlotByKey(progress, at('u1', 'c1'))!, { box: 5 });
         db.flush();
 
         expect(runCount).toBe(1);
@@ -149,9 +149,9 @@ describe('a collection keyed by a combination of identities', () => {
 
         let columnWoke = 0;
         OIMEffectService.INSTANCE.createEffect(
-            db, () => { columnWoke++; }, [progressService.columnSlotService.getColumn(progressService.getSlotByKey(progress, at('u1', 'c2'))!, 'box')],
+            db, () => { columnWoke++; }, [progressService.columnSlotService.getColumnSlot(progressService.getSlotByKey(progress, at('u1', 'c2'))!, 'box')],
         );
-        progressService.slotContentService.updateEntity(progressService.findSlotByKey(progress, at('u1', 'c2'))!, { box: 7 });
+        progressService.slotContentService.updateEntity(progressService.peekSlotByKey(progress, at('u1', 'c2'))!, { box: 7 });
         db.flush();
 
         expect(columnWoke).toBe(1);
@@ -210,7 +210,7 @@ describe('a collection keyed by a combination of identities', () => {
         progressService.slotContentService.clearSlotContent(removed);
         db.flush();
 
-        expect(oimIsSlotReleased(removed)).toBe(true);
+        expect(isOIMSlotReleased(removed)).toBe(true);
         expect(progressService.getSlotCount(progress)).toBe(2);
         expect(chain[0].holdCount).toBe(segmentHoldsWhileTheChainIsFiled - 1);
     });
@@ -266,7 +266,7 @@ describe('a composite-keyed slot names itself', () => {
         OIMEffectService.INSTANCE.createEffect(db, () => { held++; }, [slot]);
         progressService.slotContentService.clearSlotContent(slot);
         db.flush();
-        expect(oimIsSlotEmpty(slot)).toBe(true);
+        expect(isOIMSlotEmpty(slot)).toBe(true);
         expect(name(slot)).toBe('u1|c1');
         // The effect is what carried the identity past its value.
         expect(held).toBe(1);

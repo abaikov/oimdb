@@ -3,12 +3,12 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMInPlaceEntityWriter } from '../createOIMInPlaceEntityWriter';
 import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWriter';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
-import { oimInsertEntityWithCopy } from '../utils/oimInsertEntityWithCopy';
+import { insertOIMEntityWithCopy } from '../utils/insertOIMEntityWithCopy';
 // Not a public export — the rule about which names may be a column, imported by
 // path so this file reads the answer OFF the rule instead of restating it.
-import { oimIsProtoKey } from '../utils/oimIsProtoKey';
-import { oimGuardedPatchEntityColumns } from '../utils/oimGuardedPatchEntityColumns';
-import { oimGuardedPatchEntityColumn } from '../utils/oimGuardedPatchEntityColumn';
+import { isOIMProtoKey } from '../utils/isOIMProtoKey';
+import { guardOIMEntityColumnsPatch } from '../utils/guardOIMEntityColumnsPatch';
+import { guardOIMEntityColumnPatch } from '../utils/guardOIMEntityColumnPatch';
 import type { IOIMEntityWriter } from '../interfaces/IOIMEntityWriter';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
@@ -36,9 +36,9 @@ const replacingOn = (db: OIMDB) =>
     rowsOn(db, createOIMReplacingEntityWriter());
 
 const copyingInPlaceOn = (db: OIMDB) =>
-    rowsOn(db, createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }));
+    rowsOn(db, createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithCopy }));
 
-const guardedPatch = { patchEntityColumns: oimGuardedPatchEntityColumns, patchEntityColumn: oimGuardedPatchEntityColumn };
+const guardedPatch = { patchEntityColumns: guardOIMEntityColumnsPatch, patchEntityColumn: guardOIMEntityColumnPatch };
 
 const guardedInPlaceOn = (db: OIMDB) =>
     rowsOn(db, createOIMInPlaceEntityWriter(guardedPatch));
@@ -173,7 +173,7 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
     });
 
     it('lets one rule decide, for both strategies, which names are columns', () => {
-        // The expected answer is read OFF `oimIsProtoKey` rather than written
+        // The expected answer is read OFF `isOIMProtoKey` rather than written
         // out here, so a name added to the rule that only one strategy honours,
         // or a skip added to one strategy and not the rule, goes red here.
         const names = ['__proto__', 'label', 'constructor', 'toString'];
@@ -196,9 +196,9 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
             const inPlaceEntity = inPlaceService.getSlotByKey(inPlace,'r1').entity as object;
             const replacingEntity = replacingService.getSlotByKey(replacing,'r1').entity as object;
             expect(Object.prototype.hasOwnProperty.call(inPlaceEntity, name))
-                .toBe(!oimIsProtoKey(name));
+                .toBe(!isOIMProtoKey(name));
             expect(Object.prototype.hasOwnProperty.call(replacingEntity, name))
-                .toBe(!oimIsProtoKey(name));
+                .toBe(!isOIMProtoKey(name));
         }
     });
 });
@@ -238,7 +238,7 @@ describe('by default the collection keeps the object handed to it', () => {
     });
 });
 
-describe('the collection built with oimInsertEntityWithCopy owns its entities', () => {
+describe('the collection built with insertOIMEntityWithCopy owns its entities', () => {
 
     it('ignores a later mutation of what the caller passed', () => {
         const db = new OIMDB();
@@ -286,14 +286,14 @@ describe('the collection built with oimInsertEntityWithCopy owns its entities', 
      * A bucket's slots are not derived from anything, so that half is true by
      * construction and no longer worth a test: NO write moves a slot between
      * buckets, seen or unseen. What is left is the half this file is actually
-     * about — the ENTITY. Under oimInsertEntityWithCopy the engine stores a copy,
+     * about — the ENTITY. Under insertOIMEntityWithCopy the engine stores a copy,
      * so the caller's object is not the stored value, and the list a caller composed goes on naming the
      * identities they placed in it whatever they do to the objects they handed
      * in.
      */
-    it('under oimInsertEntityWithCopy, a caller mutating behind the engine changes neither the value nor the list', () => {
+    it('under insertOIMEntityWithCopy, a caller mutating behind the engine changes neither the value nor the list', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithCopy }) }) });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
         const byDeck = byDeckService.createStoreSlot(db);

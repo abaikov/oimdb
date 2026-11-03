@@ -1,8 +1,9 @@
 import { OIMDB } from '../../db/OIMDB';
+import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotCollectionBucketService } from '../OIMSlotCollectionBucketService';
 import { OIMSlotAtUnholdReleasePolicy } from '../../collector/OIMSlotAtUnholdReleasePolicy';
 import { createOIMEntitySlotCollectionStoreAggregate } from '../../entity/createOIMEntitySlotCollectionStoreAggregate';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 
 type TCard = { id: string; title: string };
 
@@ -23,8 +24,36 @@ describe('what a collection list hears of a member released inside a flush', () 
         two.writeSlotContent({ id: 'b', title: 'Two' });
         db.flush();
         db.flush();
-        expect(oimIsSlotReleased(two)).toBe(true);
+        expect(isOIMSlotReleased(two)).toBe(true);
         expect(lists[lists.length - 1]).toEqual(['a']);
         expect([...OIMSlotCollectionBucketService.INSTANCE.getBucketSlot(cards.storeSlot).getBucketMemberSlots()]).toEqual([ace]);
+    });
+
+    it('lets a member go inside a frame while the list has a column slot, and the column hears it', () => {
+        const db = new OIMDB();
+        const effectService = OIMEffectService.INSTANCE;
+        const cards = createOIMEntitySlotCollectionStoreAggregate<TCard>(db, { slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE });
+        const ace = cards.holdSlotByKey('a');
+        ace.writeSlotContent({ id: 'a', title: 'Ace' });
+        const two = cards.holdSlotByKey('b');
+        two.writeSlotContent({ id: 'b', title: 'Two' });
+        db.flush();
+        const titles = OIMSlotCollectionBucketService.INSTANCE.holdBucketColumnSlot(cards.storeSlot, 'title');
+        const seen: unknown[] = [];
+        db.createEffect(() => { seen.push([...(titles.value as string[])].sort()); });
+        const watchingTwo = effectService.createEffect(db, () => undefined, [two]);
+        two.unholdSlot();
+        let isReleasedInTheFrame = false;
+        effectService.createEffect(db, () => {
+            effectService.disposeEffect(watchingTwo);
+            isReleasedInTheFrame = isOIMSlotReleased(two);
+        }, [ace]);
+
+        ace.updateEntity({ title: 'Ace!' });
+        expect(() => db.flush()).not.toThrow();
+        db.flush();
+
+        expect(isReleasedInTheFrame).toBe(true);
+        expect(seen[seen.length - 1]).toEqual(['Ace!']);
     });
 });

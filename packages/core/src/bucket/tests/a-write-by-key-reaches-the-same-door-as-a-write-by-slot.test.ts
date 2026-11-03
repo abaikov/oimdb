@@ -23,7 +23,7 @@ const createFixture = () => {
         return cardsService.getSlotByKey(cards, id);
     };
     const writeContentByKey = (key: string, members: readonly TCardSlot[]): void => {
-        const slot = listService.findSlotByKey(list, key);
+        const slot = listService.peekSlotByKey(list, key);
         if (slot !== undefined) membersService.writeSlotContent(slot, members);
     };
     return { db, membersService, bucket, slotOf, writeContentByKey };

@@ -81,7 +81,7 @@ describe('a second population is the caller\'s, and a write reaches only the one
             { id: 'k1', n: 1, tag: 'red' },
             { id: 'k2', n: 2, tag: 'blue' },
         ]).map(entity => sourceService.writeSlotContentByKey(sourceStoreSlot, ((source: TSource) => source.id)(entity), entity)));
-        const firstSlot = sourceService.findSlotByKey(sourceStoreSlot, 'k1');
+        const firstSlot = sourceService.peekSlotByKey(sourceStoreSlot, 'k1');
         if (firstSlot !== undefined) sourceService.slotContentService.updateEntity(firstSlot, { n: 9 });
         db.flush();
 

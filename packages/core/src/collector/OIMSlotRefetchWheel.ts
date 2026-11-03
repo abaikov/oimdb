@@ -2,8 +2,8 @@ import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { IOIMSlotRefetchListener } from './interfaces/IOIMSlotRefetchListener';
 import type { TOIMSlotRefetchWheelOptions } from './types/TOIMSlotRefetchWheelOptions';
 import { OIMSlotWheel } from './OIMSlotWheel';
-import { oimSliceOfMs } from './utils/oimSliceOfMs';
-import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
+import { getOIMSliceOfMs } from './utils/getOIMSliceOfMs';
+import { isOIMSlotReleased } from '../slot/utils/isOIMSlotReleased';
 import type { OIMDB } from '../db/OIMDB';
 
 export class OIMSlotRefetchWheel extends OIMSlotWheel {
@@ -17,18 +17,16 @@ export class OIMSlotRefetchWheel extends OIMSlotWheel {
     }
 
     public scheduleSlotRefetchAt(slot: TOIMSlot, atMs: number): void {
-        this.fileSlot(oimSliceOfMs(atMs), slot);
+        this.fileSlot(getOIMSliceOfMs(atMs), slot);
         this.scheduleNextSweep();
     }
 
     protected override getSweptSliceNumberAt(nowMs: number): number {
-        return oimSliceOfMs(nowMs) - 1;
+        return getOIMSliceOfMs(nowMs) - 1;
     }
 
     protected onSlotDue(slot: TOIMSlot): void {
-        if (oimIsSlotReleased(slot)) return;
-        if (slot.effects === undefined || slot.effects.length === 0) return;
-        this.refetchDueSlots.push(slot);
+        if (!isOIMSlotReleased(slot)) this.refetchDueSlots.push(slot);
     }
 
     protected override onSweepFinished(): void {

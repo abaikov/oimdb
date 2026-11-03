@@ -1,7 +1,7 @@
 import { OIMDefaults } from '../../index';
-import { OIMDB, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, isOIMSlotReleased } from '../../index';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../../column/types/TOIMColumnName';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -13,7 +13,7 @@ type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>;
 
 const createByDeckService = (cardsService: TCardsService) => createOIMSlotCollectionIndexService<
-    TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
+    TCard, TOIMStoreKey, readonly TOIMColumnName<TCard>[], string,
     Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
     OIMSetBucketContentService<TCardSlot, string>
 >({
@@ -54,7 +54,7 @@ describe('a bucket filled by a scan of the source after a hand mutation', () => 
         expect(() => byDeckService.holdSlotByKey(byDeck, 'clubs')).not.toThrow();
         db.flush();
 
-        expect(oimIsSlotReleased(card)).toBe(false);
+        expect(isOIMSlotReleased(card)).toBe(false);
         expect(byDeckService.getEntitiesByKey(byDeck, 'clubs').map(entity => entity?.id)).toEqual(['c1']);
         expect(byDeckService.getEntitiesByKey(byDeck, 'spades')).toEqual([]);
     });

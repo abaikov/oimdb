@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { OIM_FROZEN_EMPTY_SLOTS, oimRefreshSourceComputeds, type TOIMDisposer } from '@oimdb/core';
+import { OIM_FROZEN_EMPTY_SLOTS, refreshOIMSourceComputeds, type TOIMDisposer } from '@oimdb/core';
 import { useOIMDB } from './useOIMDB';
 import type { TOIMBinding } from './types/TOIMBinding';
 import { OIMSnapshotVersion } from './OIMSnapshotVersion';
@@ -26,6 +26,6 @@ export function useOIMValue<TValue>(binding: TOIMBinding<TValue>): TValue {
     }, [db, binding, sourceComputeds]);
 
     useOIMSnapshotVersion(store.snapshotVersion, store.subscribe);
-    oimRefreshSourceComputeds(sourceComputeds);
+    refreshOIMSourceComputeds(sourceComputeds);
     return binding.derive();
 }

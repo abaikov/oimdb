@@ -2,7 +2,7 @@ import {
     createOIMColumnGroup,
     OIMChannelService, OIMDB, OIMSlotContentChangeListenerService, OIMDefaults, OIMEffectService, OIMSetBucketContentService, OIMSlotAfterWriteReleasePolicy,
     createOIMEntitySlotCollectionStoreAggregate, createOIMSortedComputedService, createOIMEntityContentService, createOIMSlotCollectionIndexService,
-    createOIMSlotCollectionService, oimIsSlotReleased, oimMintAfterWriteSlotReleaseWheel, OIM_SLICE_LENGTH_MS,
+    createOIMSlotCollectionService, isOIMSlotReleased, mintOIMAfterWriteSlotReleaseWheel, OIM_SLICE_LENGTH_MS,
 } from '@oimdb/core';
 import type { TOIMEffect, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 
@@ -44,7 +44,7 @@ describe('what the core audit found', () => {
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
             runs++;
             if (!phase.isMoved) { void a.entity; void s.entity; return; }
-            void s.readEntity(titleGroup);
+            void s.getEntity(titleGroup);
             void b.entity;
         });
         phase.isMoved = true;
@@ -67,7 +67,7 @@ describe('what the core audit found', () => {
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.disposeIndexStoreSlot(byDeck);
-        expect(() => byDeckService.getAnyBucketColumnByKey(byDeck, 'x')).toThrow();
+        expect(() => byDeckService.getAnyBucketColumnSlotByKey(byDeck, 'x')).toThrow();
         expect(cards.allColumnsListenerCount).toBe(0);
     });
 
@@ -76,7 +76,7 @@ describe('what the core audit found', () => {
         const cards = createOIMEntitySlotCollectionStoreAggregate<TCard>(db, { columnNames: ['title'] });
         const card = cards.holdSlotByKey('c');
         card.writeSlotContent({ id: 'c', deck: '', title: 't', rank: 1 });
-        expect(() => card.getColumn('rank')).toThrow();
+        expect(() => card.getColumnSlot('rank')).toThrow();
         expect(card.columnSlotStore).toBeUndefined();
     });
 
@@ -86,7 +86,7 @@ describe('what the core audit found', () => {
         cards.writeSlotContentByKey('c', { id: 'c', deck: '', title: 't', rank: 1 });
         db.flush();
         let runs = 0;
-        db.createEffect(() => { runs++; cards.findSlotByKey('c')?.updateEntity({ rank: runs }); });
+        db.createEffect(() => { runs++; cards.peekSlotByKey('c')?.updateEntity({ rank: runs }); });
         db.flush();
         expect(() => db.flush()).not.toThrow();
         expect(runs).toBe(1);
@@ -97,7 +97,7 @@ describe('what the core audit found', () => {
         const bucketsService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService() });
         const buckets = bucketsService.createStoreSlot(db);
         const bucket = bucketsService.writeSlotContentByKey(buckets, 'k', []);
-        expect(oimIsSlotReleased(bucket)).toBe(false);
+        expect(isOIMSlotReleased(bucket)).toBe(false);
     });
 
     it('a dropped database leaves no release wheel armed', () => {
@@ -120,7 +120,7 @@ describe('what the core audit found', () => {
         const releaseTimer = (_run: () => void, inMs: number) => { armedAtMs.push(nowMs + inMs); return () => undefined; };
         const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 100 }) });
         const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer });
-        const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
+        const afterWriteSlotReleaseWheel = mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot);
         const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard, string>({ defaults }) });
         const rows = rowsService.createStoreSlot(db);
         rowsService.writeSlotContentByKey(rows, 'early', { id: 'early', deck: '', title: '', rank: 0 });
@@ -138,7 +138,7 @@ describe('what the core audit found', () => {
         const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const releasedWhenHeard: boolean[] = [];
-        const hear = (slot: { slotFlags: number }) => { releasedWhenHeard.push(oimIsSlotReleased(slot as never)); };
+        const hear = (slot: { slotFlags: number }) => { releasedWhenHeard.push(isOIMSlotReleased(slot as never)); };
         OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(cards, {
             onContentChanged: slot => { hear(slot); },
             onManyContentsChanged: slots => { for (let i = 0; i < slots.getEntryCount(); i++) hear(slots.getEntryAt(i)); },
@@ -222,10 +222,10 @@ describe('what the core audit found', () => {
         card.writeSlotContent({ id: 'c', deck: '', title: 't', rank: 1 });
         const readUndeclaredColumn = () => {
             // @ts-expect-error rank is not a declared column
-            card.getColumn('rank');
+            card.getColumnSlot('rank');
         };
         expect(typeof readUndeclaredColumn).toBe('function');
-        expect(card.getColumn('title')).toBeDefined();
+        expect(card.getColumnSlot('title')).toBeDefined();
     });
 
     it('a keep window longer than a timer can wait is armed within the timer limit', () => {

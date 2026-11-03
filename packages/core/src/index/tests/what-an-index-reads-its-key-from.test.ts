@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../../column/types/TOIMColumnName';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -33,8 +33,8 @@ const setDrivenByColumn = (cardsService: TCardsService) => createOIMSlotCollecti
     columns: ['deck'],
 });
 
-const updateByKey = (cardsService: TCardsService, cards: Parameters<TCardsService['findSlotByKey']>[0], key: string, patch: Partial<TCard>): void => {
-    const slot = cardsService.findSlotByKey(cards, key);
+const updateByKey = (cardsService: TCardsService, cards: Parameters<TCardsService['peekSlotByKey']>[0], key: string, patch: Partial<TCard>): void => {
+    const slot = cardsService.peekSlotByKey(cards, key);
     if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
 };
 
@@ -79,7 +79,7 @@ describe('what an index reads its key from', () => {
         const { db, cards, cardsService } = createCards();
         let keyOfCalls = 0;
         const byDeckService = createOIMSlotCollectionIndexService<
-            TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string, TCardsStore,
+            TCard, TOIMStoreKey, readonly TOIMColumnName<TCard>[], string, TCardsStore,
             TOIMBucketSlotsSetStore<TCardSlot>, OIMSetBucketContentService<TCardSlot, string>
         >({
             entityService: cardsService,
@@ -101,7 +101,7 @@ describe('what an index reads its key from', () => {
         const { db, cards, cardsService } = createCards();
         const byDeckService = setDrivenByColumn(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
-        const rankOfSpades = byDeckService.holdBucketColumnByKey(byDeck, 'spades', 'rank');
+        const rankOfSpades = byDeckService.holdBucketColumnSlotByKey(byDeck, 'spades', 'rank');
         const revisionBefore = rankOfSpades.changedAtRevision;
         updateByKey(cardsService, cards, 'c2', { rank: 3 });
         db.flush();

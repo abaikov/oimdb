@@ -71,13 +71,13 @@ describe('who is told a slot gained its first subscriber and lost its last', () 
         const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), slotSubscriptionListener: listener });
         const cards = cardService.createStoreSlot(db);
         const card = cardService.holdSlotByKey(cards, 'c1');
-        const title = cardService.columnSlotService.holdColumn(card, 'title');
+        const title = cardService.columnSlotService.holdColumnSlot(card, 'title');
 
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => undefined, [title]);
         OIMEffectService.INSTANCE.disposeEffect(effect);
 
         expect(told).toEqual(['+c1.title', '-c1.title']);
-        cardService.columnSlotService.unholdColumn(title);
+        cardService.columnSlotService.unholdColumnSlot(title);
         card.owner.unholdSlot(card);
     });
 
@@ -89,7 +89,7 @@ describe('who is told a slot gained its first subscriber and lost its last', () 
         const titleLengthService = createOIMComputedService<string, number>({});
         const titleLengths = titleLengthService.createStoreSlot(
             db,
-            computedSlot => cardService.findSlotByKey(cards, computedSlot.key)?.entity?.title.length ?? 0,
+            computedSlot => cardService.peekSlotByKey(cards, computedSlot.key)?.entity?.title.length ?? 0,
             ({ key }) => ({ sourceSlots: [cardService.getSlotByKey(cards, key)] }),
         );
         const titleLength = titleLengthService.holdSlotByKey(titleLengths, 'c1');

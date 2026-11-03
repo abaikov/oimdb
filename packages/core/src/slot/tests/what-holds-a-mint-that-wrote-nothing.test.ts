@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotAfterIdleReleasePolicy } from '../../collector/OIMSlotAfterIdleReleasePolicy';
-import { oimMintAfterIdleSlotReleaseWheel } from '../../collector/utils/oimMintAfterIdleSlotReleaseWheel';
+import { mintOIMAfterIdleSlotReleaseWheel } from '../../collector/utils/mintOIMAfterIdleSlotReleaseWheel';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
@@ -16,7 +16,7 @@ function worldWithAReleaseClock() {
     const byDeck = byDeckService.createStoreSlot(db);
     const sweepTheReleaseClock = (): void => {
         nowMs += KEEP_AFTER_IDLE_MS * 4;
-        oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+        mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
     };
     return { db, byDeckService, byDeck, sweepTheReleaseClock };
 }

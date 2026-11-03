@@ -13,7 +13,7 @@ import { createOIMEntityContentService } from '../src/entity/createOIMEntityCont
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../src/slot/createOIMSingleSlotService';
 import type { TOIMEntityContentSlot } from '../src/entity/types/TOIMEntityContentSlot';
-import { oimMarkBucketColumnsChanged } from '../src/bucket/utils/oimMarkBucketColumnsChanged';
+import { markOIMBucketColumnsChanged } from '../src/bucket/utils/markOIMBucketColumnsChanged';
 
 const SRC = join(__dirname, '..', 'src');
 
@@ -161,14 +161,14 @@ const SLOT_OWNER_DOORS_THAT_WRITE_NOTHING = namedInPart('owner', [
 ]);
 
 const COLUMN_DOORS = [
-    'getColumn', 'holdColumn', 'getAnyColumn', 'holdAnyColumn', 'getColumnGroupSlot', 'holdColumnGroup', 'unholdColumn',
+    'getColumnSlot', 'holdColumnSlot', 'getAnyColumnSlot', 'holdAnyColumnSlot', 'getColumnGroupSlot', 'holdColumnGroupSlot', 'unholdColumnSlot',
 ] as const;
 
 const BATCH_DOORS = ['openBatch', 'closeBatch', 'writeInBatch'] as const;
 
 const STORE_SLOT_DOORS_THAT_WRITE_NOTHING = [
     'createStoreSlot', 'createStoreAggregate',
-    'isSameKey', 'getSlotCount', 'getSlots', 'findSlotByKey', 'hasSlotContentByKey', 'getSlotByKey', 'holdSlotByKey',
+    'isSameKey', 'getSlotCount', 'getSlots', 'peekSlotByKey', 'hasSlotContentByKey', 'getSlotByKey', 'holdSlotByKey',
     ...namedInPart('columnSlotService', COLUMN_DOORS),
 ] as const;
 
@@ -233,6 +233,7 @@ const ENTITY_WRITE_DOORS: Record<string, (subject: TEntitySubject) => void> = {
 const ENTITY_DOORS_THAT_WRITE_NOTHING = [
     'slotContentService.createSlot', 'slotContentService.createSingleSlot',
     'slotContentService.isSlotEmpty',
+    'slotContentService.peekColumnValue', 'slotContentService.peekColumnGroupValue', 'slotContentService.peekAnyColumnValue',
     ...BATCH_DOORS,
     ...STORE_SLOT_DOORS_THAT_WRITE_NOTHING,
     ...SLOT_OWNER_DOORS_THAT_WRITE_NOTHING,
@@ -299,6 +300,7 @@ const reachesNoHookTheOwnerCalls = (s: TBucketSubject): void => {
 const BUCKET_DOORS_THAT_WRITE_NOTHING = [
     'slotContentService.createSlot', 'slotContentService.createSingleSlot',
     'slotContentService.isSlotEmpty',
+    'slotContentService.peekColumnValue', 'slotContentService.peekColumnGroupValue', 'slotContentService.peekAnyColumnValue',
     'slotContentService.getBucketMemberSlotsMissingFrom',
     ...BATCH_DOORS,
     'slotContentService.fillBucketMemberSlots',
@@ -382,14 +384,14 @@ describe('who may say a write is refused', () => {
             'bucket/OIMBucketContentService.ts',
             'bucket/OIMPositionalArrayBucketContentService.ts',
             'bucket/OIMSortedArrayBucketContentService.ts',
-            'bucket/utils/oimMarkBucketColumnsChanged.ts',
+            'bucket/utils/markOIMBucketColumnsChanged.ts',
             'entity/OIMEntityContentService.ts',
         ]);
     });
 
     it('refuses to mark the columns of a bucket inside a flush', () => {
         expect(doorsThatDoNotRefuse(bucketWorld, {
-            oimMarkBucketColumnsChanged: s => { oimMarkBucketColumnsChanged(s.bucket, undefined, ['title']); },
+            markOIMBucketColumnsChanged: s => { markOIMBucketColumnsChanged(s.bucket, undefined, ['title']); },
         })).toEqual([]);
     });
 

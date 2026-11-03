@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import type {
-    OIMColumnSlotOwner, OIMColumnSlotService, TOIMEntitySlot, TOIMEntityColumnName, TOIMEntityColumnValue, TOIMDisposer,
+    OIMColumnSlotOwner, OIMColumnSlotService, TOIMEntitySlot, TOIMColumnName, TOIMEntityColumnValue, TOIMDisposer,
     TOIMSlot, TOIMColumnSlot, TOIMStoreKey,
 } from '@oimdb/core';
 import { holdWhileSubscribed } from './holdWhileSubscribed';
-import { oimAssertOneChannel } from './oimAssertOneChannel';
+import { assertOIMOneChannel } from './assertOIMOneChannel';
 import { useOIMDB } from './useOIMDB';
 import { OIMSnapshotVersion } from './OIMSnapshotVersion';
 import { useOIMSnapshotVersion } from './useOIMSnapshotVersion';
@@ -15,11 +15,11 @@ import { useOIMSnapshotVersion } from './useOIMSnapshotVersion';
  * ENTITY SLOT because an entity slot is what can be taken out from under this component — ../README.md.
  */
 export function useOIMField<
-    TEntity extends object, TName extends TOIMEntityColumnName<TEntity>, TKey extends NonNullable<unknown> = TOIMStoreKey,
+    TEntity extends object, TName extends TOIMColumnName<TEntity>, TKey extends NonNullable<unknown> = TOIMStoreKey,
 >(
     entityCollectionService: {
         readonly columnSlotService: Pick<
-            OIMColumnSlotService<TOIMEntitySlot<TEntity, TKey>, TName, TOIMColumnSlot, OIMColumnSlotOwner<TOIMSlot, TOIMColumnSlot>>, 'getColumn'
+            OIMColumnSlotService<TOIMEntitySlot<TEntity, TKey>, TName, TOIMColumnSlot, OIMColumnSlotOwner<TOIMSlot, TOIMColumnSlot>>, 'getColumnSlot'
         >;
     },
     slot: TOIMEntitySlot<TEntity, TKey>,
@@ -27,21 +27,20 @@ export function useOIMField<
 ): TOIMEntityColumnValue<TEntity, TName> | undefined {
     const db = useOIMDB();
     const store = useMemo(() => {
-        oimAssertOneChannel(db, slot, 'useOIMField');
+        assertOIMOneChannel(db, slot, 'useOIMField');
         const holds: readonly TOIMSlot[] = [slot];
         const snapshotVersion = new OIMSnapshotVersion();
         return {
             snapshotVersion,
             subscribe: (onStoreChange: () => void): TOIMDisposer =>
                 holdWhileSubscribed(holds, (): TOIMDisposer => snapshotVersion.subscribeEffect(
-                    db, onStoreChange, [entityCollectionService.columnSlotService.getColumn(slot, name)],
+                    db, onStoreChange, [entityCollectionService.columnSlotService.getColumnSlot(slot, name)],
                 )),
         };
     }, [db, entityCollectionService, slot, name]);
 
     useOIMSnapshotVersion(store.snapshotVersion, store.subscribe);
-    // The column holds no value; what moved is on the entity slot. `TOIMEntityColumnName` is a deferred
-    // conditional type, so nothing here can index `TEntity` by it.
+    // `TOIMColumnName` is a deferred conditional type, so nothing here can index `TEntity` by it.
     return (slot.entity as Record<string, unknown> | undefined)?.[name] as
         TOIMEntityColumnValue<TEntity, TName> | undefined;
 }

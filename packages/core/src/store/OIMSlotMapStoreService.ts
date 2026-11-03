@@ -1,7 +1,7 @@
 import type { IOIMSlotStoreService } from './interfaces/IOIMSlotStoreService';
 import type { TOIMStoreKey } from './types/TOIMStoreKey';
 import type { TOIMKeyedSlot } from '../slot/types/TOIMKeyedSlot';
-import { oimSameValueZeroGuard } from '../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../slot/utils/isOIMSameValueZero';
 
 export class OIMSlotMapStoreService<
     TSlot extends TOIMKeyedSlot<TKey>,
@@ -14,7 +14,7 @@ implements IOIMSlotStoreService<TKey, TSlot, Map<TKey, TSlot>> {
 
     public ownKey<TOwnedKey extends TKey>(key: TOwnedKey): TOwnedKey { return key; }
 
-    public isSameKey(key: TKey, otherKey: TKey): boolean { return oimSameValueZeroGuard(key, otherKey); }
+    public isSameKey(key: TKey, otherKey: TKey): boolean { return isOIMSameValueZero(key, otherKey); }
 
     public get(store: Map<TKey, TSlot>, key: TKey): TSlot | undefined {
         return store.get(key);

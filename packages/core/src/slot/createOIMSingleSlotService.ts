@@ -13,7 +13,7 @@ import { OIMWritableSingleSlotService } from './OIMWritableSingleSlotService';
 import { OIMSingleSlotStoreService } from '../store/OIMSingleSlotStoreService';
 import { OIM_DEFAULT_STORE_SLOT_LISTENER } from '../db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER';
 import { OIMDefaults } from '../db/OIMDefaults';
-import { oimResolveSlotOwnerServiceOptions } from './utils/oimResolveSlotOwnerServiceOptions';
+import { resolveOIMSlotOwnerServiceOptions } from './utils/resolveOIMSlotOwnerServiceOptions';
 
 export function createOIMSingleSlotService<TSlotContentService extends object, TColumnName extends string = string>(
     options: {
@@ -44,7 +44,7 @@ export function createOIMSingleSlotService<TSlotContentService extends object, T
             & IOIMSlotContentService<TOIMSlotContentServiceSingleSlot<TSlotContentService>>,
         TColumnName, TOIMColumnSlot, OIMPushColumnSlotOwner
     >({
-        ...oimResolveSlotOwnerServiceOptions(options.defaults ?? OIMDefaults.INSTANCE, options),
+        ...resolveOIMSlotOwnerServiceOptions(options.defaults ?? OIMDefaults.INSTANCE, options),
         slotStoreService: OIMSingleSlotStoreService.INSTANCE as OIMSingleSlotStoreService<
             TOIMSlotContentServiceSingleSlot<TSlotContentService>
         >,

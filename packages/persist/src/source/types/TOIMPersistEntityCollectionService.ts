@@ -7,5 +7,5 @@ export type TOIMPersistEntityCollectionService<TKey extends NonNullable<unknown>
         TKey, TOIMEntitySlot<TEntity, TKey>, TStore, TEntity, OIMEntityContentService<TEntity, TKey>,
         string, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
     >,
-    'getSlots' | 'findSlotByKey' | 'writeSlotContentByKey' | 'writeInBatch' | 'slotContentService'
+    'getSlots' | 'peekSlotByKey' | 'writeSlotContentByKey' | 'writeInBatch' | 'slotContentService'
 >;

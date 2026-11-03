@@ -6,9 +6,9 @@ import {
     OIMPersistKeyValuePathSnapshotService,
     OIMPersistItemKeyValueStorage,
 } from '../src';
-import { oimDeletePath } from '../src/keyvalue/utils/oimDeletePath';
-import { oimGetPath } from '../src/keyvalue/utils/oimGetPath';
-import { oimSetPath } from '../src/keyvalue/utils/oimSetPath';
+import { deleteOIMPath } from '../src/keyvalue/utils/deleteOIMPath';
+import { getOIMPath } from '../src/keyvalue/utils/getOIMPath';
+import { setOIMPath } from '../src/keyvalue/utils/setOIMPath';
 import { OIMTestKeyValueItemStorage } from './shared/OIMTestKeyValueItemStorage';
 
 type TSettings = { theme: string };
@@ -27,7 +27,7 @@ describe('a path walk stays inside the document it was given', () => {
         prototype.plantedByThisTest = 'still here';
         try {
             const root: Record<string, unknown> = {};
-            oimDeletePath(root, ['__proto__', 'plantedByThisTest']);
+            deleteOIMPath(root, ['__proto__', 'plantedByThisTest']);
             expect(prototype.plantedByThisTest).toBe('still here');
         } finally {
             delete prototype.plantedByThisTest;
@@ -35,33 +35,33 @@ describe('a path walk stays inside the document it was given', () => {
     });
 
     it('reads nothing at a name the document does not have', () => {
-        expect(oimGetPath({}, ['toString'])).toBeUndefined();
-        expect(oimGetPath({}, ['constructor', 'name'])).toBeUndefined();
-        expect(oimGetPath({}, ['__proto__'])).toBeUndefined();
+        expect(getOIMPath({}, ['toString'])).toBeUndefined();
+        expect(getOIMPath({}, ['constructor', 'name'])).toBeUndefined();
+        expect(getOIMPath({}, ['__proto__'])).toBeUndefined();
     });
 
     it('descends into a stored __proto__ rather than the prototype', () => {
         const root: Record<string, unknown> = {};
-        oimSetPath(root, ['__proto__', 'kept'], 1);
-        oimSetPath(root, ['__proto__', 'alsoKept'], 2);
-        expect(oimGetPath(root, ['__proto__', 'kept'])).toBe(1);
-        expect(oimGetPath(root, ['__proto__', 'alsoKept'])).toBe(2);
+        setOIMPath(root, ['__proto__', 'kept'], 1);
+        setOIMPath(root, ['__proto__', 'alsoKept'], 2);
+        expect(getOIMPath(root, ['__proto__', 'kept'])).toBe(1);
+        expect(getOIMPath(root, ['__proto__', 'alsoKept'])).toBe(2);
         expect(Object.getPrototypeOf(root)).toBe(Object.prototype);
         expect((root as { kept?: unknown }).kept).toBeUndefined();
     });
 
     it('still writes, reads and removes an ordinary path', () => {
         const root: Record<string, unknown> = {};
-        oimSetPath(root, ['cards', 'c1', 'title'], 'ace');
-        expect(oimGetPath(root, ['cards', 'c1', 'title'])).toBe('ace');
-        oimDeletePath(root, ['cards', 'c1', 'title']);
-        expect(oimGetPath(root, ['cards', 'c1', 'title'])).toBeUndefined();
-        expect(oimGetPath(root, ['cards', 'c1'])).toEqual({});
+        setOIMPath(root, ['cards', 'c1', 'title'], 'ace');
+        expect(getOIMPath(root, ['cards', 'c1', 'title'])).toBe('ace');
+        deleteOIMPath(root, ['cards', 'c1', 'title']);
+        expect(getOIMPath(root, ['cards', 'c1', 'title'])).toBeUndefined();
+        expect(getOIMPath(root, ['cards', 'c1'])).toEqual({});
     });
 
     it('leaves the document alone when an intermediate node is missing', () => {
         const root: Record<string, unknown> = { cards: {} };
-        oimDeletePath(root, ['cards', 'missing', 'title']);
+        deleteOIMPath(root, ['cards', 'missing', 'title']);
         expect(root).toEqual({ cards: {} });
     });
 });

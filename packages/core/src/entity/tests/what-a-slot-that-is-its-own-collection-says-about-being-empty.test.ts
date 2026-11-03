@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -33,8 +33,8 @@ describe('a slot that is its own collection, asked whether it is empty', () => {
         const asItsOwn: TOIMEntityContentSlot<TCard> = asItsOwnSingle.singleService.getSingleSlot(asItsOwnSingle.singleStore);
         const asFiled = filed(new OIMDB(), card);
 
-        expect(oimIsSlotEmpty(asItsOwn)).toBe(oimIsSlotEmpty(asFiled));
-        expect(oimIsSlotEmpty(asItsOwn)).toBe(false);
+        expect(isOIMSlotEmpty(asItsOwn)).toBe(isOIMSlotEmpty(asFiled));
+        expect(isOIMSlotEmpty(asItsOwn)).toBe(false);
     });
 
     it('answers the checker it was handed, not a field nobody writes', () => {
@@ -49,8 +49,8 @@ describe('a slot that is its own collection, asked whether it is empty', () => {
         const shut = shutService.createStoreSlot(db);
         shutService.writeSingleSlotContent(shut, { id: 'c2', title: 'King' });
 
-        expect(oimIsSlotEmpty(openService.getSingleSlot(open))).toBe(false);
-        expect(oimIsSlotEmpty(shutService.getSingleSlot(shut))).toBe(true);
+        expect(isOIMSlotEmpty(openService.getSingleSlot(open))).toBe(false);
+        expect(isOIMSlotEmpty(shutService.getSingleSlot(shut))).toBe(true);
     });
 
     it('settles again on a write, so the answer is never the one from birth', () => {
@@ -65,12 +65,12 @@ describe('a slot that is its own collection, asked whether it is empty', () => {
         const cardStore = cardService.createStoreSlot(db);
         cardService.writeSingleSlotContent(cardStore, { id: 'c1', title: 'Ace' });
         const cardSlot = cardService.holdSingleSlot(cardStore);
-        expect(oimIsSlotEmpty(cardSlot)).toBe(false);
+        expect(isOIMSlotEmpty(cardSlot)).toBe(false);
 
         titleDecides = true;
         cardService.slotContentService.updateEntity(cardSlot, { title: 'void' });
         db.flush();
 
-        expect(oimIsSlotEmpty(cardSlot)).toBe(true);
+        expect(isOIMSlotEmpty(cardSlot)).toBe(true);
     });
 });

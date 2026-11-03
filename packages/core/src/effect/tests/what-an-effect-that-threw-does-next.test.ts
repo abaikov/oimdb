@@ -22,7 +22,7 @@ const createFixture = () => {
     );
     db.flush();
     const updateCard = (id: string, patch: Partial<TCard>): void => {
-        const cardSlot = cardsService.findSlotByKey(cards, id);
+        const cardSlot = cardsService.peekSlotByKey(cards, id);
         if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, patch);
     };
     return {

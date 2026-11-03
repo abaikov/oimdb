@@ -3,7 +3,7 @@ import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
 
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
-import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
+import { markOIMSlotReleased } from '../../slot/utils/markOIMSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
@@ -148,7 +148,7 @@ describe('the key on the slot is the store\'s own copy', () => {
 describe('a key naming a released identity', () => {
     const released = (id: string): TOIMEntitySlot => {
         const releasedSegment = segment(id);
-        oimMarkSlotReleased(releasedSegment);
+        markOIMSlotReleased(releasedSegment);
         return releasedSegment;
     };
 

@@ -2,7 +2,7 @@ import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotReleaseManualDueFramePolicy } from '../OIMSlotReleaseManualDueFramePolicy';
-import { oimMintAfterWriteSlotReleaseWheel } from '../utils/oimMintAfterWriteSlotReleaseWheel';
+import { mintOIMAfterWriteSlotReleaseWheel } from '../utils/mintOIMAfterWriteSlotReleaseWheel';
 import type { IOIMSlotReleasePolicy } from '../interfaces/IOIMSlotReleasePolicy';
 import type { TOIMTimer } from '../../schedule/types/TOIMTimer';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
@@ -35,7 +35,7 @@ describe('which writes move the write deadline', () => {
         world.advance(5_000);
         world.write({ id: 'r', n: 1 });
 
-        expect(oimMintAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(slot)).toBe(START_MS + 5_000 + 30_000);
+        expect(mintOIMAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(slot)).toBe(START_MS + 5_000 + 30_000);
     });
 
     it('under a manual frame strategy only a write inside an open frame moves it', () => {
@@ -48,7 +48,7 @@ describe('which writes move the write deadline', () => {
         world.advance(5_000);
         slot = world.write({ id: 'r', n: 1 });
 
-        expect(oimMintAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(slot)).toBe(START_MS + 30_000);
+        expect(mintOIMAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(slot)).toBe(START_MS + 30_000);
     });
 
     it('the function form opens the frame around the write and closes it after, also on a throw', () => {
@@ -61,7 +61,7 @@ describe('which writes move the write deadline', () => {
             .toThrow('the write threw');
 
         expect(slotReleaseDueFramePolicy.isSlotReleaseDueFrameOpen()).toBe(false);
-        expect(oimMintAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(slot as TOIMSlot)).toBe(START_MS + 30_000);
+        expect(mintOIMAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(slot as TOIMSlot)).toBe(START_MS + 30_000);
     });
 
     it('one manual frame moves the deadline of every policy that shares it, each by its own window', () => {
@@ -77,8 +77,8 @@ describe('which writes move the write deadline', () => {
             cardSlot = cardsService.writeSlotContentByKey(cards, 'card', { id: 'card', n: 0 });
         });
 
-        expect(oimMintAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(deckSlot as TOIMSlot)).toBe(START_MS + 30_000);
-        expect(oimMintAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(cardSlot as TOIMSlot)).toBe(START_MS + 60_000);
+        expect(mintOIMAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(deckSlot as TOIMSlot)).toBe(START_MS + 30_000);
+        expect(mintOIMAfterWriteSlotReleaseWheel(world.db.collectorSlot).getReleaseDueMs(cardSlot as TOIMSlot)).toBe(START_MS + 60_000);
     });
 
     it('closing a frame that is not open throws by name', () => {

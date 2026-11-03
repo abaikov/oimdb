@@ -3,6 +3,12 @@
 All notable changes to `@oimdb/persist-memory` are recorded here. This file starts at 4.1.0; releases
 before it were not changelogged.
 
+## 4.2.0
+
+### Changed
+
+- Requires `@oimdb/persist` 4.3.0 (`writeOIMPersistRecordsDelta`).
+
 ## 4.1.1
 
 ### Changed

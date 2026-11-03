@@ -1,8 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../createOIMComputedService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
@@ -16,7 +16,7 @@ const createFixture =() => {
     const ranksComputedService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0,
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const ranks = ranksComputedService.createStoreSlot(db);
     // THE SHARED ONE, resolved once by the application and closed over below.
@@ -26,7 +26,7 @@ const createFixture =() => {
     const relativeComputedService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)], sourceComputeds: [baselineSlot] }),
         derive: computedSlot => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) - readValueWithoutTracking(baselineSlot),
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const relative = relativeComputedService.createStoreSlot(db);
     const flushUnusedSlots = (): void => OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
@@ -80,7 +80,7 @@ describe('what holds a derivation that only another derivation reads', () => {
 
         // And now nothing points at it, so its owner takes it out and the
         // cascade reaches the row underneath it.
-        expect(oimIsSlotReleased(baselineSlot)).toBe(true);
+        expect(isOIMSlotReleased(baselineSlot)).toBe(true);
         expect(ranksComputedService.getSlotCount(ranks)).toBe(0);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });

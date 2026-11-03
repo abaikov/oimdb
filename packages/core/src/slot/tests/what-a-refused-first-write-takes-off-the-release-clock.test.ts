@@ -1,8 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import { OIMSlotAfterWriteReleasePolicy } from '../../collector/OIMSlotAfterWriteReleasePolicy';
-import { oimMintAfterWriteSlotReleaseWheel } from '../../collector/utils/oimMintAfterWriteSlotReleaseWheel';
+import { mintOIMAfterWriteSlotReleaseWheel } from '../../collector/utils/mintOIMAfterWriteSlotReleaseWheel';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
@@ -19,7 +19,7 @@ const createFixture =() => {
         getNowMs: () => ms,
         releaseTimer: () => () => undefined,
     });
-    const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
+    const afterWriteSlotReleaseWheel = mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot);
     const triggersService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
     const triggers = triggersService.createStoreSlot(db);
     const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: WINDOW }) });
@@ -63,7 +63,7 @@ describe('a key whose first write was refused', () => {
         fixture.at(START + WINDOW + 1_000);
         fixture.afterWriteSlotReleaseWheel.flush();
 
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(fixture.rowsService.getSlotCount(fixture.rows)).toBe(0);
         expect(fixture.afterWriteSlotReleaseWheel.isSlotReleaseScheduled(slot)).toBe(false);
     });

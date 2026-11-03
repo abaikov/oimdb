@@ -3,6 +3,12 @@
 All notable changes to `@oimdb/persist` are recorded here. This file starts at 4.1.0; releases
 before it were not changelogged.
 
+## 4.3.0
+
+### Changed
+
+- Requires `@oimdb/core` 4.9.0; functions renamed to verb + OIM + object (`oimWritePersistRecordsDelta` → `writeOIMPersistRecordsDelta`, `oimUpsertPersistRecords` → `upsertOIMPersistRecords`, `oimHydratePersistResource` → `hydrateOIMPersistResource`, `oimDeliverPersistErrors` → `deliverOIMPersistErrors`, `oimHaveSameColumns` → `hasOIMSameColumns`, …); `oimNoop` → core `OIM_NOOP_DISPOSER`.
+
 ## 4.2.0
 
 Requires `@oimdb/core` 4.4.0.

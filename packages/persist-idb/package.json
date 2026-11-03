@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/persist-idb",
-  "version": "4.1.1",
+  "version": "4.2.0",
   "description": "IndexedDB persistence backend for @oimdb/persist (browser-side durable storage)",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -43,8 +43,8 @@
     "dist"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^4.1.0",
-    "@oimdb/persist": "^4.1.0"
+    "@oimdb/core": "^4.9.0",
+    "@oimdb/persist": "^4.3.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",

@@ -33,8 +33,7 @@ one slice at a time.
 a Redux action, a mapper run and a new state object, and a selector then has to
 find the entity again by key, which is exactly the lookup an identity-addressed slot
 removes. A React view reads the slot directly through
-[`@oimdb/react`](/docs/packages/react), and an Exodra view through
-[`@oimdb/exodra`](/docs/packages/exodra). Mirror into Redux only what a Redux
+[`@oimdb/react`](/docs/packages/react). Mirror into Redux only what a Redux
 reader needs.
 
 **Why it is a mirror and not a second store.** OIMDB stays the one source of
@@ -55,7 +54,7 @@ registered with a collection service and the store slot it reads: the service is
 and the store slot is the one instance it mirrors.
 
 ```ts setup
-import { OIMDB, OIMCompositeKeyTreeWalk, OIMSlotTreeStoreService, type TOIMStoreKey, type TOIMEntitySlot, type TOIMEntityColumnName, type TOIMSlotStoreTree, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
+import { OIMDB, OIMCompositeKeyTreeWalk, OIMSlotTreeStoreService, type TOIMStoreKey, type TOIMEntitySlot, type TOIMColumnName, type TOIMSlotStoreTree, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
 import { OIMReduxAdapter } from '@oimdb/redux-adapter';
 import type {
   TOIMReduxDefaultCollectionState, TOIMReduxDefaultIndexState,
@@ -232,8 +231,8 @@ read with `bucketSlot.getBucketMemberSlots()`:
 ```
 
 Those are `TOIMReduxCollectionMapper`, `TOIMReduxIndexMapper` and
-`TOIMReduxGlobalIndexMapper`. `oimDefaultCollectionMapper`,
-`oimDefaultKeyedIndexMapper` and `oimDefaultGlobalIndexMapper` are exported if you
+`TOIMReduxGlobalIndexMapper`. `mapOIMCollection`,
+`mapOIMKeyedIndex` and `mapOIMGlobalIndex` are exported if you
 want to build on top of one. A mapper is passed per reducer, as the last argument
 of its `create…Reducer` call; a reducer given none uses the built-in default.
 
@@ -245,8 +244,8 @@ because nothing after that write can tell it was lost. `@oimdb/core` files
 entities and buckets in `Map`s, where `1` and `'1'` are two addresses, but `entities`
 is a plain object, where they are one property name.
 
-`oimDefaultCollectionMapper` refuses two entities whose pks share a name, and
-`oimDefaultKeyedIndexMapper` refuses two buckets whose keys do. Without the
+`mapOIMCollection` refuses two entities whose pks share a name, and
+`mapOIMKeyedIndex` refuses two buckets whose keys do. Without the
 refusal, this is what is lost:
 
 - **Collection.** `ids` lists both and `entities` can hold only one, so
@@ -283,7 +282,7 @@ const roleReducer = adapter.createCollectionReducer<TUser, string, UsersState>(u
   reducer: (state, action) => {
     if (action.type === 'users/setRole') {
       const { payload } = action as { type: string; payload: { id: string; role: string } };
-      const userSlot = userService.findSlotByKey(users, payload.id);
+      const userSlot = userService.peekSlotByKey(users, payload.id);
       if (userSlot !== undefined) userSlot.updateEntity({ role: payload.role });
     }
     return state;
@@ -379,20 +378,20 @@ keyed or keyless index reducer builds on whatever action arrives first.
 
 ## Diff helper
 
-`oimDiffEntityKeys` is exported because the sync-back is built from it, and a
+`diffOIMEntityKeys` is exported because the sync-back is built from it, and a
 custom extractor usually needs the same step. To compare two lists of keys in order,
-use `oimSameKeySequence` from `@oimdb/core`.
+use `isOIMSameKeySequence` from `@oimdb/core`.
 
 ```typescript
-import { oimDiffEntityKeys } from '@oimdb/redux-adapter';
+import { diffOIMEntityKeys } from '@oimdb/redux-adapter';
 
 const before = { u1: { id: 'u1' }, u2: { id: 'u2' } };
 const after = { u1: before.u1, u3: { id: 'u3' } };
-const diff = oimDiffEntityKeys(before, after);
+const diff = diffOIMEntityKeys(before, after);
 // diff.added: {'u3'}, diff.removed: {'u2'}, diff.updated: {}, diff.all: {'u2','u3'}
 ```
 
-- `oimDiffEntityKeys(oldEntities, newEntities)` returns a
+- `diffOIMEntityKeys(oldEntities, newEntities)` returns a
   `TOIMReduxEntityKeysDiff<string>` with `added`, `updated` (present in both
   with a different reference), `removed` and `all`. **It reports strings**, because
   that is what a plain record's keys are. Do not hand those strings to the engine
@@ -479,8 +478,8 @@ const flatReducer = adapter.createCollectionReducer<TFlatProgress, string, TFlat
 
 **Enum:** `EOIMReduxReducerActionType`.
 
-**Functions:** `oimDefaultCollectionMapper`, `oimDefaultKeyedIndexMapper`,
-`oimDefaultGlobalIndexMapper`, `oimDiffEntityKeys`.
+**Functions:** `mapOIMCollection`, `mapOIMKeyedIndex`,
+`mapOIMGlobalIndex`, `diffOIMEntityKeys`.
 
 **Types:** `TOIMReduxUpdateAction`, `TOIMReduxAdapterOptions`,
 `TOIMReduxCollectionMapper`, `TOIMReduxIndexMapper`, `TOIMReduxGlobalIndexMapper`,

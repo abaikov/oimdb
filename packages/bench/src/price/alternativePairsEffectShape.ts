@@ -1,13 +1,13 @@
 // Prose: ./README.md#alternativepairseffectshape
-import { OIMChannelService, OIMEffectService, oimIsSlotReleased } from '../../../core/src/index';
-import { oimIsEffectDisposed } from '../../../core/src/effect/utils/oimIsEffectDisposed';
+import { OIMChannelService, OIMEffectService, isOIMSlotReleased } from '../../../core/src/index';
+import { isOIMEffectDisposed } from '../../../core/src/effect/utils/isOIMEffectDisposed';
 import { OIM_EFFECT_FLAG_DISPOSED } from '../../../core/src/effect/constants/OIM_EFFECT_FLAG_DISPOSED';
 import { OIM_EFFECT_FLAG_RUN_SCHEDULED } from '../../../core/src/effect/constants/OIM_EFFECT_FLAG_RUN_SCHEDULED';
 import { OIM_EFFECT_FLAG_SOURCE_CHECK_OWED } from '../../../core/src/effect/constants/OIM_EFFECT_FLAG_SOURCE_CHECK_OWED';
-import { oimIsRevisionAfter } from '../../../core/src/channel/utils/oimIsRevisionAfter';
+import { isOIMRevisionAfter } from '../../../core/src/channel/utils/isOIMRevisionAfter';
 import type { IOIMEffectService, OIMDB, TOIMChannelSlot, TOIMComputedSlot, TOIMEffect, TOIMSlot } from '../../../core/src/index';
-import { oimRefreshSourceComputeds } from '../../../core/src/computed/utils/oimRefreshSourceComputeds';
-import { oimHasSourceChangedSinceLastRun } from '../../../core/src/computed/utils/oimHasSourceChangedSinceLastRun';
+import { refreshOIMSourceComputeds } from '../../../core/src/computed/utils/refreshOIMSourceComputeds';
+import { hasOIMSourceChangedSinceLastRun } from '../../../core/src/computed/utils/hasOIMSourceChangedSinceLastRun';
 import { EPricePath } from './EPricePath';
 import { priceFixture } from './priceFixture';
 import { priceSink } from './priceSink';
@@ -33,12 +33,12 @@ const runEffect = (effect: TOIMEffect): void => {
     const ranAtRevision = channelClock.revision;
     const ranAtEpoch = channelClock.epoch;
     runCleanup(effect);
-    if (oimIsEffectDisposed(effect)) return;
+    if (isOIMEffectDisposed(effect)) return;
     const undo = effect.body();
     effect.ranAtRevision = ranAtRevision;
     effect.ranAtEpoch = ranAtEpoch;
     if (typeof undo !== 'function') return;
-    if (oimIsEffectDisposed(effect)) undo();
+    if (isOIMEffectDisposed(effect)) undo();
     else effect.cleanup = undo;
 };
 
@@ -51,8 +51,8 @@ const setPositionInSubscribedSlot = (effect: TOIMEffect, edge: number, positionI
 };
 
 const runLiteralEffectIfSourcesChanged = (effect: TOIMEffect): void => {
-    oimRefreshSourceComputeds(effect.sourceComputeds);
-    if (!oimHasSourceChangedSinceLastRun(effect)) return;
+    refreshOIMSourceComputeds(effect.sourceComputeds);
+    if (!hasOIMSourceChangedSinceLastRun(effect)) return;
     runEffect(effect);
 };
 
@@ -75,7 +75,7 @@ const literalEffectService: IOIMEffectService = {
         const frame = effect.channelSlot.frame;
         if (
             (effectFlags & OIM_EFFECT_FLAG_SOURCE_CHECK_OWED) === 0 && effect.sourceComputeds.length === 0
-            && !oimIsRevisionAfter(effect.ranAtRevision, effect.ranAtEpoch, frame.openedAtRevision, frame.openedAtEpoch)
+            && !isOIMRevisionAfter(effect.ranAtRevision, effect.ranAtEpoch, frame.openedAtRevision, frame.openedAtEpoch)
         ) {
             runEffect(effect);
         } else {
@@ -90,7 +90,7 @@ const createLiteralEffect = (channelSlot: TOIMChannelSlot, rootSlots: readonly T
         effectService: literalEffectService,
         sourceSlots: rootSlots,
         sourceComputeds: NO_SOURCE_COMPUTEDS,
-        allRootSlots: rootSlots,
+        rootSlots,
         positionInFirstSubscribedSlot: -1,
         positionsInOtherSubscribedSlots: undefined,
         columnGroupsByEdge: undefined,
@@ -112,11 +112,11 @@ const createLiteralEffect = (channelSlot: TOIMChannelSlot, rootSlots: readonly T
 const disposeLiteralEffect = (effect: TOIMEffect): void => {
     effect.effectFlags = (effect.effectFlags | OIM_EFFECT_FLAG_DISPOSED)
         & ~(OIM_EFFECT_FLAG_RUN_SCHEDULED | OIM_EFFECT_FLAG_SOURCE_CHECK_OWED);
-    const allRootSlots = effect.allRootSlots;
-    for (let i = 0; i < allRootSlots.length; i++) {
-        const rootSlot = allRootSlots[i];
+    const rootSlots = effect.rootSlots;
+    for (let i = 0; i < rootSlots.length; i++) {
+        const rootSlot = rootSlots[i];
         const positionInSlot = i === 0 ? effect.positionInFirstSubscribedSlot : (effect.positionsInOtherSubscribedSlots?.[i - 1] ?? -1);
-        if (oimIsSlotReleased(rootSlot) || positionInSlot < 0) continue;
+        if (isOIMSlotReleased(rootSlot) || positionInSlot < 0) continue;
         setPositionInSubscribedSlot(effect, i, -1);
         rootSlot.owner.unsubscribeFromSlot(rootSlot, positionInSlot, effect);
     }

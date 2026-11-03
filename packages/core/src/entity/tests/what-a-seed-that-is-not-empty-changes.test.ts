@@ -4,8 +4,8 @@ import type { IOIMSlotStamp } from '../../slot/interfaces/IOIMSlotStamp';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 type TCard = { id: string; title?: string };
@@ -37,14 +37,14 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
         const card = cardsService.getSlotByKey(cards, 'c1');
 
         expect(card.entity).toEqual({ id: 'c1' });
-        expect(oimIsSlotEmpty(card)).toBe(true);
+        expect(isOIMSlotEmpty(card)).toBe(true);
     });
 
     it('answers a read without a maybe, because the seed says there is always a row', () => {
         const { cardsService, cards } = createFixture();
         cardsService.getSlotByKey(cards, 'c1');
 
-        const read = cardsService.findSlotByKey(cards, 'c1')?.entity;
+        const read = cardsService.peekSlotByKey(cards, 'c1')?.entity;
 
         expect(read).toEqual({ id: 'c1' });
     });
@@ -70,7 +70,7 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
     it('seeds nothing on a find, which files no identity', () => {
         const { cardsService, cards } = createFixture();
 
-        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toBeUndefined();
+        expect(cardsService.peekSlotByKey(cards, 'c1')?.entity).toBeUndefined();
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 
@@ -81,7 +81,7 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
         db.flush();
 
         expect(cardsService.getSlotCount(cards)).toBe(0);
-        expect(oimIsSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
     });
 
     it('keeps a row the moment a value lands beside the key', () => {
@@ -92,7 +92,7 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
         db.flush();
 
         const card = cardsService.getSlotByKey(cards, 'c1');
-        expect(oimIsSlotEmpty(card)).toBe(false);
+        expect(isOIMSlotEmpty(card)).toBe(false);
         expect(card.entity).toEqual({ id: 'c1', title: 'one' });
     });
 
@@ -105,7 +105,7 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
         cardsService.slotContentService.clearSlotContent(held);
 
         expect(held.entity).toEqual({ id: 'c1' });
-        expect(oimIsSlotEmpty(held)).toBe(true);
+        expect(isOIMSlotEmpty(held)).toBe(true);
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(held);
         held.owner.unholdSlot(held);
     });
@@ -120,6 +120,6 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
         held.owner.unholdSlot(held);
 
         expect(cardsService.getSlotCount(cards)).toBe(0);
-        expect(oimIsSlotReleased(held)).toBe(true);
+        expect(isOIMSlotReleased(held)).toBe(true);
     });
 });

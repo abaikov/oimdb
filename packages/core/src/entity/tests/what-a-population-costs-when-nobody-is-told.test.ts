@@ -34,12 +34,12 @@ const collectionOn = (db: OIMDB, write: IOIMEntityWriter) => {
 const updateEntityByKey = (
     { collectionService, collection }: ReturnType<typeof collectionOn>, key: string, patch: Partial<TCard>,
 ): void => {
-    const slot = collectionService.findSlotByKey(collection, key);
+    const slot = collectionService.peekSlotByKey(collection, key);
     if (slot !== undefined) collectionService.slotContentService.updateEntity(slot, patch);
 };
 
 const deleteEntityByKey = ({ collectionService, collection }: ReturnType<typeof collectionOn>, key: string): void => {
-    const slot = collectionService.findSlotByKey(collection, key);
+    const slot = collectionService.peekSlotByKey(collection, key);
     if (slot !== undefined) collectionService.slotContentService.clearSlotContent(slot);
 };
 

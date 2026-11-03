@@ -1,4 +1,4 @@
-import { oimOpenIndexedDb } from '../src/utils/oimOpenIndexedDb';
+import { openOIMIndexedDb } from '../src/utils/openOIMIndexedDb';
 
 type TFakeOpenRequest = {
     onerror: (() => void) | null;
@@ -31,7 +31,7 @@ describe('an open that stays blocked past the ceiling', () => {
 
     it('closes the connection that arrives after it gave up, instead of orphaning it', async () => {
         const { openRequest, indexedDb, closeCount } = buildOpenRequest();
-        const opening = oimOpenIndexedDb({ indexedDb, databaseName: 'orphan-db', databaseVersion: 2 });
+        const opening = openOIMIndexedDb({ indexedDb, databaseName: 'orphan-db', databaseVersion: 2 });
 
         (openRequest.onblocked as () => void)();
         jest.advanceTimersByTime(OIM_BLOCKED_FOR_TOO_LONG_MS);
@@ -46,7 +46,7 @@ describe('an open that stays blocked past the ceiling', () => {
 
     it('hands back the connection, and keeps it, when the block clears in time', async () => {
         const { openRequest, indexedDb, closeCount } = buildOpenRequest();
-        const opening = oimOpenIndexedDb({ indexedDb, databaseName: 'orphan-db', databaseVersion: 2 });
+        const opening = openOIMIndexedDb({ indexedDb, databaseName: 'orphan-db', databaseVersion: 2 });
 
         (openRequest.onblocked as () => void)();
         jest.advanceTimersByTime(OIM_BLOCKED_FOR_TOO_LONG_MS - 1);
@@ -60,7 +60,7 @@ describe('an open that stays blocked past the ceiling', () => {
     it('stops the clock at upgradeneeded, so a slow migration is not a block', async () => {
         const { openRequest, indexedDb, closeCount } = buildOpenRequest();
         const upgradedDatabases: IDBDatabase[] = [];
-        const opening = oimOpenIndexedDb({
+        const opening = openOIMIndexedDb({
             indexedDb,
             databaseName: 'orphan-db',
             databaseVersion: 2,
@@ -82,7 +82,7 @@ describe('an open that stays blocked past the ceiling', () => {
 
     it('rejects with the request error and takes the ceiling down with it', async () => {
         const { openRequest, indexedDb } = buildOpenRequest();
-        const opening = oimOpenIndexedDb({ indexedDb, databaseName: 'orphan-db', databaseVersion: 2 });
+        const opening = openOIMIndexedDb({ indexedDb, databaseName: 'orphan-db', databaseVersion: 2 });
 
         (openRequest.onblocked as () => void)();
         openRequest.error = new Error('VersionError');
@@ -94,7 +94,7 @@ describe('an open that stays blocked past the ceiling', () => {
 
     it('arms one timer however many times blocked fires', async () => {
         const { openRequest, indexedDb } = buildOpenRequest();
-        const opening = oimOpenIndexedDb({ indexedDb, databaseName: 'orphan-db', databaseVersion: 2 });
+        const opening = openOIMIndexedDb({ indexedDb, databaseName: 'orphan-db', databaseVersion: 2 });
 
         (openRequest.onblocked as () => void)();
         jest.advanceTimersByTime(OIM_BLOCKED_FOR_TOO_LONG_MS - 1);

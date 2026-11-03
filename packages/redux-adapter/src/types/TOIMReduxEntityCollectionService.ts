@@ -1,10 +1,10 @@
 import type {
-    OIMPushColumnSlotOwner, OIMWritableSlotCollectionService, OIMEntityContentService, TOIMColumnSlot, TOIMEntityColumnName,
+    OIMPushColumnSlotOwner, OIMWritableSlotCollectionService, OIMEntityContentService, TOIMColumnSlot, TOIMColumnName,
     TOIMEntitySlot, TOIMStoreKey,
 } from '@oimdb/core';
 
 export type TOIMReduxEntityCollectionService<TEntity extends object, TStore> = OIMWritableSlotCollectionService<
     TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>, TStore, TEntity,
-    OIMEntityContentService<TEntity, TOIMStoreKey, TOIMEntityColumnName<TEntity>>,
-    TOIMEntityColumnName<TEntity>, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
+    OIMEntityContentService<TEntity, TOIMStoreKey, TOIMColumnName<TEntity>>,
+    TOIMColumnName<TEntity>, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
 >;

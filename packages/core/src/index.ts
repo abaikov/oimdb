@@ -1,22 +1,24 @@
 import { OIMDB } from './db/OIMDB';
-import { oimRegisterCoreInstance } from './db/utils/oimRegisterCoreInstance';
+import { registerOIMCoreInstance } from './db/utils/registerOIMCoreInstance';
 
-oimRegisterCoreInstance(OIMDB);
+registerOIMCoreInstance(OIMDB);
 
 export type { TOIMStoreKey } from './store/types/TOIMStoreKey';
 export type { TOIMDisposer } from './schedule/types/TOIMDisposer';
+export { OIM_NOOP_DISPOSER } from './schedule/constants/OIM_NOOP_DISPOSER';
+export type { IOIMSlotReleaseListener } from './collector/interfaces/IOIMSlotReleaseListener';
 export type { TOIMSlot } from './slot/types/TOIMSlot';
 export type { TOIMStoreSlot } from './slot/types/TOIMStoreSlot';
 export type { TOIMSlotContentChangeListenerReadColumns } from './slot/types/TOIMSlotContentChangeListenerReadColumns';
-export { oimIsAnyAddedColumnRead } from './slot/utils/oimIsAnyAddedColumnRead';
-export { oimMarkBucketColumnsChanged } from './bucket/utils/oimMarkBucketColumnsChanged';
+export { isOIMAnyAddedColumnRead } from './slot/utils/isOIMAnyAddedColumnRead';
+export { markOIMBucketColumnsChanged } from './bucket/utils/markOIMBucketColumnsChanged';
 export type { TOIMSingleSlotStoreSlot } from './slot/types/TOIMSingleSlotStoreSlot';
 export type { IOIMStoreSlotListener } from './slot/interfaces/IOIMStoreSlotListener';
 export { OIMNoStoreSlotListener } from './slot/OIMNoStoreSlotListener';
 export type { IOIMSlotSubscriptionListener } from './slot/interfaces/IOIMSlotSubscriptionListener';
 export { OIMNoSlotSubscriptionListener } from './slot/OIMNoSlotSubscriptionListener';
-export { oimIsSlotEmpty } from './slot/utils/oimIsSlotEmpty';
-export { oimIsSlotReleased } from './slot/utils/oimIsSlotReleased';
+export { isOIMSlotEmpty } from './slot/utils/isOIMSlotEmpty';
+export { isOIMSlotReleased } from './slot/utils/isOIMSlotReleased';
 export type { TOIMEntitySlot } from './entity/types/TOIMEntitySlot';
 export type { OIMEntitySlot } from './entity/OIMEntitySlot';
 export type { OIMSlot } from './slot/OIMSlot';
@@ -36,16 +38,16 @@ export type { IOIMSlotStamp } from './slot/interfaces/IOIMSlotStamp';
 export type { TOIMBucketSlot } from './bucket/types/TOIMBucketSlot';
 export type { TOIMBucketContentSlot } from './bucket/types/TOIMBucketContentSlot';
 export type { TOIMSameValueGuard } from './slot/types/TOIMSameValueGuard';
-export { oimSameValueZeroGuard } from './slot/utils/oimSameValueZeroGuard';
-export { oimSameSlotSequence } from './bucket/utils/oimSameSlotSequence';
-export { oimSameKeySequence } from './key/utils/oimSameKeySequence';
-export { oimHoldSlots } from './slot/utils/oimHoldSlots';
-export { oimIsAnySlotChangedAfter } from './channel/utils/oimIsAnySlotChangedAfter';
-export { oimUnholdSlotsIfAlive } from './slot/utils/oimUnholdSlotsIfAlive';
+export { isOIMSameValueZero } from './slot/utils/isOIMSameValueZero';
+export { isOIMSameSlotSequence } from './bucket/utils/isOIMSameSlotSequence';
+export { isOIMSameKeySequence } from './key/utils/isOIMSameKeySequence';
+export { holdOIMSlots } from './slot/utils/holdOIMSlots';
+export { isOIMAnySlotChangedAfter } from './channel/utils/isOIMAnySlotChangedAfter';
+export { unholdOIMSlotsIfAlive } from './slot/utils/unholdOIMSlotsIfAlive';
 export type { TOIMChannelFrame } from './channel/types/TOIMChannelFrame';
 export type { TOIMChannelScheduler } from './channel/types/TOIMChannelScheduler';
 export type { IOIMEntityWriter } from './entity/interfaces/IOIMEntityWriter';
-export type { TOIMEntityColumnName } from './entity/types/TOIMEntityColumnName';
+export type { TOIMColumnName } from './column/types/TOIMColumnName';
 export type { TOIMEntityColumnValue } from './entity/types/TOIMEntityColumnValue';
 
 export { OIMChannelService } from './channel/OIMChannelService';
@@ -67,6 +69,7 @@ export type { OIMSourceTracker } from './computed/OIMSourceTracker';
 export type { IOIMSourceTracker } from './computed/interfaces/IOIMSourceTracker';
 export type { TOIMComputedSlot } from './computed/types/TOIMComputedSlot';
 export type { TOIMComputedContentSlot } from './computed/types/TOIMComputedContentSlot';
+export type { TOIMComputedCarrierSlot } from './computed/types/TOIMComputedCarrierSlot';
 export type { TOIMComputedSources } from './computed/types/TOIMComputedSources';
 export type { TOIMComputedValueReleaser } from './computed/types/TOIMComputedValueReleaser';
 export type { IOIMComputedValueService } from './computed/interfaces/IOIMComputedValueService';
@@ -76,7 +79,7 @@ export type { TOIMComputedContentServiceOptions } from './computed/types/TOIMCom
 export { OIMExplicitSourceComputedContentService } from './computed/OIMExplicitSourceComputedContentService';
 export type { TOIMExplicitSourceComputedContentServiceOptions } from './computed/types/TOIMExplicitSourceComputedContentServiceOptions';
 export type { TOIMComputedValueServiceOptions } from './computed/types/TOIMComputedValueServiceOptions';
-export { oimRefreshSourceComputeds } from './computed/utils/oimRefreshSourceComputeds';
+export { refreshOIMSourceComputeds } from './computed/utils/refreshOIMSourceComputeds';
 
 export type { OIMSlotOwnerService } from './slot/OIMSlotOwnerService';
 export type { TOIMSlotOwnerServiceOptions } from './slot/types/TOIMSlotOwnerServiceOptions';
@@ -122,7 +125,7 @@ export { OIMSlotCollectionBucketService } from './bucket/OIMSlotCollectionBucket
 export type { OIMCollectionSetBucketContentService } from './bucket/OIMCollectionSetBucketContentService';
 export type { TOIMCollectionBucketSlot } from './bucket/types/TOIMCollectionBucketSlot';
 export type { TOIMSlotCollectionStoreSlot } from './bucket/types/TOIMSlotCollectionStoreSlot';
-export { oimGetBucketMemberSlotEntities } from './bucket/utils/oimGetBucketMemberSlotEntities';
+export { getOIMBucketMemberSlotEntities } from './bucket/utils/getOIMBucketMemberSlotEntities';
 
 export { OIMBucketContentService } from './bucket/OIMBucketContentService';
 export { OIMSetBucketContentService } from './bucket/OIMSetBucketContentService';
@@ -175,6 +178,8 @@ export type { TOIMBucketMemoComputedSlot } from './computed/types/TOIMBucketMemo
 export { createOIMBucketMemoComputedService } from './computed/createOIMBucketMemoComputedService';
 
 export { OIMBucketCommands } from './bucket/OIMBucketCommands';
+export { OIMBucketCommandsCursor } from './bucket/commands/OIMBucketCommandsCursor';
+export type { TOIMBucketCommandsCursorOptions } from './bucket/commands/types/TOIMBucketCommandsCursorOptions';
 export type { TOIMBucketCommandsOptions } from './bucket/types/TOIMBucketCommandsOptions';
 export type { IOIMBucketCommands } from './bucket/commands/interfaces/IOIMBucketCommands';
 
@@ -198,7 +203,7 @@ export type { TOIMIndexKey } from './index/types/TOIMIndexKey';
 export type { TOIMFactoryOptions } from './db/types/TOIMFactoryOptions';
 export type { TOIMSortColumn } from './computed/types/TOIMSortColumn';
 export type { TOIMSortableColumnName } from './computed/types/TOIMSortableColumnName';
-export { oimColumnsComparator } from './computed/utils/oimColumnsComparator';
+export { createOIMColumnsComparator } from './computed/utils/createOIMColumnsComparator';
 export type { IOIMIndexKeysService } from './index/interfaces/IOIMIndexKeysService';
 export type { TOIMIndexKeysPositions } from './index/types/TOIMIndexKeysPositions';
 export { OIMIndexKeysService } from './index/OIMIndexKeysService';
@@ -211,24 +216,24 @@ export { createOIMInPlaceEntityWriter } from './entity/createOIMInPlaceEntityWri
 export { createOIMReplacingEntityWriter } from './entity/createOIMReplacingEntityWriter';
 export type { TOIMEntityWriterOptions } from './entity/types/TOIMEntityWriterOptions';
 export type { TOIMEntityInserter } from './entity/types/TOIMEntityInserter';
-export { oimInsertEntityWithoutCopy } from './entity/utils/oimInsertEntityWithoutCopy';
-export { oimInsertEntityWithCopy } from './entity/utils/oimInsertEntityWithCopy';
-export { oimInsertEntityWithSanitizedCopy } from './entity/utils/oimInsertEntityWithSanitizedCopy';
-export { oimPatchEntityColumns } from './entity/utils/oimPatchEntityColumns';
-export { oimPatchEntityColumn } from './entity/utils/oimPatchEntityColumn';
-export { oimGuardedPatchEntityColumns } from './entity/utils/oimGuardedPatchEntityColumns';
-export { oimGuardedPatchEntityColumn } from './entity/utils/oimGuardedPatchEntityColumn';
-export { oimPutEntityColumns } from './entity/utils/oimPutEntityColumns';
-export { oimGuardedPutEntityColumns } from './entity/utils/oimGuardedPutEntityColumns';
+export { insertOIMEntityWithoutCopy } from './entity/utils/insertOIMEntityWithoutCopy';
+export { insertOIMEntityWithCopy } from './entity/utils/insertOIMEntityWithCopy';
+export { insertOIMEntityWithSanitizedCopy } from './entity/utils/insertOIMEntityWithSanitizedCopy';
+export { patchOIMEntityColumns } from './entity/utils/patchOIMEntityColumns';
+export { patchOIMEntityColumn } from './entity/utils/patchOIMEntityColumn';
+export { guardOIMEntityColumnsPatch } from './entity/utils/guardOIMEntityColumnsPatch';
+export { guardOIMEntityColumnPatch } from './entity/utils/guardOIMEntityColumnPatch';
+export { putOIMEntityColumns } from './entity/utils/putOIMEntityColumns';
+export { guardOIMEntityColumnsPut } from './entity/utils/guardOIMEntityColumnsPut';
 
 
 
 export { OIMSlotWheel } from './collector/OIMSlotWheel';
 export type { TOIMSlotWheelOptions } from './collector/types/TOIMSlotWheelOptions';
 export { OIMSlotReleaseWheel } from './collector/OIMSlotReleaseWheel';
-export { oimMintAfterWriteSlotReleaseWheel } from './collector/utils/oimMintAfterWriteSlotReleaseWheel';
-export { oimMintAfterIdleSlotReleaseWheel } from './collector/utils/oimMintAfterIdleSlotReleaseWheel';
-export { oimMintAfterUnholdSlotReleaseWheel } from './collector/utils/oimMintAfterUnholdSlotReleaseWheel';
+export { mintOIMAfterWriteSlotReleaseWheel } from './collector/utils/mintOIMAfterWriteSlotReleaseWheel';
+export { mintOIMAfterIdleSlotReleaseWheel } from './collector/utils/mintOIMAfterIdleSlotReleaseWheel';
+export { mintOIMAfterUnholdSlotReleaseWheel } from './collector/utils/mintOIMAfterUnholdSlotReleaseWheel';
 export type { TOIMSlotReleaseWheelOptions } from './collector/types/TOIMSlotReleaseWheelOptions';
 export { OIMSlotRefetchWheel } from './collector/OIMSlotRefetchWheel';
 export type { TOIMSlotRefetchWheelOptions } from './collector/types/TOIMSlotRefetchWheelOptions';
@@ -247,7 +252,7 @@ export { OIMSlotNeverReleasePolicy } from './collector/OIMSlotNeverReleasePolicy
 export { OIMSlotAfterUnholdReleasePolicy } from './collector/OIMSlotAfterUnholdReleasePolicy';
 export type { TOIMSlotAfterUnholdReleasePolicyOptions } from './collector/types/TOIMSlotAfterUnholdReleasePolicyOptions';
 export { OIMSlotEarliestReleasePolicy } from './collector/OIMSlotEarliestReleasePolicy';
-export { oimSliceOfMs } from './collector/utils/oimSliceOfMs';
+export { getOIMSliceOfMs } from './collector/utils/getOIMSliceOfMs';
 export { OIM_SLICE_LENGTH_MS } from './collector/constants/OIM_SLICE_LENGTH_MS';
 
 export type { IOIMSlotStoreService } from './store/interfaces/IOIMSlotStoreService';
@@ -271,7 +276,7 @@ export { OIM_NOTHING_WAS_REMOVED } from './bucket/constants/OIM_NOTHING_WAS_REMO
 export { OIM_FROZEN_EMPTY_SLOTS } from './slot/constants/OIM_FROZEN_EMPTY_SLOTS';
 export { OIM_REMOVED_WITHOUT_A_POSITION } from './bucket/constants/OIM_REMOVED_WITHOUT_A_POSITION';
 
-export { oimOrderedListCommandsOfTransition } from './bucket/commands/utils/oimOrderedListCommandsOfTransition';
+export { getOIMOrderedListCommands } from './bucket/commands/utils/getOIMOrderedListCommands';
 export type { TOIMOrderedListCommand } from './bucket/commands/types/TOIMOrderedListCommand';
 export { OIMEntityContentService as OIMSlotContentEntityService } from './entity/OIMEntityContentService';
 export { createOIMEntityContentService as createOIMSlotContentEntityService } from './entity/createOIMEntityContentService';

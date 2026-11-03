@@ -1,5 +1,5 @@
 import { OIMDB } from '../../db/OIMDB';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
@@ -12,7 +12,7 @@ const releasedCard = () => {
     const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
     db.flush();
     cardsService.slotContentService.clearSlotContent(card);
-    expect(oimIsSlotReleased(card)).toBe(true);
+    expect(isOIMSlotReleased(card)).toBe(true);
     return card;
 };
 

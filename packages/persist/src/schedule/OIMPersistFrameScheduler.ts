@@ -1,6 +1,6 @@
 import { OIMChannelService } from '@oimdb/core';
 import type { TOIMChannelSlot, TOIMDisposer } from '@oimdb/core';
-import { oimNoop } from '../utils/oimNoop';
+import { OIM_NOOP_DISPOSER } from '@oimdb/core';
 import type { IOIMPersistScheduler } from './interfaces/IOIMPersistScheduler';
 import { OIMPersistSchedulerDrainAttachment } from './OIMPersistSchedulerDrainAttachment';
 import type { TOIMPersistSchedulerFrameDrivenOptions } from './types/TOIMPersistSchedulerFrameDrivenOptions';
@@ -8,7 +8,7 @@ import type { TOIMPersistSchedulerFrameDrivenOptions } from './types/TOIMPersist
 export class OIMPersistFrameScheduler implements IOIMPersistScheduler {
     private readonly channelSlot: TOIMChannelSlot;
     private readonly persistSchedulerDrainAttachment = new OIMPersistSchedulerDrainAttachment();
-    private disposer: TOIMDisposer = oimNoop;
+    private disposer: TOIMDisposer = OIM_NOOP_DISPOSER;
     private isDrainRequested = false;
 
     public constructor(persistSchedulerFrameDrivenOptions: TOIMPersistSchedulerFrameDrivenOptions) {
@@ -37,7 +37,7 @@ export class OIMPersistFrameScheduler implements IOIMPersistScheduler {
 
     public stop(): void {
         this.disposer();
-        this.disposer = oimNoop;
+        this.disposer = OIM_NOOP_DISPOSER;
         this.isDrainRequested = false;
     }
 

@@ -7,7 +7,7 @@ description: How an index files the entities of a source collection into buckets
 # Indexes
 
 ```ts setup
-import { OIMDB, OIMEffectService, OIMReclaimingIndexKeysService, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimSameSlotSequence, type TOIMEntitySlot, createOIMEntityContentService, createOIMSlotCollectionService, OIMSlotTreeStoreService, OIMDefaults, type TOIMBucketSlot, type TOIMBucketSlotsArrayStore, type TOIMStoreKey, OIMScalarKeyTreeWalk } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMReclaimingIndexKeysService, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, isOIMSameSlotSequence, type TOIMEntitySlot, createOIMEntityContentService, createOIMSlotCollectionService, OIMSlotTreeStoreService, OIMDefaults, type TOIMBucketSlot, type TOIMBucketSlotsArrayStore, type TOIMStoreKey, OIMScalarKeyTreeWalk } from '@oimdb/core';
 
 type Card = { id: string; deck: string; rank: number };
 
@@ -105,12 +105,12 @@ only the bucket slot:
 
 | Doors | What for |
 |---|---|
-| `getSlotByKey`, `holdSlotByKey`, `findSlotByKey`, `hasSlotContentByKey`, `getSlotsByKeys`, `holdSlotsByKeys`, `slot.owner.unholdSlot` | the bucket of a key |
+| `getSlotByKey`, `holdSlotByKey`, `peekSlotByKey`, `hasSlotContentByKey`, `getSlotsByKeys`, `holdSlotsByKeys`, `slot.owner.unholdSlot` | the bucket of a key |
 | `slotContentService.getBucketMemberSlots`, `getBucketMemberSlotCount`, `hasBucketMemberSlot`; `getEntitiesByKey(indexStoreSlot, key)` | what a bucket holds |
 | `slotContentService.getBucketMemberSlotAt`, `getBucketMemberSlotPosition` | positional reads, on an array-based content service only |
 | `getSlots`, `getSlotCount` | which buckets are filed |
-| `getAnyBucketColumnByKey`, `holdAnyBucketColumnByKey` | [the bucket's any-column slot](#the-buckets-any-column-slot) |
-| `getBucketColumnByKey`, `holdBucketColumnByKey`, `unholdColumn` | [bucket column slots](#ordering); `unholdColumn` also gives back an any-column slot |
+| `getAnyBucketColumnSlotByKey`, `holdAnyBucketColumnSlotByKey` | [the bucket's any-column slot](#the-buckets-any-column-slot) |
+| `getBucketColumnSlotByKey`, `holdBucketColumnSlotByKey`, `unholdColumnSlot` | [bucket column slots](#ordering); `unholdColumnSlot` also gives back an any-column slot |
 | `disposeIndexStoreSlot` | [taking one index off its source](#disposing-an-index) |
 
 The channel slot of an index store slot is its source store slot's.
@@ -245,7 +245,7 @@ const rankedInDeckService = createOIMComputedService<string, readonly TOIMEntity
     derive: (computedSlot) => Array.from(
         deckBucketReads.getBucketMemberSlots(deckIndexService.getSlotByKey(deckIndex, computedSlot.key)),
     ).sort(byRank),
-    sameValueGuard: oimSameSlotSequence,
+    sameValueGuard: isOIMSameSlotSequence,
     initialValue: [],
 });
 const rankedInDeck = rankedInDeckService.createStoreSlot(db);
@@ -262,7 +262,7 @@ collection knows nothing about indexes. `disposeIndexStoreSlot(indexStoreSlot)` 
 from its source, empties its buckets and gives back every entity slot it held. The minting doors on that
 index store slot (`getSlotByKey`, `holdSlotByKey`, `getSlotsByKeys`, `holdSlotsByKeys`, `getEntitiesByKey`,
 the bucket column doors) throw after it, because the index no longer hears its source; the give-backs
-(`slot.owner.unholdSlot`, `unholdColumn`) still work, so a consumer tearing down after the index
+(`slot.owner.unholdSlot`, `unholdColumnSlot`) still work, so a consumer tearing down after the index
 does not have to know the order. The index service and its other store slots are untouched.
 
 ```ts
@@ -273,16 +273,15 @@ deckIndexService.disposeIndexStoreSlot(temporaryIndex);
 ### The bucket's any-column slot
 
 For a reader that needs the whole list every time a member's content changes, the
-index hands out a bucket's any-column slot: `getAnyBucketColumnByKey(indexStoreSlot, key)` and
-`holdAnyBucketColumnByKey(indexStoreSlot, key)`, given back with `unholdColumn`. It is a
+index hands out a bucket's any-column slot: `getAnyBucketColumnSlotByKey(indexStoreSlot, key)` and
+`holdAnyBucketColumnSlotByKey(indexStoreSlot, key)`, given back with `unholdColumnSlot`. It is a
 `TOIMColumnSlot` on the bucket slot, and it wakes when any column of any member of
-that bucket changes. A member joining or leaving is not its business: that wakes the
-bucket slot (`getSlotByKey` / `holdSlotByKey`). A reader that wants both subscribes to
-both.
+that bucket changes and when a member joins or leaves, because its `value` lists the members'
+entities. The bucket slot (`getSlotByKey` / `holdSlotByKey`) wakes on membership alone.
 
 ```ts
 const redBucket = deckIndexService.holdSlotByKey(deckIndex, 'red');
-const redAnyColumn = deckIndexService.holdAnyBucketColumnByKey(deckIndex, 'red');
+const redAnyColumn = deckIndexService.holdAnyBucketColumnSlotByKey(deckIndex, 'red');
 const redEffect = effectService.createEffect(db, () => {
     render(deckIndexService.getEntitiesByKey(deckIndex, 'red'));
 }, [redBucket, redAnyColumn]);
@@ -297,8 +296,8 @@ the bucket and each entity to its own slot. The any-column slot is for an export
 aggregate over the entities, or a log.
 
 It costs nothing until asked for: an entity write is checked against it only after the
-first `getAnyBucketColumnByKey` / `holdAnyBucketColumnByKey`. A
-`getAnyBucketColumnByKey` nobody kept is gone at the next `flush()`.
+first `getAnyBucketColumnSlotByKey` / `holdAnyBucketColumnSlotByKey`. A
+`getAnyBucketColumnSlotByKey` nobody kept is gone at the next `flush()`.
 
 ### The content-change hook and `indexKeys`
 
@@ -310,7 +309,7 @@ has `onContentChanged(slot, patch, changedColumns)` and `onManyContentsChanged(.
 write calls once. `readColumnNames` `undefined` means every column. `addContentChangeListener` returns the
 listener's `TOIMSlotContentChangeListenerReadColumns` (`declaredColumnNames`, `addedColumnNames`, `isAnyColumnAdded`);
 `addListenerReadColumn(storeSlot, listener, columnName)` and `addListenerReadAnyColumn(storeSlot, listener)` add reads
-to it later, and the util `oimIsAnyAddedColumnRead(listenerReadColumns, changedColumns)` tells whether a write hit one of them. Listeners on one store slot share
+to it later, and the util `isOIMAnyAddedColumnRead(listenerReadColumns, changedColumns)` tells whether a write hit one of them. Listeners on one store slot share
 one column filter, so a listener still checks `changedColumns` itself. Anything that can be pulled
 belongs in a computed instead.
 
@@ -366,7 +365,7 @@ red.unholdSlot();
   `column` a `TOIMSortableColumnName<TEntity>` (string, number or bigint values) —
   **decide which writes re-sort.**
 - `comparator: (left: TEntity, right: TEntity) => number` **decides the order**.
-  Without it the order is `oimColumnsComparator(sortColumns)`: the columns in turn, an
+  Without it the order is `createOIMColumnsComparator(sortColumns)`: the columns in turn, an
   undefined or null value last in either direction. An entity slot whose entity is gone sorts last.
 - Only `comparator` → any write to a member re-sorts. Neither → a member keeps the
   place it first took and an arrival is appended.
@@ -374,7 +373,7 @@ red.unholdSlot();
   of columns whose change wakes the sort. **List every column the comparator
   reads.** A change to a column it reads but `sortColumns` omits does not re-sort — the
   list keeps its old order until something listed changes. Reach for this when the
-  order needs a rule `oimColumnsComparator` cannot express (a locale compare, a
+  order needs a rule `createOIMColumnsComparator` cannot express (a locale compare, a
   computed key, a tie-break) and you still want the sort to wake only for the
   columns that rule reads, instead of for every write to a member as with
   `comparator` alone:
@@ -409,14 +408,15 @@ member slot once, even over a bucket that names one twice. Why this is a pull an
 membership is a push: [Why an index looks like this](/docs/core/index-shape).
 
 **Bucket column slots.** An index hands out one column slot per bucket and column —
-`getBucketColumnByKey(indexStoreSlot, key, columnName)`, `holdBucketColumnByKey(indexStoreSlot, key, columnName)`,
-`unholdColumn(columnSlot)`. It is a `TOIMColumnSlot` whose `carrierSlot` is the
-bucket slot, written when a write changes that column on any member of the bucket.
+`getBucketColumnSlotByKey(indexStoreSlot, key, columnName)`, `holdBucketColumnSlotByKey(indexStoreSlot, key, columnName)`,
+`unholdColumnSlot(columnSlot)`. It is a `TOIMColumnSlot` whose `carrierSlot` is the
+bucket slot, written when a write changes that column on any member of the bucket and when a
+member joins or leaves (its `value` is that column across the members).
 Subscribe to one when you need "some member's `rank` moved" without "some member's
 `title` moved":
 
 ```ts
-const rankInRed = deckIndexService.holdBucketColumnByKey(deckIndex, 'red', 'rank');
+const rankInRed = deckIndexService.holdBucketColumnSlotByKey(deckIndex, 'red', 'rank');
 const onRankInRed = effectService.createEffect(db, () => { render(); }, [rankInRed]);
 effectService.disposeEffect(onRankInRed);
 rankInRed.unholdSlot();
@@ -433,7 +433,7 @@ comparator again; the bucket under it is untouched.
 
 The sorted computed above sorts at read, over any index. The other arm keeps the index's
 own buckets in order, so a read needs no computed. You pick one at construction:
-`createOIMSlotCollectionSortedArrayIndexService({ entityService, columns? | keyOf?, sortColumns, bucketSlotStoreService?, slotReleasePolicy?, columnSlotStoreService? | columnNames? })`
+`createOIMSlotCollectionSortedArrayIndexService({ entityService, columns? | keyOf?, sortColumns, bucketCommands?, bucketSlotStoreService?, slotReleasePolicy?, columnSlotStoreService? | columnNames? })`
 returns an `OIMSlotCollectionSortedArrayIndexService`. `sortColumns` is the same `TOIMSortColumn<TEntity>[]`
 that `createOIMSortedComputedService` takes, and it is required.
 
@@ -457,7 +457,10 @@ cardsByDeckService.slotContentService.getBucketMemberSlotAt(spades, 0);
   a column that is neither the key nor a sort column neither reorders the bucket nor wakes it.
 - **There are no positional writes** on this bucket. The order belongs to the comparator,
   so `insertBucketMemberSlotAt` and the other position writes stay on `OIMPositionalArrayBucketContentService`.
-- **No render script.** The strategy records no bucket commands.
+- **The render script is the whole list.** Given `bucketCommands`, the bucket records every change
+  as `isWholeListRecorded` and no commands, because the next settle could move any position a command
+  would name. A view over it rebuilds from `getBucketMemberSlots()` in the frame the bucket changed;
+  without `bucketCommands` nothing is recorded.
 
 Which arm to take: sort-at-write suits point updates, where a rank change re-files one
 member. Sort-at-read suits bulk loads. Both ship; neither is the default.

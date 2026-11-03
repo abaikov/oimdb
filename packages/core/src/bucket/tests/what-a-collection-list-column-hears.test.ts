@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMSlotCollectionBucketService } from '../OIMSlotCollectionBucketService';
 import { createOIMEntitySlotCollectionStoreAggregate } from '../../entity/createOIMEntitySlotCollectionStoreAggregate';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMSlotCollectionIndexStoreAggregate } from '../../index/createOIMSlotCollectionIndexStoreAggregate';
 
 type TCard = { id: string; title: string; rank: number };
@@ -15,7 +15,7 @@ const createFixture = () => {
     cards.writeSlotContentByKey('b', { id: 'b', title: 'Two', rank: 2 });
     db.flush();
     let rankRuns = 0;
-    const rankColumn = collectionBucketService.holdBucketColumn(cards.storeSlot, 'rank');
+    const rankColumn = collectionBucketService.holdBucketColumnSlot(cards.storeSlot, 'rank');
     const stopRankEffect = db.createEffect(() => { rankRuns++; }, [rankColumn]);
     db.flush();
     return { db, cards, rankColumn, stopRankEffect, rankRuns: () => rankRuns };
@@ -47,7 +47,7 @@ describe('what a collection list column hears', () => {
     it('wakes the any-column slot for a change of any column of a member', () => {
         const { db, cards } = createFixture();
         let anyRuns = 0;
-        db.createEffect(() => { anyRuns++; }, [collectionBucketService.holdAnyBucketColumn(cards.storeSlot)]);
+        db.createEffect(() => { anyRuns++; }, [collectionBucketService.holdAnyBucketColumnSlot(cards.storeSlot)]);
         db.flush();
         const runsBefore = anyRuns;
         cards.getSlotByKey('a').updateEntity({ title: 'Ace of spades' });
@@ -71,7 +71,7 @@ describe('what a collection list column hears', () => {
         const bucketSlot = collectionBucketService.getBucketSlot(cards.storeSlot);
         rankColumn.unholdSlot();
         db.flush();
-        expect(oimIsSlotReleased(bucketSlot)).toBe(true);
+        expect(isOIMSlotReleased(bucketSlot)).toBe(true);
         expect(cards.storeSlot.contentChangeListeners?.length ?? 0).toBe(0);
         expect(cards.storeSlot.columnListenerCountsByColumnName?.size ?? 0).toBe(0);
     });

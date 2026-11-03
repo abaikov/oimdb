@@ -44,7 +44,7 @@ describe('how many times one insert asks whether the row is empty', () => {
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'A' });
 
         expect(emptiness.asked - afterInsert).toBe(0);
-        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'A' });
+        expect(cardsService.peekSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'A' });
     });
 
     it('asks once per row across a batch, so the count is the population', () => {

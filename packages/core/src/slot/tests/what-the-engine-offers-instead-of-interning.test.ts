@@ -4,8 +4,8 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
-import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotEmpty } from '../utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -30,14 +30,14 @@ describe('what a caller who memoises is promised', () => {
         const slot = cardsService.getSlotByKey(cards, 'c1')!;
 
         let runCount = 0;
-        const memo = OIMEffectService.INSTANCE.createEffect(db, () => { runCount++; }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+        const memo = OIMEffectService.INSTANCE.createEffect(db, () => { runCount++; }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         db.flush();
         runCount = 0;
 
         cardsService.slotContentService.clearSlotContent(slot);
         db.flush();
         // The value left; the identity did not, because this column is watched.
-        expect(oimIsSlotEmpty(slot)).toBe(true);
+        expect(isOIMSlotEmpty(slot)).toBe(true);
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(slot);
         expect(cardsService.getSlotCount(cards)).toBe(1);
 
@@ -89,7 +89,7 @@ describe('what a caller who memoises is promised', () => {
         const reborn = cardsService.getSlotByKey(cards, 'c1');
         expect(reborn.entity?.title).toBe('king');
         expect(reborn).not.toBe(stale);
-        expect(oimIsSlotEmpty(stale)).toBe(true);
+        expect(isOIMSlotEmpty(stale)).toBe(true);
     });
 
     /**
@@ -124,7 +124,7 @@ describe('what a caller who memoises is promised', () => {
         expect(bucket.holdCount).toBe(1);
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(bucket)).toBe(1);
 
-        cardsService.slotContentService.clearSlotContent(cardsService.findSlotByKey(cards, 'c1')!);
+        cardsService.slotContentService.clearSlotContent(cardsService.peekSlotByKey(cards, 'c1')!);
         byDeckService.slotContentService.clearSlotContent(bucket);
         db.flush();
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(bucket)).toBe(0);
@@ -161,13 +161,13 @@ describe('every route hands back the identity itself', () => {
         expect(cardsService.getSlotCount(cards)).toBe(2);
 
         db.flush();
-        expect(oimIsSlotReleased(minted)).toBe(true);
+        expect(isOIMSlotReleased(minted)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(1);
 
         // A column is minted by the SUBSCRIPTION and by nothing else, and is
         // then the same identity for every subscriber of that column.
         expect(slot.columnSlotStore).toBeUndefined();
-        const columnEffect = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+        const columnEffect = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         const column = (slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title');
         expect(column).toBeDefined();
 

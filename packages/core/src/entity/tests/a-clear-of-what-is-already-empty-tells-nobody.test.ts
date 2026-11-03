@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -28,7 +28,7 @@ describe('a clear of an identity that holds nothing', () => {
         db.flush();
 
         expect(runCount).toBe(before);
-        expect(oimIsSlotEmpty(card)).toBe(true);
+        expect(isOIMSlotEmpty(card)).toBe(true);
         effectService.disposeEffect(watching);
         card.owner.unholdSlot(card);
     });
@@ -48,7 +48,7 @@ describe('a clear of an identity that holds nothing', () => {
         db.flush();
         expect(runCount).toBe(before + 1);
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(card);
-        expect(oimIsSlotEmpty(card)).toBe(true);
+        expect(isOIMSlotEmpty(card)).toBe(true);
 
         cardsService.slotContentService.clearSlotContent(card);
         db.flush();

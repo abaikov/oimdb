@@ -5,7 +5,7 @@ import type { IOIMSlotSubscriptionListener } from '../slot/interfaces/IOIMSlotSu
 import type { IOIMSlotStoreService } from '../store/interfaces/IOIMSlotStoreService';
 import type { TOIMColumnSlot } from '../column/types/TOIMColumnSlot';
 import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
-import type { TOIMEntityColumnName } from './types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../column/types/TOIMColumnName';
 import type { OIMDefaults } from '../db/OIMDefaults';
 import type { OIMEntityContentService } from './OIMEntityContentService';
 import type { TOIMEntitySlot } from './types/TOIMEntitySlot';
@@ -18,7 +18,7 @@ import { OIMEntitySlotCollectionStoreAggregate } from './OIMEntitySlotCollection
 
 export function createOIMEntitySlotCollectionStoreAggregate<
     TEntity extends object,
-    TColumnName extends TOIMEntityColumnName<TEntity> = TOIMEntityColumnName<TEntity>,
+    TColumnName extends TOIMColumnName<TEntity> = TOIMColumnName<TEntity>,
 >(
     channelMap: IOIMChannelMap,
     options: {

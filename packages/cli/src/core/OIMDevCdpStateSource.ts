@@ -25,7 +25,7 @@ export class OIMDevCdpStateSource implements IOIMDevStateSource {
         if (debuggerUrl === undefined) throw new Error('[OIMDB CDP] No debuggable tabs found.');
         const value = await this.evaluateOnTab(debuggerUrl, `(function(){ if (!window.__OIMDB_DEV__) return null; return ${expression}; })()`);
         if (value === null || value === undefined) {
-            throw new Error('[OIMDB CDP] __OIMDB_DEV__ not found on this page. Set window.__OIMDB_DEV__ = oimDevRegistry in the debug entry.');
+            throw new Error('[OIMDB CDP] __OIMDB_DEV__ not found on this page. Set window.__OIMDB_DEV__ = OIM_DEV_REGISTRY in the debug entry.');
         }
         return value;
     }

@@ -59,12 +59,12 @@ describe('a singleton has columns, and they are the same identities an entity sl
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
         expect(settingsService.getSingleSlot(settings).columnSlotStore).toBeUndefined();
 
-        const column = settingsService.columnSlotService.holdColumn(settingsService.getSingleSlot(settings), 'theme');
+        const column = settingsService.columnSlotService.holdColumnSlot(settingsService.getSingleSlot(settings), 'theme');
         const theme = effectService.createEffect(db, () => { /* nothing */ }, [column]);
         expect((settingsService.getSingleSlot(settings).columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(1);
 
         effectService.disposeEffect(theme);
-        settingsService.columnSlotService.unholdColumn(column);
+        settingsService.columnSlotService.unholdColumnSlot(column);
         expect(settingsService.getSingleSlot(settings).columnSlotStore).toBeUndefined();
     });
 
@@ -76,7 +76,7 @@ describe('a singleton has columns, and they are the same identities an entity sl
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
 
         let runs = 0;
-        effectService.createEffect(db, () => { runs++; }, [settingsService.columnSlotService.holdColumn(settingsService.getSingleSlot(settings), 'theme')]);
+        effectService.createEffect(db, () => { runs++; }, [settingsService.columnSlotService.holdColumnSlot(settingsService.getSingleSlot(settings), 'theme')]);
         db.flush();
         const born = runs;
 

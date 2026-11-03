@@ -1,6 +1,6 @@
 import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
-import { oimGetReleaseDueAfterIdleMs } from '../../slot/utils/oimGetReleaseDueAfterIdleMs';
-import { oimSetReleaseDueAfterIdleMs } from '../../slot/utils/oimSetReleaseDueAfterIdleMs';
+import { peekOIMReleaseDueAfterIdleMs } from '../../slot/utils/peekOIMReleaseDueAfterIdleMs';
+import { setOIMReleaseDueAfterIdleMs } from '../../slot/utils/setOIMReleaseDueAfterIdleMs';
 import { OIM_SLICE_LENGTH_MS } from '../constants/OIM_SLICE_LENGTH_MS';
 import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
 import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE } from '../constants/OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE';
@@ -8,8 +8,8 @@ import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
+import { markOIMSlotReleased } from '../../slot/utils/markOIMSlotReleased';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
 import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
@@ -44,7 +44,7 @@ const ownerThatOnRelease = (released: () => void): IOIMSlotOwner => ({
 });
 
 const takenOffTheClock = (slot: TOIMEditable<TOIMSlot>): void => {
-    oimMarkSlotReleased(slot);
+    markOIMSlotReleased(slot);
 };
 
 const createFixture =() => {
@@ -53,8 +53,8 @@ const createFixture =() => {
         getNowMs: () => ms,
         timer: () => () => undefined,
         errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
-        getReleaseDueMs: oimGetReleaseDueAfterIdleMs,
-        setReleaseDueMs: oimSetReleaseDueAfterIdleMs,
+        getReleaseDueMs: peekOIMReleaseDueAfterIdleMs,
+        setReleaseDueMs: setOIMReleaseDueAfterIdleMs,
         releaseScheduledSlotFlag: OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE,
     });
     const slices = (slotReleaseWheel as unknown as { slotsBySliceNumber: TSlicesThatCountVisits }).slotsBySliceNumber;
@@ -105,7 +105,7 @@ describe('what a sweep visits to reach what is due', () => {
 
         expect(few.sweepUpToSliceNumber(-1)).toBe(0);
         expect(many.sweepUpToSliceNumber(-1)).toBe(0);
-        expect(filedByMany.every(slot => !oimIsSlotReleased(slot))).toBe(true);
+        expect(filedByMany.every(slot => !isOIMSlotReleased(slot))).toBe(true);
     });
 
     it('visits one slice to release one, whatever is filed above it', () => {
@@ -119,9 +119,9 @@ describe('what a sweep visits to reach what is due', () => {
 
         expect(visitedByMany).toBe(visitedByFew);
         expect(visitedByMany).toBe(1);
-        expect(oimIsSlotReleased(filedByFew[0])).toBe(true);
-        expect(oimIsSlotReleased(filedByMany[0])).toBe(true);
-        expect(filedByMany.slice(1).every(slot => !oimIsSlotReleased(slot))).toBe(true);
+        expect(isOIMSlotReleased(filedByFew[0])).toBe(true);
+        expect(isOIMSlotReleased(filedByMany[0])).toBe(true);
+        expect(filedByMany.slice(1).every(slot => !isOIMSlotReleased(slot))).toBe(true);
     });
 
     it('releases every slice up to the cut and leaves the ones above it filed', () => {
@@ -132,7 +132,7 @@ describe('what a sweep visits to reach what is due', () => {
         fixture.at(2 * OIM_SLICE_LENGTH_MS + 1);
         fixture.sweepUpToSliceNumber(2);
 
-        expect(filed.map(slot => oimIsSlotReleased(slot))).toEqual([true, true, true, false]);
+        expect(filed.map(slot => isOIMSlotReleased(slot))).toEqual([true, true, true, false]);
         expect(fixture.slotReleaseWheel.getNextSliceNumber()).toBe(3);
     });
 
@@ -143,7 +143,7 @@ describe('what a sweep visits to reach what is due', () => {
         fixture.at(100_000 * OIM_SLICE_LENGTH_MS);
         const visited = fixture.sweepUpToSliceNumber(100_000);
 
-        expect(oimIsSlotReleased(stalled)).toBe(true);
+        expect(isOIMSlotReleased(stalled)).toBe(true);
         expect(visited).toBeLessThan(100);
     });
 
@@ -169,8 +169,8 @@ describe('what a sweep visits to reach what is due', () => {
 
         fixture.sweepUpToSliceNumber(0);
 
-        expect(oimIsSlotReleased(condemned)).toBe(true);
-        expect(oimIsSlotReleased(refiled)).toBe(false);
+        expect(isOIMSlotReleased(condemned)).toBe(true);
+        expect(isOIMSlotReleased(refiled)).toBe(false);
         expect(fixture.slotReleaseWheel.getNextSliceNumber()).toBe(0);
     });
 });

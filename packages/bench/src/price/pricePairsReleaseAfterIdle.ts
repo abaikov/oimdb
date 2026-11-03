@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotAfterIdleReleasePolicy, OIMSlotMapStoreService, oimMintAfterIdleSlotReleaseWheel } from '../../../core/src/index';
+import { OIMDB, OIMSlotAfterIdleReleasePolicy, OIMSlotMapStoreService, mintOIMAfterIdleSlotReleaseWheel } from '../../../core/src/index';
 import type { TOIMColumnSlot, TOIMDisposer } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
@@ -42,7 +42,7 @@ const oursSide = (entitiesPerSweep: number, idleEntities: readonly TIdleEntity[]
     });
     const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TIdleEntity>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
+    const afterIdleSlotReleaseWheel = mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot);
     const runSweep = (entityCount: number): void => {
         for (let i = 0; i < entityCount; i++) priceSink.ours = entityService.writeSlotContentByKey(entityStoreSlot, idleEntities[i].id, idleEntities[i]);
         db.flush();
@@ -91,13 +91,13 @@ const pairOf = (entitiesPerSweep: number): TPricePair => ({
     id: `release-after-idle.${entitiesPerSweep}-per-sweep`,
     path: EPricePath.PerRowPerWrite,
     ours: `entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity) for ${entitiesPerSweep} new keys under OIMSlotAfterIdleReleasePolicy; `
-        + 'db.flush(); the clock moved past the window; oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush()',
+        + 'db.flush(); the clock moved past the window; mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush()',
     floor: 'the same entities set into a Map, each key and its due time pushed onto a FIFO queue, the clock moved past '
         + 'the window, and the queue drained from its head deleting every due key from the Map',
     caveat: 'One operation is one entity inserted under a new key and later released when its idle window has passed; '
         + `the id names how many entities one sweep inserts before the clock jumps. Both sides read one fake clock that `
         + 'jumps by twice the window per sweep, so every entity is due at the sweep that follows its insert and none '
-        + 'survives it; the wheel timer is a no-op and the sweep is driven by oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush(). '
+        + 'survives it; the wheel timer is a no-op and the sweep is driven by mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush(). '
         + 'Ours mints a slot per insert, files it in the slot store, stamps it on the channel, records its due time on '
         + 'the slot and pushes it onto a slice array of the release wheel with a bit in its slotFlags, then flushes an empty '
         + 'channel frame; the sweep walks the due slices, asks the policy whether each slot is releasable and releases '

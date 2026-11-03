@@ -1,6 +1,6 @@
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMUnusedSlotCollectorSlot } from './types/TOIMUnusedSlotCollectorSlot';
-import { oimUnholdSlotIfAlive } from '../slot/utils/oimUnholdSlotIfAlive';
+import { unholdOIMSlotIfAlive } from '../slot/utils/unholdOIMSlotIfAlive';
 
 export class OIMUnusedSlotCollectorService {
     public static readonly INSTANCE = new OIMUnusedSlotCollectorService();
@@ -19,7 +19,7 @@ export class OIMUnusedSlotCollectorService {
         try {
             while (flushedCount < unusedSlotChannelQueue.getEntryCount()) {
                 const slot = unusedSlotChannelQueue.takeEntryAt(flushedCount++);
-                if (slot !== undefined) oimUnholdSlotIfAlive(slot);
+                if (slot !== undefined) unholdOIMSlotIfAlive(slot);
             }
         } finally {
             unusedSlotCollectorSlot.isFlushing = false;

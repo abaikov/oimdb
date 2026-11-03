@@ -2,7 +2,7 @@ import { OIM_ACTIVE_SOURCE_TRACKER } from '../../computed/constants/OIM_ACTIVE_S
 import type { OIMSourceTracker } from '../../computed/OIMSourceTracker';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMColumnGroup } from '../utils/createOIMColumnGroup';
@@ -18,7 +18,7 @@ const createFixture = () => {
     const cards = cardsService.createStoreSlot(db);
     const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 1, label: 'ace', note: '' });
     db.flush();
-    const groupSlot = cardsService.columnSlotService.holdColumnGroup(slot, shownColumns);
+    const groupSlot = cardsService.columnSlotService.holdColumnGroupSlot(slot, shownColumns);
     let runs = 0;
     const effect = OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [groupSlot]);
     return { db, cardsService, cards, slot, shownColumns, groupSlot, effect, runs: () => runs };
@@ -34,7 +34,7 @@ describe('what a column group slot hears', () => {
 
     it('holds one slot per key, whichever descriptor of that key is handed in', () => {
         const { cardsService, slot, groupSlot } = createFixture();
-        expect(cardsService.columnSlotService.holdColumnGroup(slot, createOIMColumnGroup(['rank', 'label']))).toBe(groupSlot);
+        expect(cardsService.columnSlotService.holdColumnGroupSlot(slot, createOIMColumnGroup(['rank', 'label']))).toBe(groupSlot);
     });
 
     it('wakes once for a patch of one of its columns', () => {
@@ -67,18 +67,18 @@ describe('what a column group slot hears', () => {
 
     it('is a slot of its own, beside the column slots of the same card', () => {
         const { cardsService, slot, groupSlot } = createFixture();
-        const labelSlot = cardsService.columnSlotService.holdColumn(slot, 'label');
+        const labelSlot = cardsService.columnSlotService.holdColumnSlot(slot, 'label');
         expect(labelSlot).not.toBe(groupSlot);
         expect(groupSlot.carrierSlot).toBe(slot);
-        cardsService.columnSlotService.unholdColumn(labelSlot);
+        cardsService.columnSlotService.unholdColumnSlot(labelSlot);
     });
 
     it('is given back like a column slot and leaves the card unheld', () => {
         const { db, cardsService, groupSlot, effect } = createFixture();
         OIMEffectService.INSTANCE.disposeEffect(effect);
-        cardsService.columnSlotService.unholdColumn(groupSlot);
+        cardsService.columnSlotService.unholdColumnSlot(groupSlot);
         db.flush();
-        expect(oimIsSlotReleased(groupSlot)).toBe(true);
+        expect(isOIMSlotReleased(groupSlot)).toBe(true);
     });
 
     it('hands back the held group slot through the get door, and a minted one goes at the next flush when nothing holds it', () => {
@@ -88,9 +88,9 @@ describe('what a column group slot hears', () => {
         db.flush();
         const mintedSlot = cardsService.columnSlotService.getColumnGroupSlot(other, shownColumns);
         expect(cardsService.columnSlotService.getColumnGroupSlot(other, shownColumns)).toBe(mintedSlot);
-        expect(oimIsSlotReleased(mintedSlot)).toBe(false);
+        expect(isOIMSlotReleased(mintedSlot)).toBe(false);
         db.flush();
-        expect(oimIsSlotReleased(mintedSlot)).toBe(true);
+        expect(isOIMSlotReleased(mintedSlot)).toBe(true);
     });
 
     it('keeps a group slot read through the get door while a tracking effect reads it', () => {

@@ -225,7 +225,7 @@ announced with `entitySlot.markEntityChanged(changedColumns?)`.
 Whether such an edit is persisted is a choice of source, made at construction.
 Both take the same options object, `TOIMPersistRecordSourceCollectionOptions`
 (`{ entityCollectionService, entityStoreSlot, persistEntityWriter }`). The collection service is anything with
-`getSlots`, `findSlotByKey`, `writeSlotContentByKey`, `writeInBatch` and a `slotContentService` with `clearSlotContent`
+`getSlots`, `peekSlotByKey`, `writeSlotContentByKey`, `writeInBatch` and a `slotContentService` with `clearSlotContent`
 (`TOIMPersistEntityCollectionService`):
 
 | collection source | what it hears | an in-place edit announced with `markEntityChanged` | cost on the store slot while a resource listens | pick it when |
@@ -332,7 +332,7 @@ persistor.addPersistResource(new OIMPersistSnapshotResource({
 }));
 ```
 
-The snapshot is the entity itself, read with `singleSlotService.findSingleSlot(entityStoreSlot)?.entity`;
+The snapshot is the entity itself, read with `singleSlotService.peekSingleSlot(entityStoreSlot)?.entity`;
 reading it before the entity was ever upserted throws, so give the single its first value with
 `writeSingleSlotContent` before the persistor reads it. A hydrate writes it back through
 `singleSlotService.writeSingleSlotContent(entityStoreSlot, entity)`, a whole-value write, so a column
@@ -496,11 +496,11 @@ a later revert to the restored value, in another frame, is written too.
 
 Pass `persistHydrateReconcile` to merge what was read (`incomingSnapshot`) onto
 what the source holds at apply time (`currentSnapshot`). For a collection or a
-bucket, `oimReconcileByKey` lifts a per-entity resolver to the whole set of
+bucket, `reconcileOIMByKey` lifts a per-entity resolver to the whole set of
 records:
 
 ```ts
-import { oimReconcileByKey } from '@oimdb/persist';
+import { reconcileOIMByKey } from '@oimdb/persist';
 
 const persistRecordsResource = new OIMPersistRecordsResource({
   persistRecordSource: new OIMPersistCollectionWriteRecordSource({
@@ -509,13 +509,13 @@ const persistRecordsResource = new OIMPersistRecordsResource({
     persistEntityWriter,
   }),
   persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
-  persistHydrateReconcile: oimReconcileByKey<TOIMStoreKey, TCard>(
+  persistHydrateReconcile: reconcileOIMByKey<TOIMStoreKey, TCard>(
     (currentEntity, incomingEntity) => currentEntity === undefined ? incomingEntity : { ...incomingEntity, ...currentEntity },
   ),
 });
 ```
 
-`oimReconcileByKey` walks the union of keys, current ones first, and calls the
+`reconcileOIMByKey` walks the union of keys, current ones first, and calls the
 resolver only for a key the incoming records carry. A key only the current side
 holds keeps its current entity and the resolver is not asked. A resolver that
 returns `undefined` drops that key from the result, which on a collection deletes

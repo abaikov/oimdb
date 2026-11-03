@@ -10,7 +10,7 @@ import {
 } from '@oimdb/persist';
 import type { OIMPersistIndexedDbWriteBatch } from '../src';
 import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '../src';
-import { oimOpenIndexedDb } from '../src/utils/oimOpenIndexedDb';
+import { openOIMIndexedDb } from '../src/utils/openOIMIndexedDb';
 import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
@@ -41,7 +41,7 @@ describe('an upgrade blocked by another open connection', () => {
     test('waits the block out and writes, instead of dropping the change', async () => {
         const indexedDb = new IDBFactory();
         const databaseName = 'blocked-upgrade-db';
-        const blockingDatabase = await oimOpenIndexedDb({ indexedDb, databaseName });
+        const blockingDatabase = await openOIMIndexedDb({ indexedDb, databaseName });
         blockingDatabases.push(blockingDatabase);
 
         const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({

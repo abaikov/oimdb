@@ -1,7 +1,7 @@
 import type { IOIMEntityWriter } from './interfaces/IOIMEntityWriter';
 import type { IOIMSlotEmptinessPolicy } from '../slot/interfaces/IOIMSlotEmptinessPolicy';
 import type { TOIMEntityContentSlot } from './types/TOIMEntityContentSlot';
-import type { TOIMEntityColumnName } from './types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../column/types/TOIMColumnName';
 import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
 import { OIMEntityContentService } from './OIMEntityContentService';
 import { OIMDefaults } from '../db/OIMDefaults';
@@ -10,7 +10,7 @@ import { OIM_DEFAULT_ENTITY_WRITER } from '../db/constants/OIM_DEFAULT_ENTITY_WR
 
 export function createOIMEntityContentService<
     TEntity extends object, TKey extends NonNullable<unknown> = TOIMStoreKey,
-    TColumnName extends TOIMEntityColumnName<TEntity> = TOIMEntityColumnName<TEntity>,
+    TColumnName extends TOIMColumnName<TEntity> = TOIMColumnName<TEntity>,
 >(
     options: {
         defaults?: OIMDefaults | undefined;

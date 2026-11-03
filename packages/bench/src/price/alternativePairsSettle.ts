@@ -4,7 +4,7 @@ import {
     OIMDB,
     OIMSlotMapStoreService,
     createOIMComputedService,
-    oimSameValueZeroGuard,
+    isOIMSameValueZero,
 } from '../../../core/src/index';
 import type { TOIMComputedColumnSlot, TOIMComputedSlot, TOIMSlot } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
@@ -46,8 +46,8 @@ const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelS
  *
  * ─── WHY OUR ARM IS THE SHIPPED CLASS AND THE OTHER IS NOT ───────────────
  *
- * `oimRefreshComputedSlot` is pull, so our arm can be the real thing: the shipped
- * `OIMComputedService` built by `createOIMComputedService`, the shipped `oimHasSourceChangedSinceLastRun`, the shipped `oimIsRevisionAfter`,
+ * `refreshOIMComputedSlot` is pull, so our arm can be the real thing: the shipped
+ * `OIMComputedService` built by `createOIMComputedService`, the shipped `hasOIMSourceChangedSinceLastRun`, the shipped `isOIMRevisionAfter`,
  * the shipped comparator gate, and `OIMChannelService.write` as the writer. The engine
  * has no push, so that arm is written here — as lean as the design allows, with
  * the same two source lists, the same computeds-first order and the same
@@ -153,7 +153,7 @@ const rootLevelComputedService = (
     const rootsByNode: TChainRoot[][] = [];
     for (let j = 0; j < NODES_PER_LEVEL; j++) rootsByNode.push(pickFrom(roots, j));
     const computedService = createOIMComputedService<number, number>({
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
     const computedStoreSlot = computedService.createStoreSlot(
@@ -170,7 +170,7 @@ const computedLevelComputedService = (
     const sourceComputedsByNode: TOIMComputedSlot<number, number>[][] = [];
     for (let j = 0; j < NODES_PER_LEVEL; j++) sourceComputedsByNode.push(pickFrom(belowComputedSlots, j));
     const computedService = createOIMComputedService<number, number>({
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
     const computedStoreSlot = computedService.createStoreSlot(
@@ -229,7 +229,7 @@ class PushNode {
      * ONE BOOLEAN DECIDES IT, which is the whole of what push buys: no reading is
      * compared against any source, because the write already said so.
      *
-     * COMPUTEDS FIRST, for the reason `oimRefreshSourceComputeds` exists: a source
+     * COMPUTEDS FIRST, for the reason `refreshOIMSourceComputeds` exists: a source
      * node's value is whatever its last derivation left there, so it is brought
      * current before it is read.
      */
@@ -362,12 +362,12 @@ const SHARED_RESIDUALS =
     'RESIDUALS. AGAINST US, AND THEY ARE THE MAJORITY: our arm is the SHIPPED ' +
     '`OIMComputedService` (from `createOIMComputedService`), one per level, each node a held computed slot read through ' +
     'the computed collection service\'s `slotContentService.getValueForSlot`, so every read pays `assertNotReleased` and a call into ' +
-    '`oimRefreshComputedSlot`; every refresh that misses the clock pays `oimRefreshSourceComputeds`, a ' +
-    'call into `oimHasSourceChangedSinceLastRun`, a call into `oimIsRevisionAfter` per source, a call ' +
+    '`refreshOIMComputedSlot`; every refresh that misses the clock pays `refreshOIMSourceComputeds`, a ' +
+    'call into `hasOIMSourceChangedSinceLastRun`, a call into `isOIMRevisionAfter` per source, a call ' +
     'into the comparator, `isDeriving` written twice and THREE pairs of stamps written per ' +
     'derivation (`ranAt*`, `checkedAt*` and `changedAt*`) — the rejected arm carries one boolean ' +
     'and writes it once. Above level one the derive reads each source computed through its owner ' +
-    'AGAIN, after `oimRefreshSourceComputeds` already brought it current, so each such source costs ' +
+    'AGAIN, after `refreshOIMSourceComputeds` already brought it current, so each such source costs ' +
     'one more `getValueForSlot` that returns on its `checkedAt` pair, and the derive finds its ' +
     'source list by the slot\'s key. Our nodes are also filed as slots in a `Map` per level, with ' +
     '`effects`, `holdCount`, `owner` and `key` on every one of them, and the rejected node has ' +

@@ -46,7 +46,7 @@ export function entityServiceOf<TEntity extends object>(
 /**
  * The same, over the REPLACING write strategy: every change allocates a fresh
  * record, so a consumer that diffs entities by reference sees one.
- * `oimDefaultCollectionMapper`'s state and the linked-index diff both do.
+ * `mapOIMCollection`'s state and the linked-index diff both do.
  */
 export function replacingEntityServiceOf<TEntity extends object>(
     keyOf: (entity: TEntity) => TOIMStoreKey
@@ -128,7 +128,7 @@ export function updateEntityByKey<TEntity extends object>(
 export function deleteEntityByKey<TEntity extends object>(
     entityService: TEntityService<TEntity>, entityStoreSlot: TEntityStoreSlot<TEntity>, key: TOIMStoreKey,
 ): void {
-    const entitySlot = entityService.findSlotByKey(entityStoreSlot, key);
+    const entitySlot = entityService.peekSlotByKey(entityStoreSlot, key);
     if (entitySlot !== undefined) entityService.slotContentService.clearSlotContent(entitySlot);
 }
 

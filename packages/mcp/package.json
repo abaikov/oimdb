@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/mcp",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "MCP server for OIMDB — gives AI assistants the oimdb_inspect, oimdb_dump, oimdb_collection and oimdb_computed tools over @oimdb/cli",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -41,7 +41,7 @@
     "zod": "^3.22.0"
   },
   "peerDependencies": {
-    "@oimdb/cli": "^1.0.0"
+    "@oimdb/cli": "^1.2.0"
   },
   "devDependencies": {
     "@oimdb/cli": "*",

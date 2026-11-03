@@ -3,7 +3,7 @@ import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMEntityContentService } from '../OIMEntityContentService';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -24,11 +24,11 @@ const createFixture =() => {
     const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const collection = collectionService.createStoreSlot(db);
     const updateEntityByKey = (key: string, patch: Partial<TCard>): void => {
-        const slot = collectionService.findSlotByKey(collection, key);
+        const slot = collectionService.peekSlotByKey(collection, key);
         if (slot !== undefined) collectionService.slotContentService.updateEntity(slot, patch);
     };
     const deleteEntityByKey = (key: string): void => {
-        const slot = collectionService.findSlotByKey(collection, key);
+        const slot = collectionService.peekSlotByKey(collection, key);
         if (slot !== undefined) collectionService.slotContentService.clearSlotContent(slot);
     };
     return { db, collectionService, collection, updateEntityByKey, deleteEntityByKey };
@@ -92,14 +92,14 @@ describe('a collection with one slot watched by column', () => {
         // through: the map exists on a slot that holds nothing, so the write that
         // FILLS it is a write whose columns somebody is watching.
         const heldSlot = collectionService.holdSlotByKey(collection, 'c0');
-        OIMEffectService.INSTANCE.createEffect(db, () => { /* counted below */ }, [collectionService.columnSlotService.getColumn(heldSlot, 'title')]);
+        OIMEffectService.INSTANCE.createEffect(db, () => { /* counted below */ }, [collectionService.columnSlotService.getColumnSlot(heldSlot, 'title')]);
         expect((heldSlot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(1);
-        expect(oimIsSlotEmpty(heldSlot)).toBe(true);
+        expect(isOIMSlotEmpty(heldSlot)).toBe(true);
 
         const rows = cards(100);
         let runCount = 0;
         OIMEffectService.INSTANCE.createEffect(
-            db, () => { runCount++; }, [collectionService.columnSlotService.getColumn(heldSlot, 'title')],
+            db, () => { runCount++; }, [collectionService.columnSlotService.getColumnSlot(heldSlot, 'title')],
         );
         db.flush();
         runCount = 0;
@@ -129,7 +129,7 @@ describe('a collection with one slot watched by column', () => {
         const { db, collectionService, collection, updateEntityByKey, deleteEntityByKey } = createFixture();
         const heldSlot = collectionService.holdSlotByKey(collection, 'c0');
         let runs = 0;
-        OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [collectionService.columnSlotService.getColumn(heldSlot, 'title')]);
+        OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [collectionService.columnSlotService.getColumnSlot(heldSlot, 'title')]);
         db.flush();
         const born = runs;
 

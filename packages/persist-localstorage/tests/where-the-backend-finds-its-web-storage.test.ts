@@ -53,7 +53,7 @@ function createSettingsPersistor(persistLocalStorageKeyValueBackend: OIMPersistL
         persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TSettings>({ storageKey: 'app:settings' }),
         persistCodec: new OIMPersistIdentityCodec<TSettings>(),
     }));
-    const readSettings = () => singleEntityService.findSingleSlot(entityStoreSlot)?.entity;
+    const readSettings = () => singleEntityService.peekSingleSlot(entityStoreSlot)?.entity;
     return { persistor, readSettings };
 }
 

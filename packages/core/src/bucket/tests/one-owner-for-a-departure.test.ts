@@ -1,4 +1,4 @@
-import { OIMDB, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, createOIMInPlaceEntityWriter, oimGuardedPatchEntityColumns, oimGuardedPatchEntityColumn, oimGuardedPutEntityColumns, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, createOIMInPlaceEntityWriter, guardOIMEntityColumnsPatch, guardOIMEntityColumnPatch, guardOIMEntityColumnsPut, isOIMSlotEmpty, isOIMSlotReleased } from '../../index';
 import type { TOIMEntitySlot } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -80,7 +80,7 @@ describe('one owner for a departure', () => {
 
             // The reserved identity had one reference and it just left, so the
             // collection is done with it.
-            expect(oimIsSlotReleased(s.ghost)).toBe(true);
+            expect(isOIMSlotReleased(s.ghost)).toBe(true);
             // And the one that carries a value is untouched by any of the five,
             // whether it stayed in the bucket or was put back into it.
             expect(s.cardsService.getSlotByKey(s.cards, 'kept')?.entity?.id).toBe('kept');
@@ -103,12 +103,12 @@ describe('one owner for a departure', () => {
         db.flush();
 
         expect(cardsService.getSlotByKey(cards, 'kept')).toBe(kept);
-        expect(oimIsSlotEmpty(kept)).toBe(true);
+        expect(isOIMSlotEmpty(kept)).toBe(true);
         expect(membersService.getBucketMemberSlotCount(bucket)).toBe(1);
 
         membersService.clearSlotContent(bucket);
         db.flush();
-        expect(oimIsSlotReleased(kept)).toBe(true);
+        expect(isOIMSlotReleased(kept)).toBe(true);
         expect(membersService.getBucketMemberSlotCount(bucket)).toBe(0);
     });
 });
@@ -117,9 +117,9 @@ describe('what may be a column of a stored entity', () => {
     it('leaves the prototype alone when a standalone record is replaced from a payload under the guarded writer', () => {
         const db = new OIMDB();
         const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({
-                putEntityColumns: oimGuardedPutEntityColumns,
-                patchEntityColumns: oimGuardedPatchEntityColumns,
-                patchEntityColumn: oimGuardedPatchEntityColumn,
+                putEntityColumns: guardOIMEntityColumnsPut,
+                patchEntityColumns: guardOIMEntityColumnsPatch,
+                patchEntityColumn: guardOIMEntityColumnPatch,
             }) }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
@@ -170,7 +170,7 @@ describe('reaching a bucket\'s slots', () => {
         emptySlot.owner.unholdSlot(emptySlot);
         db.flush();
         // Nothing held it and nothing was in it, so the key mints afresh.
-        expect(oimIsSlotReleased(before)).toBe(true);
+        expect(isOIMSlotReleased(before)).toBe(true);
         expect(byDeckService.holdSlotByKey(byDeck, 'spades')).not.toBe(before);
 
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'hearts' });

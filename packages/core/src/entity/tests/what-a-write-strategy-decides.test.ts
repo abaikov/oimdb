@@ -1,15 +1,15 @@
 import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 import type { TOIMEntityInserter } from '../types/TOIMEntityInserter';
 
-import { oimClearEntity } from '../utils/oimClearEntity';
+import { clearOIMEntity } from '../utils/clearOIMEntity';
 import { createOIMEntitySlot } from '../utils/createOIMEntitySlot';
-import { oimInsertEntityWithoutCopy } from '../utils/oimInsertEntityWithoutCopy';
-import { oimInsertEntityWithSanitizedCopy } from '../utils/oimInsertEntityWithSanitizedCopy';
-import { oimIsProtoKey } from '../utils/oimIsProtoKey';
-import { oimGuardedPatchEntityColumns } from '../utils/oimGuardedPatchEntityColumns';
-import { oimGuardedPatchEntityColumn } from '../utils/oimGuardedPatchEntityColumn';
-import { oimIsPlainObject } from '../utils/oimIsPlainObject';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
+import { insertOIMEntityWithoutCopy } from '../utils/insertOIMEntityWithoutCopy';
+import { insertOIMEntityWithSanitizedCopy } from '../utils/insertOIMEntityWithSanitizedCopy';
+import { isOIMProtoKey } from '../utils/isOIMProtoKey';
+import { guardOIMEntityColumnsPatch } from '../utils/guardOIMEntityColumnsPatch';
+import { guardOIMEntityColumnPatch } from '../utils/guardOIMEntityColumnPatch';
+import { isOIMPlainObject } from '../utils/isOIMPlainObject';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
 import { OIM_FROZEN_EMPTY_COLUMN_NAMES } from '../constants/OIM_FROZEN_EMPTY_COLUMN_NAMES';
 import { createOIMInPlaceEntityWriter } from '../createOIMInPlaceEntityWriter';
 import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWriter';
@@ -52,21 +52,21 @@ const inPlace = createOIMInPlaceEntityWriter();
 const replacing = createOIMReplacingEntityWriter();
 
 const guardedPatch = {
-    patchEntityColumns: oimGuardedPatchEntityColumns,
-    patchEntityColumn: oimGuardedPatchEntityColumn,
+    patchEntityColumns: guardOIMEntityColumnsPatch,
+    patchEntityColumn: guardOIMEntityColumnPatch,
 };
 const replacingGuarded = createOIMReplacingEntityWriter(guardedPatch);
 
 const arms: readonly { name: string; writeService: IOIMEntityWriter; guardedWriteService: IOIMEntityWriter }[] = [
     {
         name: 'createOIMInPlaceEntityWriter',
-        writeService: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithSanitizedCopy }),
-        guardedWriteService: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithSanitizedCopy, ...guardedPatch }),
+        writeService: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithSanitizedCopy }),
+        guardedWriteService: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithSanitizedCopy, ...guardedPatch }),
     },
     {
         name: 'createOIMReplacingEntityWriter',
-        writeService: createOIMReplacingEntityWriter({ entityInserter: oimInsertEntityWithSanitizedCopy }),
-        guardedWriteService: createOIMReplacingEntityWriter({ entityInserter: oimInsertEntityWithSanitizedCopy, ...guardedPatch }),
+        writeService: createOIMReplacingEntityWriter({ entityInserter: insertOIMEntityWithSanitizedCopy }),
+        guardedWriteService: createOIMReplacingEntityWriter({ entityInserter: insertOIMEntityWithSanitizedCopy, ...guardedPatch }),
     },
 ];
 
@@ -129,11 +129,11 @@ describe('the fork: which arm a reader comparing references needs', () => {
         // Not "behave the same": they ARE the same function objects. A first
         // value has nothing to compare against and a departing one has nothing to
         // keep, so the question the fork exists to answer has no content at
-        // either end — see oimInsertEntityWithoutCopy.ts and oimClearEntity.ts.
-        expect(inPlace.fillEntity).toBe(oimInsertEntityWithoutCopy);
-        expect(replacing.fillEntity).toBe(oimInsertEntityWithoutCopy);
-        expect(inPlace.clearEntity).toBe(oimClearEntity);
-        expect(replacing.clearEntity).toBe(oimClearEntity);
+        // either end — see insertOIMEntityWithoutCopy.ts and clearOIMEntity.ts.
+        expect(inPlace.fillEntity).toBe(insertOIMEntityWithoutCopy);
+        expect(replacing.fillEntity).toBe(insertOIMEntityWithoutCopy);
+        expect(inPlace.clearEntity).toBe(clearOIMEntity);
+        expect(replacing.clearEntity).toBe(clearOIMEntity);
     });
 
     it('the two arms differ in the middle of a record\'s life: each has its own put, patch and column removal', () => {
@@ -194,7 +194,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             // on any update following a remove. `fillSlot` is the only door with
             // a whole entity to file — see IOIMEntityWriter.fillEntity.
             expect(patchNames(writeService, slot, { title: 'B' })).toEqual([]);
-            expect(oimIsSlotEmpty(slot)).toBe(true);
+            expect(isOIMSlotEmpty(slot)).toBe(true);
         });
 
         it('calls a column holding NaN unmoved when the same NaN is written back', () => {
@@ -204,7 +204,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             // SameValueZero, not `===`. Under `===` this reported a move every
             // frame for ever — and on the replacing arm every one of them
             // allocated a record and re-rendered every reference-comparing
-            // reader. See oimSameValueZeroGuard and createOIMReplacingEntityWriter.ts, "IT MATTERS MOST
+            // reader. See isOIMSameValueZero and createOIMReplacingEntityWriter.ts, "IT MATTERS MOST
             // ON THIS HALF".
             expect(patchNames(writeService, slot, { score: NaN })).toEqual([]);
             expect(slot.entity).toBe(before);
@@ -243,7 +243,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             const slot = emptySlot();
 
             expect(writeService.deleteColumns(slot as unknown as OIMEntitySlot, ['title'])).toBe(OIM_FROZEN_EMPTY_COLUMN_NAMES);
-            expect(oimIsSlotEmpty(slot)).toBe(true);
+            expect(isOIMSlotEmpty(slot)).toBe(true);
         });
     });
 
@@ -256,7 +256,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             handedIn.title = 'edited behind the engine\'s back';
 
             // "An engine that delivers changes cannot hold a slot somebody else
-            // can edit behind its back" — oimInsertEntityWithSanitizedCopy.ts. Copying on the insert
+            // can edit behind its back" — insertOIMEntityWithSanitizedCopy.ts. Copying on the insert
             // branch only is what this refuses: two callers writing the same code
             // would then get different behaviour depending on whether the key
             // happened to have a value yet.
@@ -277,7 +277,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             // A spread copies own enumerable properties, and a class's methods
             // are neither. The engine treats a record as data everywhere else
             // already, so keeping a prototype here would be one path promising
-            // something no other path can keep — oimInsertEntityWithSanitizedCopy.ts.
+            // something no other path can keep — insertOIMEntityWithSanitizedCopy.ts.
             expect(Object.getPrototypeOf(slot.entity)).toBe(Object.prototype);
             expect(slot.entity?.shout).toBeUndefined();
         });
@@ -288,7 +288,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
 
             writeService.clearEntity(slot as unknown as OIMEntitySlot);
 
-            expect(oimIsSlotEmpty(slot)).toBe(true);
+            expect(isOIMSlotEmpty(slot)).toBe(true);
             // The identity outlives its value: the key, the holds, the
             // subscribers and the owner are untouched here — clearSlot.ts.
             expect(slot.key).toBe('k1');
@@ -308,7 +308,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             // `Partial<TEntity>` accepts a class instance, so a `for...in` over a
             // patch can yield names the patch does not own. Reported and never
             // applied, they woke subscribers for a value that never landed and
-            // were reported again on the next write, for ever. `oimIsPlainObject` asks the
+            // were reported again on the next write, for ever. `isOIMPlainObject` asks the
             // question once per write instead of once per field.
             expect(moved).toEqual(['title']);
             expect(slot.entity).toEqual({ id: 'k1', title: 'B', score: 1 });
@@ -320,7 +320,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             patch.title = 'B';
             const slot = filledSlot(writeService);
 
-            // `oimIsPlainObject` is true for a null-prototype object as well as for a
+            // `isOIMPlainObject` is true for a null-prototype object as well as for a
             // literal: in both, a `for...in` is already own-properties-only, so
             // the per-field check is skipped.
             expect(patchNames(writeService, slot, patch)).toEqual(['title']);
@@ -383,7 +383,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             // gives. Skipped rather than thrown on: throwing would let anyone who
             // can put a key into a payload abandon a batch mid-write, and the
             // caller most exposed to a hostile payload is the one who can least
-            // afford that. See oimIsProtoKey.ts.
+            // afford that. See isOIMProtoKey.ts.
             expect(patchNames(guardedWriteService, slot, JSON.parse('{"__proto__":{"x":1}}') as TRecord)).toEqual([]);
             expect(slot.entity).toBe(before);
         });
@@ -403,7 +403,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
     });
 }
 
-describe('what the skip in oimOwnedColumnNames is load-bearing for', () => {
+describe('what the skip in getOIMOwnedColumnNames is load-bearing for', () => {
     const fillDefiningAnOwnProtoKey: TOIMEntityInserter = (slot, entity) => {
         const stored = { ...entity } as Record<string, unknown>;
         Object.defineProperty(stored, '__proto__', {
@@ -432,22 +432,22 @@ describe('what the skip in oimOwnedColumnNames is load-bearing for', () => {
 
 describe('the rule about column names, and the rule about a patch\'s own names', () => {
     it('refuses exactly one name, and nothing else', () => {
-        expect(oimIsProtoKey('__proto__')).toBe(true);
-        expect(oimIsProtoKey('title')).toBe(false);
-        expect(oimIsProtoKey('constructor')).toBe(false);
-        expect(oimIsProtoKey('prototype')).toBe(false);
+        expect(isOIMProtoKey('__proto__')).toBe(true);
+        expect(isOIMProtoKey('title')).toBe(false);
+        expect(isOIMProtoKey('constructor')).toBe(false);
+        expect(isOIMProtoKey('prototype')).toBe(false);
         // A comparison chain, deliberately: these loops are the hottest path in
         // the engine, and the names a `for...in` yields are interned, so this is
-        // a pointer compare. See oimIsProtoKey.ts.
-        expect(oimIsProtoKey('')).toBe(false);
+        // a pointer compare. See isOIMProtoKey.ts.
+        expect(isOIMProtoKey('')).toBe(false);
     });
 
     it('calls an object plain when every name a walk yields is its own', () => {
-        expect(oimIsPlainObject({})).toBe(true);
-        expect(oimIsPlainObject(Object.create(null) as object)).toBe(true);
-        expect(oimIsPlainObject(JSON.parse('{"a":1}') as object)).toBe(true);
-        expect(oimIsPlainObject(Object.create({}) as object)).toBe(false);
-        expect(oimIsPlainObject(new (class {})())).toBe(false);
+        expect(isOIMPlainObject({})).toBe(true);
+        expect(isOIMPlainObject(Object.create(null) as object)).toBe(true);
+        expect(isOIMPlainObject(JSON.parse('{"a":1}') as object)).toBe(true);
+        expect(isOIMPlainObject(Object.create({}) as object)).toBe(false);
+        expect(isOIMPlainObject(new (class {})())).toBe(false);
     });
 
     it('says nothing changed without allocating anything to say it', () => {

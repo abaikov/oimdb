@@ -4,10 +4,10 @@ import type { TOIMPersistIndexedDbBackendOptions } from './types/TOIMPersistInde
 import type { TOIMPersistIndexedDbOpenOptions } from './types/TOIMPersistIndexedDbOpenOptions';
 import type { TOIMPersistIndexedDbPrimaryKey } from './types/TOIMPersistIndexedDbPrimaryKey';
 import type { TOIMPersistIndexedDbTableRecord } from './types/TOIMPersistIndexedDbTableRecord';
-import { oimIndexedDbRequestToPromise } from './utils/oimIndexedDbRequestToPromise';
-import { oimNormalizeIndexedDbPrimaryKey } from './utils/oimNormalizeIndexedDbPrimaryKey';
-import { oimOpenIndexedDb } from './utils/oimOpenIndexedDb';
-import { oimReadAllIndexedDbTableRecords } from './utils/oimReadAllIndexedDbTableRecords';
+import { promisifyOIMIndexedDbRequest } from './utils/promisifyOIMIndexedDbRequest';
+import { normalizeOIMIndexedDbPrimaryKey } from './utils/normalizeOIMIndexedDbPrimaryKey';
+import { openOIMIndexedDb } from './utils/openOIMIndexedDb';
+import { readOIMAllIndexedDbTableRecords } from './utils/readOIMAllIndexedDbTableRecords';
 
 export class OIMPersistIndexedDbBackend implements IOIMPersistBackend<OIMPersistIndexedDbWriteBatch> {
     private readonly persistIndexedDbOpenOptions: TOIMPersistIndexedDbOpenOptions;
@@ -28,8 +28,8 @@ export class OIMPersistIndexedDbBackend implements IOIMPersistBackend<OIMPersist
     }
 
     public readTableValue(tableName: string, primaryKey: TOIMPersistIndexedDbPrimaryKey): Promise<unknown> {
-        return this.readExistingTable(tableName, () => undefined, database => oimIndexedDbRequestToPromise(
-            database.transaction(tableName, 'readonly').objectStore(tableName).get(oimNormalizeIndexedDbPrimaryKey(primaryKey)),
+        return this.readExistingTable(tableName, () => undefined, database => promisifyOIMIndexedDbRequest(
+            database.transaction(tableName, 'readonly').objectStore(tableName).get(normalizeOIMIndexedDbPrimaryKey(primaryKey)),
         ) as Promise<unknown>);
     }
 
@@ -38,15 +38,15 @@ export class OIMPersistIndexedDbBackend implements IOIMPersistBackend<OIMPersist
     ): Promise<unknown[]> {
         return this.readExistingTable(tableName, () => primaryKeys.map(() => undefined), database => {
             const objectStore = database.transaction(tableName, 'readonly').objectStore(tableName);
-            return Promise.all(primaryKeys.map(primaryKey => oimIndexedDbRequestToPromise(
-                objectStore.get(oimNormalizeIndexedDbPrimaryKey(primaryKey)),
+            return Promise.all(primaryKeys.map(primaryKey => promisifyOIMIndexedDbRequest(
+                objectStore.get(normalizeOIMIndexedDbPrimaryKey(primaryKey)),
             ) as Promise<unknown>));
         });
     }
 
     public readAllTableRecords(tableName: string): Promise<TOIMPersistIndexedDbTableRecord[] | undefined> {
         return this.readExistingTable<TOIMPersistIndexedDbTableRecord[] | undefined>(
-            tableName, () => undefined, database => oimReadAllIndexedDbTableRecords(database, tableName),
+            tableName, () => undefined, database => readOIMAllIndexedDbTableRecords(database, tableName),
         );
     }
 
@@ -67,7 +67,7 @@ export class OIMPersistIndexedDbBackend implements IOIMPersistBackend<OIMPersist
     }
 
     private openExistingDatabase(): Promise<IDBDatabase> {
-        return oimOpenIndexedDb({
+        return openOIMIndexedDb({
             indexedDb: this.persistIndexedDbOpenOptions.indexedDb,
             databaseName: this.persistIndexedDbOpenOptions.databaseName,
         });

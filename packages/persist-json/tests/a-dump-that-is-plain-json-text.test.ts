@@ -219,7 +219,7 @@ describe('@oimdb/persist-json', () => {
         clientPersistor.addPersistResource(clientSettings.persistSnapshotResource);
         await clientPersistor.hydrate();
 
-        expect(clientSettings.singleEntityService.findSingleSlot(clientSettings.singleEntityStoreSlot)?.entity).toEqual({ theme: 'dark' });
+        expect(clientSettings.singleEntityService.peekSingleSlot(clientSettings.singleEntityStoreSlot)?.entity).toEqual({ theme: 'dark' });
     });
 
     test('autosave reaches the dump only after the drain', async () => {

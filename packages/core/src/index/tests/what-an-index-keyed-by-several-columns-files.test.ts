@@ -82,7 +82,7 @@ describe('what an index keyed by several columns files', () => {
         const { db, cardsService, cards, byDeckAndSuitService, byDeckAndSuit } = createCards();
         const redHearts = byDeckAndSuitService.holdSlotByKey(byDeckAndSuit, ['red', 'hearts']);
         const redSpades = byDeckAndSuitService.holdSlotByKey(byDeckAndSuit, ['red', 'spades']);
-        const c1 = cardsService.findSlotByKey(cards, 'c1');
+        const c1 = cardsService.peekSlotByKey(cards, 'c1');
         if (c1 !== undefined) cardsService.slotContentService.updateEntity(c1, { suit: 'spades' });
         db.flush();
         expect(byDeckAndSuitService.slotContentService.getBucketMemberSlotCount(redHearts)).toBe(1);
@@ -105,12 +105,12 @@ describe('what an index keyed by several columns files', () => {
 
     it('wakes the any-column slot of a bucket when a member is written, found by a fresh array', () => {
         const { db, cardsService, cards, byDeckAndSuitService, byDeckAndSuit } = createCards();
-        const redHeartsEntities = byDeckAndSuitService.holdAnyBucketColumnByKey(byDeckAndSuit, ['red', 'hearts']);
-        expect(byDeckAndSuitService.getAnyBucketColumnByKey(byDeckAndSuit, ['red', 'hearts'])).toBe(redHeartsEntities);
+        const redHeartsEntities = byDeckAndSuitService.holdAnyBucketColumnSlotByKey(byDeckAndSuit, ['red', 'hearts']);
+        expect(byDeckAndSuitService.getAnyBucketColumnSlotByKey(byDeckAndSuit, ['red', 'hearts'])).toBe(redHeartsEntities);
         db.flush();
         let wakes = 0;
         OIMEffectService.INSTANCE.createEffect(db, () => { wakes++; }, [redHeartsEntities]);
-        const c1 = cardsService.findSlotByKey(cards, 'c1');
+        const c1 = cardsService.peekSlotByKey(cards, 'c1');
         if (c1 !== undefined) cardsService.slotContentService.updateEntity(c1, { title: 'ace of hearts' });
         db.flush();
         expect(wakes).toBe(1);

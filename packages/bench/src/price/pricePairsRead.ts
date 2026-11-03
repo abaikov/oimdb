@@ -99,10 +99,10 @@ export const pricePairsRead: readonly TPricePair[] = [
     {
         id: 'find.vs-map-get',
         path: EPricePath.PerRead,
-        ours: 'entityService.findSlotByKey(entityStoreSlot, id)?.entity — the entity of a key, or undefined',
+        ours: 'entityService.peekSlotByKey(entityStoreSlot, id)?.entity — the entity of a key, or undefined',
         floor: 'map.get(id)',
         caveat:
-            'THE CALIBRATION ROW. `entityService.findSlotByKey` is a `Map.get` through the slot store ' +
+            'THE CALIBRATION ROW. `entityService.peekSlotByKey` is a `Map.get` through the slot store ' +
             'service and one `.entity` load off the slot, ' +
             'so if this reads much above 1 the instrument is measuring call overhead rather than ' +
             'the library, and every other ratio in this table should be read with that in mind. ' +
@@ -118,7 +118,7 @@ export const pricePairsRead: readonly TPricePair[] = [
                         const entityStoreSlot = fixture.entityStoreSlot;
                         const mask = rows.length - 1;
                         for (let i = 0; i < times; i++) {
-                            priceSink.ours = entityService.findSlotByKey(entityStoreSlot, rows[i & mask].id)?.entity;
+                            priceSink.ours = entityService.peekSlotByKey(entityStoreSlot, rows[i & mask].id)?.entity;
                         }
                     },
                 },

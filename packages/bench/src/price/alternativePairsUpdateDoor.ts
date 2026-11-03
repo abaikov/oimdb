@@ -2,7 +2,7 @@ import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import { OIMChannelService, OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { IOIMEntityWriter, TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
-import { oimGetChannelSlot } from '../../../core/src/slot/utils/oimGetChannelSlot';
+import { peekOIMChannelSlot } from '../../../core/src/slot/utils/peekOIMChannelSlot';
 import type { TOIMEntitySlotOwnerService } from '../../../core/src/entity/types/TOIMEntitySlotOwnerService';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
@@ -42,7 +42,7 @@ class UpdateDoorProbe {
         slotOwnerService.assertWritable(entitySlot);
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
         if (!this.entityWriter.patchEntity(entitySlot as unknown as OIMEntitySlot, patch, undefined)) return;
-        OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
+        OIMChannelService.INSTANCE.writeWithoutFlushCheck(peekOIMChannelSlot(entitySlot), entitySlot);
         slotOwnerService.releaseWrittenSlotIfUnheld(entitySlot);
     }
 
@@ -51,7 +51,7 @@ class UpdateDoorProbe {
         slotOwnerService.assertWritable(entitySlot);
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
         if (!this.entityWriter.patchEntity(entitySlot as unknown as OIMEntitySlot, patch, undefined)) return;
-        OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
+        OIMChannelService.INSTANCE.writeWithoutFlushCheck(peekOIMChannelSlot(entitySlot), entitySlot);
     }
 
     public updateOneChannelThroughModuleWriter(entitySlot: TDoorSlot, patch: Partial<TPriceDataRow>): void {
@@ -59,14 +59,14 @@ class UpdateDoorProbe {
         slotOwnerService.assertWritable(entitySlot);
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
         if (!probeWriter.patchEntity(entitySlot as unknown as OIMEntitySlot, patch, undefined)) return;
-        OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
+        OIMChannelService.INSTANCE.writeWithoutFlushCheck(peekOIMChannelSlot(entitySlot), entitySlot);
     }
 
     public updateOneChannelUnasserted(entitySlot: TDoorSlot, patch: Partial<TPriceDataRow>): void {
         const slotOwnerService = entitySlot.owner as TDoorSlotOwnerService;
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
         if (!this.entityWriter.patchEntity(entitySlot as unknown as OIMEntitySlot, patch, undefined)) return;
-        OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
+        OIMChannelService.INSTANCE.writeWithoutFlushCheck(peekOIMChannelSlot(entitySlot), entitySlot);
         slotOwnerService.releaseWrittenSlotIfUnheld(entitySlot);
     }
 }
@@ -92,7 +92,7 @@ const unreleasedDoor: TDoorWrite = (updateDoorProbe, slot, patch) => { updateDoo
 const unassertedDoor: TDoorWrite = (updateDoorProbe, slot, patch) => { updateDoorProbe.updateOneChannelUnasserted(slot, patch); };
 const moduleWriterDoor: TDoorWrite = (updateDoorProbe, slot, patch) => { updateDoorProbe.updateOneChannelThroughModuleWriter(slot, patch); };
 const functionDoor: TDoorWrite = (_updateDoorProbe, slot, patch) => {
-    const channelSlot = oimGetChannelSlot(slot);
+    const channelSlot = peekOIMChannelSlot(slot);
     OIMChannelService.INSTANCE.assertNotFlushing(channelSlot);
     if ((slot.slotFlags & OIM_SLOT_FLAG_RELEASED) !== 0) throw new Error('released');
     if (slot.columnSlotStore !== undefined) throw new Error('column readers');

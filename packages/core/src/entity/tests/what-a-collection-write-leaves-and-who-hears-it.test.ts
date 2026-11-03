@@ -8,7 +8,7 @@ import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentServ
 import type { IOIMEntityWriter } from '../interfaces/IOIMEntityWriter';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
@@ -58,7 +58,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
     it('update of a missing key returns undefined and writes nothing', () => {
         const { rowsService, rows } = createFixture();
 
-        const ghost = rowsService.findSlotByKey(rows,'ghost');
+        const ghost = rowsService.peekSlotByKey(rows,'ghost');
         const result = ghost === undefined ? undefined : rowsService.slotContentService.updateEntity(ghost, { n: 5 });
 
         expect(result).toBeUndefined();
@@ -139,7 +139,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
         byKey.db.flush();
         let wokeByKey = 0;
         byKey.effectService.createEffect(byKey.db, () => { wokeByKey++; }, [byKey.rowsService.getSlotByKey(byKey.rows, 'r1')]);
-        const byKeySlot = byKey.rowsService.findSlotByKey(byKey.rows, 'r1');
+        const byKeySlot = byKey.rowsService.peekSlotByKey(byKey.rows, 'r1');
         if (byKeySlot !== undefined) byKey.rowsService.slotContentService.updateEntity(byKeySlot, { n: 9 });
         byKey.db.flush();
 
@@ -172,7 +172,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
         rowsService.slotContentService.clearSlotContent(rowsService.getSlotByKey(rows,'r1'));
         db.flush();
 
-        expect(oimIsSlotEmpty(slot)).toBe(true);
+        expect(isOIMSlotEmpty(slot)).toBe(true);
     });
 
     it('remove keeps the effects on the slot, which still run on the next write', () => {
@@ -219,7 +219,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
         let volumeWoke = 0;
-        effectService.createEffect(db, () => { volumeWoke++; }, [settingsService.columnSlotService.holdColumn(settingsService.getSingleSlot(settings), 'volume')]);
+        effectService.createEffect(db, () => { volumeWoke++; }, [settingsService.columnSlotService.holdColumnSlot(settingsService.getSingleSlot(settings), 'volume')]);
 
         settingsService.slotContentService.updateEntity(settingsService.getSingleSlot(settings), { theme: 'light' });
         db.flush();
@@ -234,7 +234,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
         let volumeWoke = 0;
-        effectService.createEffect(db, () => { volumeWoke++; }, [settingsService.columnSlotService.holdColumn(settingsService.getSingleSlot(settings), 'volume')]);
+        effectService.createEffect(db, () => { volumeWoke++; }, [settingsService.columnSlotService.holdColumnSlot(settingsService.getSingleSlot(settings), 'volume')]);
 
         settingsService.slotContentService.updateEntity(settingsService.getSingleSlot(settings), { volume: 11 });
         db.flush();
@@ -317,7 +317,7 @@ describe('the replacing write strategy, when a column goes away', () => {
         const slot = cardsService.getSlotByKey(cards,'c1');
 
         let deckWoke = 0;
-        effectService.createEffect(db, () => { deckWoke++; }, [cardsService.columnSlotService.holdColumn(slot, 'deckId')]);
+        effectService.createEffect(db, () => { deckWoke++; }, [cardsService.columnSlotService.holdColumnSlot(slot, 'deckId')]);
 
         // The column LEAVES rather than changing: a whole-entity write that no
         // longer carries it. A reader watching that column is owed the same
@@ -355,7 +355,7 @@ describe('a collection\'s narrow identities: a column per slot, and a slot a buc
         // the VALUE away and leaves the slot in the bucket, which is the
         // caller's to take out.
         expect(everythingService.slotContentService.getBucketMemberSlotCount(heldSlot)).toBe(1);
-        expect(oimIsSlotEmpty(rowsService.getSlotByKey(rows,'r1'))).toBe(true);
+        expect(isOIMSlotEmpty(rowsService.getSlotByKey(rows,'r1'))).toBe(true);
     });
 
     /**
@@ -377,7 +377,7 @@ describe('a collection\'s narrow identities: a column per slot, and a slot a buc
         expect(slot.columnSlotStore).toBeUndefined();
 
         let runCount = 0;
-        const column = rowsService.columnSlotService.holdColumn(slot, 'n');
+        const column = rowsService.columnSlotService.holdColumnSlot(slot, 'n');
         const columnEffect = effectService.createEffect(db, () => { runCount++; }, [column]);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.has('n')).toBe(true);
         // And only the column that was asked for.
@@ -396,7 +396,7 @@ describe('a collection\'s narrow identities: a column per slot, and a slot a buc
         // carrying the column — and the map with it, because its absence is
         // what the write path's one field read is asking about.
         effectService.disposeEffect(columnEffect);
-        rowsService.columnSlotService.unholdColumn(column);
+        rowsService.columnSlotService.unholdColumnSlot(column);
         expect(slot.columnSlotStore).toBeUndefined();
     });
 });

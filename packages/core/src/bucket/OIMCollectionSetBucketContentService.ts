@@ -1,6 +1,5 @@
 import type { TOIMBucketContentSlot } from './types/TOIMBucketContentSlot';
 import type { TOIMBucketSlotsSetStore } from './types/TOIMBucketSlotsSetStore';
-import type { TOIMBucketSlotOwnerService } from './types/TOIMBucketSlotOwnerService';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
@@ -12,12 +11,16 @@ import type { IOIMSlotContentChangeListener } from '../slot/interfaces/IOIMSlotC
 import { OIMBucketMemberSlotsSetService } from './set/OIMBucketMemberSlotsSetService';
 import { OIMSlotContentChangeListenerService } from '../slot/OIMSlotContentChangeListenerService';
 import { createOIMBucketContentSlot } from './utils/createOIMBucketContentSlot';
-import { oimMarkBucketColumnsChanged } from './utils/oimMarkBucketColumnsChanged';
-import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
-import { oimIsAnyAddedColumnRead } from '../slot/utils/oimIsAnyAddedColumnRead';
-import { oimAssertSlotUnheld } from '../slot/utils/oimAssertSlotUnheld';
+import { markOIMBucketColumnsChanged } from './utils/markOIMBucketColumnsChanged';
+import { isOIMSlotReleased } from '../slot/utils/isOIMSlotReleased';
+import { isOIMAnyAddedColumnRead } from '../slot/utils/isOIMAnyAddedColumnRead';
+import { assertOIMSlotUnheld } from '../slot/utils/assertOIMSlotUnheld';
 import { OIM_NOTHING_WAS_REMOVED } from './constants/OIM_NOTHING_WAS_REMOVED';
-import { oimGetBucketSlotsSetStore } from './utils/oimGetBucketSlotsSetStore';
+import { peekOIMBucketSlotsSetStore } from './utils/peekOIMBucketSlotsSetStore';
+import { peekOIMBucketMemberColumnValues } from './utils/peekOIMBucketMemberColumnValues';
+import { peekOIMBucketMemberColumnGroupValues } from './utils/peekOIMBucketMemberColumnGroupValues';
+import { peekOIMBucketMemberAnyColumnValues } from './utils/peekOIMBucketMemberAnyColumnValues';
+import { markOIMBucketMembershipChanged } from './utils/markOIMBucketMembershipChanged';
 
 export class OIMCollectionSetBucketContentService<TBucketMemberSlot extends TOIMSlot = TOIMSlot>
 implements IOIMSlotContentService<TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>>, IOIMSingleSlotCreator<TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>> {
@@ -31,29 +34,41 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TOIMBucketSlotsSetStore<
     }
 
     public isSlotEmpty(collectionBucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>): boolean {
-        return this.bucketMemberSlotsSetService.getBucketMemberSlotCount(oimGetBucketSlotsSetStore(collectionBucketSlot)) === 0;
+        return this.bucketMemberSlotsSetService.getBucketMemberSlotCount(peekOIMBucketSlotsSetStore(collectionBucketSlot)) === 0;
     }
 
     public hasBucketMemberSlot(collectionBucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, bucketMemberSlot: TBucketMemberSlot): boolean {
-        return this.bucketMemberSlotsSetService.hasBucketMemberSlot(oimGetBucketSlotsSetStore(collectionBucketSlot), bucketMemberSlot);
+        return this.bucketMemberSlotsSetService.hasBucketMemberSlot(peekOIMBucketSlotsSetStore(collectionBucketSlot), bucketMemberSlot);
     }
 
     public getBucketMemberSlotCount(collectionBucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>): number {
-        return this.bucketMemberSlotsSetService.getBucketMemberSlotCount(oimGetBucketSlotsSetStore(collectionBucketSlot));
+        return this.bucketMemberSlotsSetService.getBucketMemberSlotCount(peekOIMBucketSlotsSetStore(collectionBucketSlot));
     }
 
     public getBucketMemberSlots(collectionBucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>): Iterable<TBucketMemberSlot> {
-        return this.bucketMemberSlotsSetService.getBucketMemberSlots(oimGetBucketSlotsSetStore(collectionBucketSlot));
+        return this.bucketMemberSlotsSetService.getBucketMemberSlots(peekOIMBucketSlotsSetStore(collectionBucketSlot));
+    }
+
+    public peekColumnValue(bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, columnName: string): unknown {
+        return peekOIMBucketMemberColumnValues(this.getBucketMemberSlots(bucketSlot), columnName);
+    }
+
+    public peekColumnGroupValue(bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, columnNames: readonly string[]): unknown {
+        return peekOIMBucketMemberColumnGroupValues(this.getBucketMemberSlots(bucketSlot), columnNames);
+    }
+
+    public peekAnyColumnValue(bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>): unknown {
+        return peekOIMBucketMemberAnyColumnValues(this.getBucketMemberSlots(bucketSlot));
     }
 
     public fillBucketMemberSlots(collectionBucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, bucketMemberSlots: readonly TBucketMemberSlot[]): void {
-        const bucketSlotsSetStore = oimGetBucketSlotsSetStore(collectionBucketSlot);
+        const bucketSlotsSetStore = peekOIMBucketSlotsSetStore(collectionBucketSlot);
         for (let i = 0; i < bucketMemberSlots.length; i++) this.bucketMemberSlotsSetService.addBucketMemberSlot(bucketSlotsSetStore, bucketMemberSlots[i]);
     }
 
     public releaseSlotContent(collectionBucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>): void {
-        oimAssertSlotUnheld(collectionBucketSlot);
-        this.bucketMemberSlotsSetService.clearBucketMemberSlots(oimGetBucketSlotsSetStore(collectionBucketSlot));
+        assertOIMSlotUnheld(collectionBucketSlot);
+        this.bucketMemberSlotsSetService.clearBucketMemberSlots(peekOIMBucketSlotsSetStore(collectionBucketSlot));
         const bucketStoreSlot = collectionBucketSlot.storeSlot as TOIMEditable<TOIMStoreSlot>;
         const collectionColumnListener = bucketStoreSlot.contentChangeListener as IOIMSlotContentChangeListener<TBucketMemberSlot, unknown> | undefined;
         if (collectionColumnListener === undefined) return;
@@ -64,14 +79,14 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TOIMBucketSlotsSetStore<
 
     public onCollectionSlotFilled(collectionBucketSlot: TOIMCollectionBucketSlot<TBucketMemberSlot>, bucketMemberSlot: TBucketMemberSlot): void {
         const bucketContentSlot = collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>;
-        if (!this.bucketMemberSlotsSetService.addBucketMemberSlot(oimGetBucketSlotsSetStore(bucketContentSlot), bucketMemberSlot)) return;
-        ownerOf(bucketContentSlot).markSlotContentChanged(bucketContentSlot, this.isSlotEmpty(bucketContentSlot));
+        if (!this.bucketMemberSlotsSetService.addBucketMemberSlot(peekOIMBucketSlotsSetStore(bucketContentSlot), bucketMemberSlot)) return;
+        markOIMBucketMembershipChanged(bucketContentSlot, this.isSlotEmpty(bucketContentSlot));
     }
 
     public onCollectionSlotEmptied(collectionBucketSlot: TOIMCollectionBucketSlot<TBucketMemberSlot>, bucketMemberSlot: TBucketMemberSlot): void {
         const bucketContentSlot = collectionBucketSlot as unknown as TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>;
-        if (this.bucketMemberSlotsSetService.removeBucketMemberSlot(oimGetBucketSlotsSetStore(bucketContentSlot), bucketMemberSlot) === OIM_NOTHING_WAS_REMOVED) return;
-        ownerOf(bucketContentSlot).markSlotContentChanged(bucketContentSlot, this.isSlotEmpty(bucketContentSlot));
+        if (this.bucketMemberSlotsSetService.removeBucketMemberSlot(peekOIMBucketSlotsSetStore(bucketContentSlot), bucketMemberSlot) === OIM_NOTHING_WAS_REMOVED) return;
+        markOIMBucketMembershipChanged(bucketContentSlot, this.isSlotEmpty(bucketContentSlot));
     }
 
     public addCollectionColumnRead(collectionBucketSlot: TOIMCollectionBucketSlot<TBucketMemberSlot>, columnName: string): void {
@@ -117,18 +132,11 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TOIMBucketSlotsSetStore<
         bucketStoreSlot: TOIMStoreSlot, bucketMemberSlot: TBucketMemberSlot, patch: unknown, changedColumns: readonly string[] | undefined,
     ): void {
         const listenerReadColumns = bucketStoreSlot.slotContentChangeListenerReadColumns;
-        if (listenerReadColumns === undefined || !oimIsAnyAddedColumnRead(listenerReadColumns, changedColumns)) return;
+        if (listenerReadColumns === undefined || !isOIMAnyAddedColumnRead(listenerReadColumns, changedColumns)) return;
         const collectionBucketSlot = (bucketStoreSlot.sourceStoreSlot as TOIMStoreSlot).collectionBucketSlot as unknown as
             TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>> | undefined;
-        if (collectionBucketSlot === undefined || oimIsSlotReleased(collectionBucketSlot)) return;
-        if (!this.bucketMemberSlotsSetService.hasBucketMemberSlot(oimGetBucketSlotsSetStore(collectionBucketSlot), bucketMemberSlot)) return;
-        oimMarkBucketColumnsChanged(collectionBucketSlot, patch as object | undefined, changedColumns);
+        if (collectionBucketSlot === undefined || isOIMSlotReleased(collectionBucketSlot)) return;
+        if (!this.bucketMemberSlotsSetService.hasBucketMemberSlot(peekOIMBucketSlotsSetStore(collectionBucketSlot), bucketMemberSlot)) return;
+        markOIMBucketColumnsChanged(collectionBucketSlot, patch as object | undefined, changedColumns);
     }
-}
-
-
-function ownerOf<TBucketMemberSlot extends TOIMSlot>(
-    collectionBucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>,
-): TOIMBucketSlotOwnerService<TOIMBucketSlotsSetStore<TBucketMemberSlot>> {
-    return collectionBucketSlot.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsSetStore<TBucketMemberSlot>>;
 }

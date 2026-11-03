@@ -142,8 +142,8 @@ describe('hydrate, then start autosave', () => {
 
         expect(testPersistBackend.readWrittenDeltaKeys()).toEqual([]);
         expect(testPersistBackend.writtenPersistRecordsList).toEqual([]);
-        expect(userEntityService.findSlotByKey(userEntityStoreSlot, 'u1')?.entity?.name).toBe('Ada');
-        expect(userEntityService.findSlotByKey(userEntityStoreSlot, 'u2')?.entity?.name).toBe('Grace');
+        expect(userEntityService.peekSlotByKey(userEntityStoreSlot, 'u1')?.entity?.name).toBe('Ada');
+        expect(userEntityService.peekSlotByKey(userEntityStoreSlot, 'u2')?.entity?.name).toBe('Grace');
 
         persistor.destroy();
     });
@@ -222,7 +222,7 @@ describe('hydrate, then start autosave', () => {
         db.flush();
         await tick();
 
-        const deletedUserSlot = userEntityService.findSlotByKey(userEntityStoreSlot, 'u2');
+        const deletedUserSlot = userEntityService.peekSlotByKey(userEntityStoreSlot, 'u2');
         if (deletedUserSlot !== undefined) userEntityService.slotContentService.clearSlotContent(deletedUserSlot);
         fileEveryUser();
         db.flush();

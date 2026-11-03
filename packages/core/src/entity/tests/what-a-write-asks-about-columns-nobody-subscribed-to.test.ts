@@ -83,8 +83,8 @@ describe('what a write asks about columns nobody subscribed to', () => {
         cardsService.writeSlotContentByKey(cards, (aCard('c1', 'A')).id, aCard('c1', 'A'));
         db.flush();
         const slot = cardsService.getSlotByKey(cards, 'c1');
-        const title =cardsService.columnSlotService.holdColumn(slot, 'title');
-        const rank = cardsService.columnSlotService.holdColumn(slot, 'rank');
+        const title =cardsService.columnSlotService.holdColumnSlot(slot, 'title');
+        const rank = cardsService.columnSlotService.holdColumnSlot(slot, 'rank');
         let titleWoke = 0;
         let rankWoke = 0;
         effectService.createEffect(db, () => { titleWoke++; }, [title]);

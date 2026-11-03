@@ -1,7 +1,7 @@
 import type { TOIMDisposer } from '@oimdb/core';
 import type { TOIMBrowserLocationEntity } from './types/TOIMBrowserLocationEntity';
 import { OIMBrowserSlotSubscriptionListener } from './OIMBrowserSlotSubscriptionListener';
-import { oimListenToBrowserWindow } from './utils/oimListenToBrowserWindow';
+import { listenToOIMBrowserWindow } from './utils/listenToOIMBrowserWindow';
 
 export class OIMBrowserLocationSlotSubscriptionListener extends OIMBrowserSlotSubscriptionListener<TOIMBrowserLocationEntity> {
     protected readCurrentEntity(): TOIMBrowserLocationEntity {
@@ -16,6 +16,6 @@ export class OIMBrowserLocationSlotSubscriptionListener extends OIMBrowserSlotSu
             navigationOfBrowser.addEventListener('currententrychange', onBrowserChanged);
             return () => { navigationOfBrowser.removeEventListener('currententrychange', onBrowserChanged); };
         }
-        return oimListenToBrowserWindow(['popstate', 'hashchange'], onBrowserChanged);
+        return listenToOIMBrowserWindow(['popstate', 'hashchange'], onBrowserChanged);
     }
 }

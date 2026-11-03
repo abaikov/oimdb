@@ -46,7 +46,7 @@ describe('a patch names its columns only for someone who reads them', () => {
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
 
-        cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { title: 'two' });
+        cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 'a')!, { title: 'two' });
 
         expect(namesHanded).toEqual([undefined]);
     });
@@ -58,13 +58,13 @@ describe('a patch names its columns only for someone who reads them', () => {
         const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
-        const title = cardsService.columnSlotService.holdColumn(card, 'title');
+        const title = cardsService.columnSlotService.holdColumnSlot(card, 'title');
         let woke = 0;
         OIMEffectService.INSTANCE.createEffect(db, () => { woke++; }, [title]);
         db.flush();
         woke = 0;
 
-        cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { title: 'two', rank: 1 });
+        cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 'a')!, { title: 'two', rank: 1 });
         db.flush();
 
         expect(namesHanded).toEqual([['title']]);
@@ -85,7 +85,7 @@ describe('a patch names its columns only for someone who reads them', () => {
         byDeckService.createIndexStoreSlot(cards);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
 
-        cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { deck: 'y' });
+        cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 'a')!, { deck: 'y' });
 
         expect(namesHanded).toEqual([['deck']]);
     });

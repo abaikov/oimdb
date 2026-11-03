@@ -13,9 +13,9 @@ import type { TOIMSlotContentServiceContent } from './types/TOIMSlotContentServi
 import type { TOIMSlotContentServicePatch } from './types/TOIMSlotContentServicePatch';
 import { OIMWritableSlotCollectionService } from './OIMWritableSlotCollectionService';
 import { OIM_DEFAULT_STORE_SLOT_LISTENER } from '../db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER';
-import { oimResolveSlotStoreService } from '../store/utils/oimResolveSlotStoreService';
+import { resolveOIMSlotStoreService } from '../store/utils/resolveOIMSlotStoreService';
 import { OIMDefaults } from '../db/OIMDefaults';
-import { oimResolveSlotOwnerServiceOptions } from './utils/oimResolveSlotOwnerServiceOptions';
+import { resolveOIMSlotOwnerServiceOptions } from './utils/resolveOIMSlotOwnerServiceOptions';
 
 export function createOIMSlotCollectionService<
     TSlotContentService extends object,
@@ -60,8 +60,8 @@ export function createOIMSlotCollectionService<
             & IOIMSlotContentService<TOIMSlotContentServiceSlot<TSlotContentService>>,
         TColumnName, TOIMColumnSlot, OIMPushColumnSlotOwner, TOIMSlotContentServicePatch<TSlotContentService>
     >({
-        ...oimResolveSlotOwnerServiceOptions(options.defaults ?? OIMDefaults.INSTANCE, options),
-        slotStoreService: oimResolveSlotStoreService(options.slotStoreService),
+        ...resolveOIMSlotOwnerServiceOptions(options.defaults ?? OIMDefaults.INSTANCE, options),
+        slotStoreService: resolveOIMSlotStoreService(options.slotStoreService),
         slotContentService: options.slotContentService,
         storeSlotListener: options.defaults?.storeSlotListener ?? OIM_DEFAULT_STORE_SLOT_LISTENER.getValue(),
     });

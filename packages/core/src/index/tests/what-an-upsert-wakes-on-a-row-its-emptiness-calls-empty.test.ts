@@ -7,10 +7,10 @@ import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionI
 import type { IOIMEntityWriter } from '../../entity/interfaces/IOIMEntityWriter';
 import type { IOIMSlotEmptinessPolicy } from '../../slot/interfaces/IOIMSlotEmptinessPolicy';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../../column/types/TOIMColumnName';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -39,11 +39,11 @@ const openPosts = (entityWriter: IOIMEntityWriter, emptiness = softDeleted) => {
         postsService.writeSlotContentByKey(posts, post.id, post);
         return postsService.holdSlotByKey(posts, post.id);
     };
-    const wakesOf = (slot: TPostSlot, names: readonly TOIMEntityColumnName<TPost>[]): Record<string, number> => {
+    const wakesOf = (slot: TPostSlot, names: readonly TOIMColumnName<TPost>[]): Record<string, number> => {
         const wakes: Record<string, number> = { row: 0 };
         for (const name of names) {
             wakes[name] = 0;
-            const columnSlot = postsService.columnSlotService.holdColumn(slot, name);
+            const columnSlot = postsService.columnSlotService.holdColumnSlot(slot, name);
             effectService.createEffect(db, () => { wakes[name]++; }, [columnSlot]);
         }
         effectService.createEffect(db, () => { wakes.row++; }, [slot]);
@@ -122,15 +122,15 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
     it('turns emptiness both ways on the same row', () => {
         const { db, posts, postsService, upsertHeld } = openPosts(makeWriter());
         const post = upsertHeld({ id: 'p1', deleted: true, title: 'a' });
-        expect(oimIsSlotEmpty(post)).toBe(true);
+        expect(isOIMSlotEmpty(post)).toBe(true);
         expect(postsService.hasSlotContentByKey(posts, 'p1')).toBe(false);
 
         postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: false, title: 'a' });
-        expect(oimIsSlotEmpty(post)).toBe(false);
+        expect(isOIMSlotEmpty(post)).toBe(false);
         expect(postsService.hasSlotContentByKey(posts, 'p1')).toBe(true);
 
         postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: true, title: 'a' });
-        expect(oimIsSlotEmpty(post)).toBe(true);
+        expect(isOIMSlotEmpty(post)).toBe(true);
         expect(postsService.hasSlotContentByKey(posts, 'p1')).toBe(false);
         db.flush();
         post.owner.unholdSlot(post);
@@ -154,7 +154,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
     it('refiles the row in an index when the revival moves the key the index reads', () => {
         const { db, posts, postsService, upsertHeld } = openPosts(makeWriter());
         const byDeckService = createOIMSlotCollectionIndexService<
-            TPost, TOIMStoreKey, readonly TOIMEntityColumnName<TPost>[], string,
+            TPost, TOIMStoreKey, readonly TOIMColumnName<TPost>[], string,
             Map<TOIMStoreKey, TPostSlot>, TOIMBucketSlotsSetStore<TPostSlot>,
             OIMSetBucketContentService<TPostSlot, string>
         >({

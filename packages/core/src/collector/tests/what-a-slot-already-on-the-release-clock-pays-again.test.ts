@@ -2,12 +2,12 @@ import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotAfterIdleReleasePolicy } from '../OIMSlotAfterIdleReleasePolicy';
-import { oimMintAfterWriteSlotReleaseWheel } from '../utils/oimMintAfterWriteSlotReleaseWheel';
-import { oimMintAfterIdleSlotReleaseWheel } from '../utils/oimMintAfterIdleSlotReleaseWheel';
+import { mintOIMAfterWriteSlotReleaseWheel } from '../utils/mintOIMAfterWriteSlotReleaseWheel';
+import { mintOIMAfterIdleSlotReleaseWheel } from '../utils/mintOIMAfterIdleSlotReleaseWheel';
 import { OIMSlotEarliestReleasePolicy } from '../OIMSlotEarliestReleasePolicy';
 import type { IOIMSlotReleasePolicy } from '../interfaces/IOIMSlotReleasePolicy';
 import type { TOIMTimer } from '../../schedule/types/TOIMTimer';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -31,8 +31,8 @@ const createWorld = (withIdle = true) => {
     const db = new OIMDB({ getNowMs, releaseTimer });
     const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TRow, string>({ defaults }) });
     const rows = rowsService.createStoreSlot(db);
-    const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
-    const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
+    const afterWriteSlotReleaseWheel = mintOIMAfterWriteSlotReleaseWheel(db.collectorSlot);
+    const afterIdleSlotReleaseWheel = mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot);
     const slotReleaseWheels = [afterWriteSlotReleaseWheel, afterIdleSlotReleaseWheel];
     return {
         db, rowsService, rows, slotReleaseWheels,
@@ -79,11 +79,11 @@ describe('what a slot already on the release clock pays again', () => {
 
         advance(KEEP_MS / 2 + 1000);
         sweep();
-        expect(oimIsSlotReleased(slot)).toBe(false);
+        expect(isOIMSlotReleased(slot)).toBe(false);
 
         advance(KEEP_MS);
         sweep();
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
     });
 
     it('a read that finds nothing puts no empty slot on the release clock and reads no clock', () => {
@@ -98,6 +98,6 @@ describe('what a slot already on the release clock pays again', () => {
             slotReleaseWheel => slotReleaseWheel.isSlotReleaseScheduled(missed),
         )).toBe(false);
         db.flush();
-        expect(oimIsSlotReleased(missed)).toBe(true);
+        expect(isOIMSlotReleased(missed)).toBe(true);
     });
 });

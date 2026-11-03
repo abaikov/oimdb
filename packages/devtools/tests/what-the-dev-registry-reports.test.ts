@@ -16,7 +16,7 @@ import type {
     TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
 import { OIMCompositeKeyTreeWalk } from '@oimdb/core';
-import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotTreeStoreService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard, oimIsSlotEmpty, type IOIMEntityWriter} from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotTreeStoreService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, isOIMSameValueZero, isOIMSlotEmpty, type IOIMEntityWriter} from '@oimdb/core';
 import { OIMDevRegistry } from '../src';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMEntityContentService } from '@oimdb/core';
@@ -67,7 +67,7 @@ function buildUsers() {
     const refile = (): void => {
         const wanted = new Map<string, TOIMEntitySlot<TUser>[]>();
         for (const user of present.values()) {
-            const slot = usersService.findSlotByKey(users, user.id);
+            const slot = usersService.peekSlotByKey(users, user.id);
             if (slot === undefined) continue;
             const inRole = wanted.get(user.role);
             if (inRole === undefined) wanted.set(user.role, [slot]);
@@ -100,7 +100,7 @@ function buildUsers() {
 
     const drop = (id: string): void => {
         present.delete(id);
-        const slot = usersService.findSlotByKey(users, id);
+        const slot = usersService.peekSlotByKey(users, id);
         if (slot !== undefined) usersService.slotContentService.clearSlotContent(slot);
         refile();
     };
@@ -134,11 +134,11 @@ function countOf(
 ) {
     const nonEmptyRows = (): number => {
         let count = 0;
-        for (const slot of usersService.getSlots(users)) if (!oimIsSlotEmpty(slot)) count++;
+        for (const slot of usersService.getSlots(users)) if (!isOIMSlotEmpty(slot)) count++;
         return count;
     };
     const countService = createOIMSingleComputedService<number>({
-        sameValueGuard: oimSameValueZeroGuard,
+        sameValueGuard: isOIMSameValueZero,
     });
     const count = countService.createStoreSlot(db, nonEmptyRows, () => ({ sourceSlots: [everyUserBucket] }));
     return { countService, count };
@@ -469,7 +469,7 @@ describe('OIMDevRegistry — output', () => {
     });
 
     test('the exported registry is one shared instance, not a fresh one per import', () => {
-        // `oimDevRegistry` is the singleton apps reach for from the console. What
+        // `OIM_DEV_REGISTRY` is the singleton apps reach for from the console. What
         // matters is not its class but that a second import sees the same
         // registrations — a factory export would type-check identically and
         // silently hand every caller its own empty registry.
@@ -478,11 +478,11 @@ describe('OIMDevRegistry — output', () => {
         db.flush();
 
         // eslint-disable-next-line @typescript-eslint/no-var-requires -- two independent imports is the whole assertion.
-        const { oimDevRegistry } = require('../src') as { oimDevRegistry: OIMDevRegistry };
-        oimDevRegistry.collection('shared-users', usersService, users);
+        const { OIM_DEV_REGISTRY } = require('../src') as { OIM_DEV_REGISTRY: OIMDevRegistry };
+        OIM_DEV_REGISTRY.collection('shared-users', usersService, users);
 
         // eslint-disable-next-line @typescript-eslint/no-var-requires -- see above.
-        const { oimDevRegistry: sameRegistry } = require('../src') as { oimDevRegistry: OIMDevRegistry };
+        const { OIM_DEV_REGISTRY: sameRegistry } = require('../src') as { OIM_DEV_REGISTRY: OIMDevRegistry };
         expect(sameRegistry.inspect().collections['shared-users'].count).toBe(1);
     });
 });

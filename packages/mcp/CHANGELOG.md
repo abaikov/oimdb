@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.0
+
+### Changed
+
+- Requires `@oimdb/cli` 1.2.0; a model module exports `OIM_DEV_REGISTRY`.
+
 ## 3.0.0
 
 ### Changed

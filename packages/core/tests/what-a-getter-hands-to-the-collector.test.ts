@@ -117,7 +117,7 @@ const TRACKS = /\.holdSlotUntilFlush\(/;
 const GETTER_SHAPED = /^(?:get|find|resolve|peek|read|at)(?:[A-Z].*)?$/;
 
 /** A getter that mints nothing itself but asks one of these, which mints and tracks. */
-const TRACKED_DOOR = /\.getSlotByKey\(|\bget(?:Any)?Column\(|\.getBucketSlot\(/;
+const TRACKED_DOOR = /\.getSlotByKey\(|\bget(?:Any)?ColumnSlot\(|\.getBucketSlot\(/;
 
 const signature = (method: TMethod): string => `${method.file} ${method.name}`;
 
@@ -128,8 +128,8 @@ describe('what a getter hands to the collector', () => {
     it('is the whole list of ways an identity gets filed, so a new one cannot hide behind a getter', () => {
         expect(mints.map(signature).sort()).toEqual([
             'bucket/OIMBucketContentService.ts createSlot',
-            'column/OIMColumnSlotOwner.ts getColumn',
-            'column/OIMColumnSlotOwner.ts holdColumn',
+            'column/OIMColumnSlotOwner.ts getColumnSlot',
+            'column/OIMColumnSlotOwner.ts holdColumnSlot',
             'column/OIMColumnSlotOwner.ts mintColumnSlot',
             'entity/OIMEntityContentService.ts createSlot',
             'slot/OIMSingleSlotService.ts getSingleSlot',
@@ -150,7 +150,7 @@ describe('what a getter hands to the collector', () => {
         const untracked = gettersThatMint.filter(method => !TRACKS.test(method.body));
 
         expect(gettersThatMint.map(signature).sort()).toEqual([
-            'column/OIMColumnSlotOwner.ts getColumn',
+            'column/OIMColumnSlotOwner.ts getColumnSlot',
             'slot/OIMSingleSlotService.ts getSingleSlot',
             'slot/OIMSlotCollectionService.ts getSlotByKey',
         ]);
@@ -166,7 +166,7 @@ describe('what a getter hands to the collector', () => {
 
         expect(unnamed).toEqual([
             'bucket/OIMBucketContentService.ts createSlot',
-            'column/OIMColumnSlotOwner.ts holdColumn',
+            'column/OIMColumnSlotOwner.ts holdColumnSlot',
             'column/OIMColumnSlotOwner.ts mintColumnSlot',
             'entity/OIMEntityContentService.ts createSlot',
             'slot/OIMSingleSlotService.ts holdSingleSlot',
@@ -189,18 +189,20 @@ describe('what a getter hands to the collector', () => {
             .sort();
 
         expect(borrowers).toEqual([
-            'bucket/OIMSlotCollectionBucketService.ts getAnyBucketColumn',
-            'bucket/OIMSlotCollectionBucketService.ts getBucketColumn',
-            'column/OIMColumnSlotOwner.ts getAnyColumn',
+            'bucket/OIMSlotCollectionBucketService.ts getAnyBucketColumnSlot',
+            'bucket/OIMSlotCollectionBucketService.ts getBucketColumnSlot',
+            'column/OIMColumnSlotOwner.ts getAnyColumnSlot',
             'column/OIMColumnSlotOwner.ts getColumnGroupSlot',
-            'column/OIMColumnSlotService.ts getAnyColumn',
-            'column/OIMColumnSlotService.ts getColumn',
-            'entity/OIMEntitySlot.ts getAnyColumn',
-            'entity/OIMEntitySlot.ts getColumn',
+            'column/OIMColumnSlotService.ts getAnyColumnSlot',
+            'column/OIMColumnSlotService.ts getColumnSlot',
+            'computed/OIMComputedSlot.ts getAnyColumnSlot',
+            'computed/OIMComputedSlot.ts getColumnSlot',
+            'entity/OIMEntitySlot.ts getAnyColumnSlot',
+            'entity/OIMEntitySlot.ts getColumnSlot',
             'entity/OIMEntitySlotCollectionStoreAggregate.ts getEntities',
             'entity/OIMEntitySlotCollectionStoreAggregate.ts getEntityCount',
-            'index/OIMSlotCollectionIndexService.ts getAnyBucketColumnByKey',
-            'index/OIMSlotCollectionIndexService.ts getBucketColumnByKey',
+            'index/OIMSlotCollectionIndexService.ts getAnyBucketColumnSlotByKey',
+            'index/OIMSlotCollectionIndexService.ts getBucketColumnSlotByKey',
             'index/OIMSlotCollectionIndexService.ts getEntitiesByKey',
             'index/OIMSlotCollectionIndexService.ts getSlotByKey',
             'index/OIMSlotCollectionIndexService.ts getSlotsByKeys',

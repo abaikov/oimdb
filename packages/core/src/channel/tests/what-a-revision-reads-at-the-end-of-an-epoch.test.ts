@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIM_REVISIONS_PER_EPOCH } from '../constants/OIM_REVISIONS_PER_EPOCH';
-import { oimIsRevisionAfter } from '../utils/oimIsRevisionAfter';
+import { isOIMRevisionAfter } from '../utils/isOIMRevisionAfter';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import type { OIMEntityContentService } from '../../entity/OIMEntityContentService';
@@ -18,7 +18,7 @@ const updateEntityByKey = (
     cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>['createStoreSlot']>,
     key: string, patch: Partial<TCard>,
 ): void => {
-    const slot = cardsService.findSlotByKey(cards, key);
+    const slot = cardsService.peekSlotByKey(cards, key);
     if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
 };
 
@@ -83,8 +83,8 @@ describe('what a revision reads at the end of an epoch', () => {
 
         expect(before[0]).toBe(OIM_REVISIONS_PER_EPOCH - 1);
         expect(after[0]).toBe(0);
-        expect(oimIsRevisionAfter(after[0], after[1], before[0], before[1])).toBe(true);
-        expect(oimIsRevisionAfter(before[0], before[1], after[0], after[1])).toBe(false);
+        expect(isOIMRevisionAfter(after[0], after[1], before[0], before[1])).toBe(true);
+        expect(isOIMRevisionAfter(before[0], before[1], after[0], after[1])).toBe(false);
     });
 
     it('wakes an effect for a write that lands after the turn on a frame that opened before it', () => {
@@ -114,7 +114,7 @@ describe('what a revision reads at the end of an epoch', () => {
         channelService.write(db.defaultChannelSlot, card);
 
         expect([clock.revision, clock.epoch]).toEqual([0, -(2 ** 31)]);
-        expect(oimIsRevisionAfter(clock.revision, clock.epoch, before.revision, before.epoch)).toBe(true);
-        expect(oimIsRevisionAfter(before.revision, before.epoch, clock.revision, clock.epoch)).toBe(false);
+        expect(isOIMRevisionAfter(clock.revision, clock.epoch, before.revision, before.epoch)).toBe(true);
+        expect(isOIMRevisionAfter(before.revision, before.epoch, clock.revision, clock.epoch)).toBe(false);
     });
 });

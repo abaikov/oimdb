@@ -182,7 +182,7 @@ describe('what a production bundle can reach', () => {
     /**
      * THE FACT THE HEADLINE RESTS ON, in this repository's half.
      *
-     * A single `import { oimDevRegistry } from '@oimdb/devtools'` added to
+     * A single `import { OIM_DEV_REGISTRY } from '@oimdb/devtools'` added to
      * `OIMChannel`'s error path, or to a react hook "just for a warning", would put the whole
      * registry into every application that imports the engine — and nothing else
      * here would notice: the types check, every other test passes, the package
@@ -225,7 +225,7 @@ describe('what a production bundle can reach', () => {
     });
 
     /**
-     * `oimDevRegistry.ts` is `export const oimDevRegistry = new OIMDevRegistry()` — a
+     * `OIM_DEV_REGISTRY.ts` is `export const OIM_DEV_REGISTRY = new OIMDevRegistry()` — a
      * construction at module scope, which is a side effect. A bundler keeps a
      * module with side effects even when nothing imports a name from it, so
      * without `"sideEffects": false` in this package's manifest the registry
@@ -279,7 +279,7 @@ describe('what a production bundle can reach', () => {
 
         /**
          * A documented module is a fenced `ts` block whose first line is a path
-         * comment. The blocks that are not — `oimDevRegistry.inspect()`, the API
+         * comment. The blocks that are not — `OIM_DEV_REGISTRY.inspect()`, the API
          * examples — are fragments, not files, and have no place in a graph.
          */
         const documented = new Map<string, readonly string[]>();

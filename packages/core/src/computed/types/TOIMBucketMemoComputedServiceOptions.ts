@@ -1,3 +1,5 @@
+import type { IOIMSlotSubscriptionListener } from '../../slot/interfaces/IOIMSlotSubscriptionListener';
+import type { TOIMColumnSlotOwnerOptions } from '../../column/types/TOIMColumnSlotOwnerOptions';
 import type { IOIMSlotReleasePolicy } from '../../collector/interfaces/IOIMSlotReleasePolicy';
 import type { OIMPushColumnSlotOwner } from '../../column/OIMPushColumnSlotOwner';
 import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
@@ -15,8 +17,9 @@ export type TOIMBucketMemoComputedServiceOptions<TKey extends NonNullable<unknow
         TKey, TOIMBucketSlot<TSlots, TKey>, TBucketStore, OIMBucketContentService<TBucketMemberSlot, TSlots>,
         string, TOIMColumnSlot, OIMPushColumnSlotOwner, readonly TBucketMemberSlot[]
     >;
-    computedSlotStoreService: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TBucketMemberSlot[], TKey>, TComputedStore>;
-    columnSlotStoreService: IOIMSlotStoreService<string, TOIMComputedColumnSlot>;
+    slotStoreService: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TBucketMemberSlot[], TKey>, TComputedStore>;
+    columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMComputedColumnSlot, string>;
+    slotSubscriptionListener?: IOIMSlotSubscriptionListener | undefined;
     slotReleasePolicy: IOIMSlotReleasePolicy;
     storeSlotListener: IOIMStoreSlotListener;
 };

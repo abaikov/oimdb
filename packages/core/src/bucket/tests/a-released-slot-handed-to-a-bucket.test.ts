@@ -57,7 +57,7 @@ describe('a released slot handed to a bucket', () => {
         const deck = decksService.holdSlotByKey(decks, 'd');
 
         expect(() => {
-            const bucketSlot = decksService.findSlotByKey(decks, 'd');
+            const bucketSlot = decksService.peekSlotByKey(decks, 'd');
             if (bucketSlot !== undefined) decksService.slotContentService.addBucketMemberSlot(bucketSlot, ace);
         }).toThrow(/released/);
 

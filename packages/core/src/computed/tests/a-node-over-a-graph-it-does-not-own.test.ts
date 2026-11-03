@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import type { TOIMComputedSources } from '../types/TOIMComputedSources';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -12,7 +12,7 @@ type TRow = { id: string; n: number };
 const rowsOn = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
 
 const numberComputedOn = (db: OIMDB, derive: () => number, createSources: () => Partial<TOIMComputedSources>) => {
-    const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+    const computedService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero });
     const computed = computedService.createStoreSlot(db, derive, createSources);
     const computedReads = {
         getSingleSlot: (storeSlot: typeof computed) => computedService.getSingleSlot(storeSlot),
@@ -46,7 +46,7 @@ describe('a node over a graph it does not own', () => {
         let ran = 0;
         const node = effectService.createEffect(db, () => { ran++; }, [], [deepService.getSingleSlot(deep)]);
 
-        rowsService.slotContentService.updateEntity(rowsService.findSlotByKey(rows, 'r1')!, { n: 2 });
+        rowsService.slotContentService.updateEntity(rowsService.peekSlotByKey(rows, 'r1')!, { n: 2 });
         db.flush();
 
         // Built at level 1 over a level-2 dependency, this was 0: `deep` ran and
@@ -93,8 +93,8 @@ describe('a node over a graph it does not own', () => {
 
         // The tick is written FIRST, so the node is listed by a root that is not
         // the derivation's.
-        ticksService.slotContentService.updateEntity(ticksService.findSlotByKey(ticks, 't1')!, { n: 1 });
-        rowsService.slotContentService.updateEntity(rowsService.findSlotByKey(rows, 'r1')!, { n: 5 });
+        ticksService.slotContentService.updateEntity(ticksService.peekSlotByKey(ticks, 't1')!, { n: 1 });
+        rowsService.slotContentService.updateEntity(rowsService.peekSlotByKey(rows, 'r1')!, { n: 5 });
         db.flush();
 
         expect(seen).toEqual([10]);

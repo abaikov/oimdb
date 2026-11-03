@@ -4,11 +4,11 @@ import { createOIMComputedService } from '../../computed/createOIMComputedServic
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMComputedSlot } from '../../computed/types/TOIMComputedSlot';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
-import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { isOIMSameValueZero } from '../../slot/utils/isOIMSameValueZero';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
@@ -26,7 +26,7 @@ type TRowsService = ReturnType<typeof rowsOf>['rowsService'];
 type TRowStore = ReturnType<typeof rowsOf>['rows'];
 
 const updateEntityByKey = (rowsService: TRowsService, rows: TRowStore, key: string, patch: Partial<TRow>): void => {
-    const slot = rowsService.findSlotByKey(rows, key);
+    const slot = rowsService.peekSlotByKey(rows, key);
     if (slot !== undefined) rowsService.slotContentService.updateEntity(slot, patch);
 };
 
@@ -172,7 +172,7 @@ describe('an effect a released source refuses part-way', () => {
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
         const gone = rowsService.holdSlotByKey(rows, 'ghost');
         gone.owner.unholdSlot(gone);
-        expect(oimIsSlotReleased(gone)).toBe(true);
+        expect(isOIMSlotReleased(gone)).toBe(true);
 
         let runCount = 0;
         expect(() => effectService.createEffect(db, () => { runCount++; }, [slot, gone]))
@@ -192,7 +192,7 @@ describe('an effect a released source refuses part-way', () => {
     it('leaves no edge on a derivation it had already taken', () => {
         const { db, rowsService, rows } = createFixture();
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
-        const doubledService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
+        const doubledService = createOIMSingleComputedService<number>({ sameValueGuard: isOIMSameValueZero, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
         const doubled = doubledService.createStoreSlot(
             db,
             () => (slot.entity?.n ?? 0) * 2,
@@ -200,16 +200,16 @@ describe('an effect a released source refuses part-way', () => {
         );
         const doubledSlot = doubledService.holdSingleSlot(doubled);
         const derivationsService = createOIMComputedService<TOIMStoreKey, number>({
-            computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, TOIMStoreKey>>(),
+            slotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, TOIMStoreKey>>(),
             columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
             createSources: () => ({}),
             derive: () => 0,
-            sameValueGuard: oimSameValueZeroGuard,
+            sameValueGuard: isOIMSameValueZero,
         });
         const derivations = derivationsService.createStoreSlot(db);
         const gone = derivationsService.holdSlotByKey(derivations, 'gone');
         gone.owner.unholdSlot(gone);
-        expect(oimIsSlotReleased(gone)).toBe(true);
+        expect(isOIMSlotReleased(gone)).toBe(true);
 
         let ran = 0;
         expect(() => effectService.createEffect(db, () => { ran++; }, [], [doubledSlot, gone]))

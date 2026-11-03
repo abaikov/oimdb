@@ -5,7 +5,7 @@ import {
     OIMDB,
     OIMSlotMapStoreService,
     createOIMComputedService,
-    oimSameValueZeroGuard,
+    isOIMSameValueZero,
 } from '../../../core/src/index';
 import type { TOIMComputedColumnSlot, TOIMComputedSlot, TOIMSlot } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
@@ -79,8 +79,8 @@ const memoPair = (bodyName: string, body: TBody, readsPerWrite: number, caveat: 
         const lists: TListRoot[] = [];
         for (let i = 0; i < LISTS; i++) lists.push(makeList(i));
         const memoComputedService = createOIMComputedService<number, number>({
-            computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
-            sameValueGuard: oimSameValueZeroGuard,
+            slotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
+            sameValueGuard: isOIMSameValueZero,
             columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
         });
         const memoComputedStoreSlot = memoComputedService.createStoreSlot(

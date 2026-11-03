@@ -1,7 +1,7 @@
 import {
     OIMDB, OIMEffectService, OIMSetBucketContentService, createOIMSlotCollectionIndexService, createOIMEntityContentService,
-    createOIMSlotCollectionService, oimIsSlotEmpty, OIMSlotAtUnholdReleasePolicy, OIMSlotCollectionBucketService,
-    createOIMEntitySlotCollectionStoreAggregate, oimIsSlotReleased,
+    createOIMSlotCollectionService, isOIMSlotEmpty, OIMSlotAtUnholdReleasePolicy, OIMSlotCollectionBucketService,
+    createOIMEntitySlotCollectionStoreAggregate, isOIMSlotReleased,
 } from '@oimdb/core';
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 
@@ -77,7 +77,7 @@ describe('what an entity collection reads in the order it was filled', () => {
         const firstBucketSlot = collectionBucketService.getBucketSlot(cards.storeSlot);
         expect(collectionBucketService.getBucketSlot(cards.storeSlot)).toBe(firstBucketSlot);
         db.flush();
-        expect(oimIsSlotReleased(firstBucketSlot)).toBe(true);
+        expect(isOIMSlotReleased(firstBucketSlot)).toBe(true);
         cards.writeSlotContentByKey('b', { id: 'b', title: 'Two' });
         const nextBucketSlot = collectionBucketService.getBucketSlot(cards.storeSlot);
         expect(nextBucketSlot).not.toBe(firstBucketSlot);
@@ -93,7 +93,7 @@ describe('what an entity collection reads in the order it was filled', () => {
         db.flush();
         expect(cardsBucketSlot.getBucketMemberSlotCount()).toBe(1);
         ace.unholdSlot();
-        expect(oimIsSlotReleased(ace)).toBe(true);
+        expect(isOIMSlotReleased(ace)).toBe(true);
         expect(cardsBucketSlot.getBucketMemberSlotCount()).toBe(0);
         cardsBucketSlot.unholdSlot();
     });
@@ -108,7 +108,7 @@ describe('what an entity collection reads in the order it was filled', () => {
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => { shown.push(cards.getEntities().map(card => card.id)); });
         ace.unholdSlot();
         db.flush();
-        expect(oimIsSlotReleased(ace)).toBe(false);
+        expect(isOIMSlotReleased(ace)).toBe(false);
         expect(shown).toEqual([['a']]);
     });
 
@@ -128,7 +128,7 @@ describe('what an entity collection reads in the order it was filled', () => {
         db.flush();
         isAceShown.updateEntity({ title: 'no' });
         expect(() => db.flush()).not.toThrow();
-        expect(oimIsSlotReleased(ace)).toBe(true);
+        expect(isOIMSlotReleased(ace)).toBe(true);
         expect(cardsBucketSlot.getBucketMemberSlotCount()).toBe(1);
         cardsBucketSlot.unholdSlot();
         isAceShown.unholdSlot();
@@ -150,7 +150,7 @@ describe('what an entity collection reads in the order it was filled', () => {
         const db = new OIMDB();
         const cards = createOIMEntitySlotCollectionStoreAggregate<TCard>(db);
         cards.writeSlotContentByKey('a', { id: 'a', title: 'Ace' });
-        expect(oimIsSlotEmpty(collectionBucketService.getBucketSlot(cards.storeSlot))).toBe(false);
+        expect(isOIMSlotEmpty(collectionBucketService.getBucketSlot(cards.storeSlot))).toBe(false);
     });
 
     it('an index read inside an effect wakes it when a member is edited', () => {

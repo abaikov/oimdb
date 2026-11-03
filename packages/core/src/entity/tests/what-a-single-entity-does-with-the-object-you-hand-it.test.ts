@@ -1,8 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMInPlaceEntityWriter } from '../createOIMInPlaceEntityWriter';
-import { oimInsertEntityWithCopy } from '../utils/oimInsertEntityWithCopy';
-import { oimInsertEntityWithSanitizedCopy } from '../utils/oimInsertEntityWithSanitizedCopy';
+import { insertOIMEntityWithCopy } from '../utils/insertOIMEntityWithCopy';
+import { insertOIMEntityWithSanitizedCopy } from '../utils/insertOIMEntityWithSanitizedCopy';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
@@ -54,11 +54,11 @@ describe('the object a caller hands a single entity, by default', () => {
     });
 });
 
-describe('the object a caller hands a single entity built with oimInsertEntityWithCopy', () => {
+describe('the object a caller hands a single entity built with insertOIMEntityWithCopy', () => {
     it('is copied, so mutating it afterwards changes nothing stored', () => {
         const db = new OIMDB();
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithCopy }) }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, mine);
 
@@ -73,7 +73,7 @@ describe('the object a caller hands a single entity built with oimInsertEntityWi
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithCopy }) }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, mine);
 
@@ -90,11 +90,11 @@ describe('the object a caller hands a single entity built with oimInsertEntityWi
     });
 });
 
-describe('the object a caller hands a single entity built with oimInsertEntityWithSanitizedCopy', () => {
+describe('the object a caller hands a single entity built with insertOIMEntityWithSanitizedCopy', () => {
     it('is filed without its own __proto__ key, exactly as a collection files one', () => {
         const db = new OIMDB();
         const payload = JSON.parse('{"theme":"dark","sidebar":true,"__proto__":{"polluted":true}}') as TSettings;
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithSanitizedCopy }) }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: insertOIMEntityWithSanitizedCopy }) }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, payload);
 

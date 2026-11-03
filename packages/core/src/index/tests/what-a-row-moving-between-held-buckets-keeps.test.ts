@@ -1,7 +1,7 @@
 import { OIMDefaults } from '../../index';
 import { OIMDB, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService } from '../../index';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../../column/types/TOIMColumnName';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
@@ -16,7 +16,7 @@ const createFixture = () => {
     const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService<
-        TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
+        TCard, TOIMStoreKey, readonly TOIMColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
         OIMSetBucketContentService<TCardSlot, string>
     >({ defaults,

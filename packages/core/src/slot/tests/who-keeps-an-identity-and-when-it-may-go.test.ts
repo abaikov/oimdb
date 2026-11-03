@@ -3,8 +3,8 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { isOIMSlotEmpty } from '../utils/isOIMSlotEmpty';
+import { isOIMSlotReleased } from '../utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
@@ -74,14 +74,14 @@ describe('who keeps an identity, and when it may go', () => {
         expect(rowsService.getSlotCount(rows)).toBe(1);
 
         db.flush();
-        expect(oimIsSlotReleased(asked)).toBe(true);
+        expect(isOIMSlotReleased(asked)).toBe(true);
         expect(rowsService.getSlotCount(rows)).toBe(0);
 
         const reserved = reserve(rowsService, rows, 'ghost');
 
         expect(rowsService.getSlotCount(rows)).toBe(1);
         expect(rowsService.getSlotByKey(rows, 'ghost')).toBe(reserved);
-        expect(oimIsSlotEmpty(reserved)).toBe(true);
+        expect(isOIMSlotEmpty(reserved)).toBe(true);
 
         reserved.owner.unholdSlot(reserved);
         // And the give-back is the other half of the same sentence: the hold was
@@ -103,7 +103,7 @@ describe('who keeps an identity, and when it may go', () => {
         OIMEffectService.INSTANCE.disposeEffect(effect);
 
         expect(rowsService.getSlotCount(rows)).toBe(0);
-        expect(oimIsSlotReleased(reserved)).toBe(true);
+        expect(isOIMSlotReleased(reserved)).toBe(true);
     });
 
     it('an identity another effect still reads is not let go of when one of them goes', () => {

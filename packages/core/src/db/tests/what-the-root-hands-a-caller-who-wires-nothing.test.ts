@@ -3,7 +3,7 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMChannelService } from '../../channel/OIMChannelService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 
@@ -38,7 +38,7 @@ describe('the root a caller gets with no wiring of their own', () => {
         db.flush();
 
         expect(runs).toBe(1);
-        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
+        expect(cardsService.peekSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
         card.owner.unholdSlot(card);
     });
 
@@ -54,8 +54,8 @@ describe('the root a caller gets with no wiring of their own', () => {
         db.flush();
 
         expect(cardsService.getSlotCount(cards)).toBe(0);
-        expect(oimIsSlotReleased(card)).toBe(true);
-        expect(oimIsSlotReleased(deck)).toBe(true);
+        expect(isOIMSlotReleased(card)).toBe(true);
+        expect(isOIMSlotReleased(deck)).toBe(true);
     });
 
     it('sweeps what a body read while the frame was running', () => {

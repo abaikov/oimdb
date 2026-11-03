@@ -1,8 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotAfterWriteReleasePolicy } from '../../collector/OIMSlotAfterWriteReleasePolicy';
-import type { TOIMEntityColumnName } from '../types/TOIMEntityColumnName';
-import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
+import type { TOIMColumnName } from '../../column/types/TOIMColumnName';
+import { isOIMSlotEmpty } from '../../slot/utils/isOIMSlotEmpty';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { entitySlotOf } from '../../../tests/support/entitySlotOf';
@@ -19,9 +19,9 @@ function createFixture() {
     cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
     db.flush();
     const card = cardsService.getSlotByKey(cards, 'c1');
-    const watch = (name: TOIMEntityColumnName<TCard>) => {
+    const watch = (name: TOIMColumnName<TCard>) => {
         let runCount = 0;
-        const effect = effectService.createEffect(db, () => { runCount++; }, [cardsService.columnSlotService.holdColumn(card, name)]);
+        const effect = effectService.createEffect(db, () => { runCount++; }, [cardsService.columnSlotService.holdColumnSlot(card, name)]);
         db.flush();
         return { seen: () => runCount, since: runCount, effect };
     };
@@ -129,6 +129,6 @@ describe('what a hand mutation has to say to wake anyone', () => {
         cardsService.slotContentService.markEntityChanged(card);
         db.flush();
 
-        expect(oimIsSlotEmpty(card)).toBe(true);
+        expect(isOIMSlotEmpty(card)).toBe(true);
     });
 });

@@ -54,7 +54,7 @@ const createFixture = (indexKeysService: IOIMIndexKeysService) => {
         return { service, store: service.createIndexStoreSlot(cards) };
     };
     const updateEntityByKey = (key: string, patch: Partial<TCard>): void => {
-        const slot = cardsService.findSlotByKey(cards, key);
+        const slot = cardsService.peekSlotByKey(cards, key);
         if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
     };
     return { db, cardsService, cards, entitySlotStoreService, bucketSlotStoreService, makeIndex, updateEntityByKey };

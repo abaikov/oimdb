@@ -1,4 +1,4 @@
-import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotAfterIdleReleasePolicy, mintOIMAfterIdleSlotReleaseWheel, isOIMSlotReleased } from '../../index';
 import type { TOIMEntitySlot } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -21,7 +21,7 @@ const createFixture =(after: number) => {
     return {
         db, cardsService, cards, byDeckService, byDeck,
         flushAfterIdle: (): void => {
-            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+            mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
         },
         at: (v: number): void => { ms = v; },
     };
@@ -60,10 +60,10 @@ describe('an index nothing subscribes to, once its window has run out', () => {
         // per row it named, and each row — whose own window ran out while a stale
         // index held it, because that is not somebody using the row — is taken by
         // the ordinary door the instant that reference departs.
-        expect(oimIsSlotReleased(heldSlot)).toBe(true);
+        expect(isOIMSlotReleased(heldSlot)).toBe(true);
         expect(fixture.byDeckService.getSlotCount(fixture.byDeck)).toBe(0);
-        expect(oimIsSlotReleased(rows[0])).toBe(true);
-        expect(oimIsSlotReleased(rows[1])).toBe(true);
+        expect(isOIMSlotReleased(rows[0])).toBe(true);
+        expect(isOIMSlotReleased(rows[1])).toBe(true);
         expect(fixture.cardsService.getSlotCount(fixture.cards)).toBe(0);
     });
 });

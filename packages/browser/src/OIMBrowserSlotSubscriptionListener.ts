@@ -1,5 +1,5 @@
 import type { IOIMSlotSubscriptionListener, OIMEntityContentService, TOIMDisposer, TOIMEntityContentSlot, TOIMSlot } from '@oimdb/core';
-import { OIMChannelService, oimIsSlotReleased } from '@oimdb/core';
+import { OIMChannelService, isOIMSlotReleased } from '@oimdb/core';
 
 export abstract class OIMBrowserSlotSubscriptionListener<TEntity extends object> implements IOIMSlotSubscriptionListener {
     private readonly entityContentService: OIMEntityContentService<TEntity>;
@@ -35,7 +35,7 @@ export abstract class OIMBrowserSlotSubscriptionListener<TEntity extends object>
         }
         const afterFlushDisposer = OIMChannelService.INSTANCE.subscribeAfterEachFlush(channelSlot, () => {
             afterFlushDisposer();
-            if (oimIsSlotReleased(entitySlot)) return;
+            if (isOIMSlotReleased(entitySlot)) return;
             this.entityContentService.writeSlotContent(entitySlot, this.readCurrentEntity());
         });
     }

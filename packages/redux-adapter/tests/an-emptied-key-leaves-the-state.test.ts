@@ -137,7 +137,7 @@ describe('OIMReduxAdapter.createKeyedIndexReducer', () => {
             keyedIndex,
             undefined,
             ki => {
-                const bucket = ki.bucketService.findSlotByKey(ki.bucketStoreSlot, 'eng');
+                const bucket = ki.bucketService.peekSlotByKey(ki.bucketStoreSlot, 'eng');
                 if (bucket === undefined) return { count: 0 };
                 let count = 0;
                 for (const slot of ki.bucketService.slotContentService.getBucketMemberSlots(bucket)) if (slot.entity !== undefined) count++;

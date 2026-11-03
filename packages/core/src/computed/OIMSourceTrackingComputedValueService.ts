@@ -7,11 +7,11 @@ import type { TOIMEditable } from '../slot/types/TOIMEditable';
 import type { OIMSourceTracker } from './OIMSourceTracker';
 import { OIMComputedValueService } from './OIMComputedValueService';
 import { OIMComputedSourcesService } from './OIMComputedSourcesService';
-import { oimRefreshComputedSlot } from './utils/oimRefreshComputedSlot';
-import { oimAssertSlotNotReleased } from '../slot/utils/oimAssertSlotNotReleased';
-import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
-import { oimHoldSlots } from '../slot/utils/oimHoldSlots';
-import { oimSwapActiveSourceTracker } from './utils/oimSwapActiveSourceTracker';
+import { refreshOIMComputedSlot } from './utils/refreshOIMComputedSlot';
+import { assertOIMSlotNotReleased } from '../slot/utils/assertOIMSlotNotReleased';
+import { isOIMSlotReleased } from '../slot/utils/isOIMSlotReleased';
+import { holdOIMSlots } from '../slot/utils/holdOIMSlots';
+import { swapOIMActiveSourceTracker } from './utils/swapOIMActiveSourceTracker';
 
 export class OIMSourceTrackingComputedValueService<
     TValue, TComputedSlot extends TOIMSourceTrackingComputedContentSlot<TValue> = TOIMSourceTrackingComputedContentSlot<TValue>,
@@ -28,11 +28,11 @@ export class OIMSourceTrackingComputedValueService<
     }
 
     public override getValueForSlot(computedSlot: TComputedSlot): TValue {
-        oimAssertSlotNotReleased(computedSlot);
+        assertOIMSlotNotReleased(computedSlot);
         const sourceTracker = computedSlot.sourceTracker;
-        oimRefreshComputedSlot(computedSlot, this.deriveTrackingSources, this.sameValueGuard, this.releaseValue, computedSlot.storeSlot.channelSlot.clock);
+        refreshOIMComputedSlot(computedSlot, this.deriveTrackingSources, this.sameValueGuard, this.releaseValue, computedSlot.storeSlot.channelSlot.clock);
         if (sourceTracker.trackReplacedRootSlots()) {
-            (computedSlot as TOIMEditable<TComputedSlot>).allRootSlots = sourceTracker.getTrackedAllRootSlots().slice();
+            (computedSlot as TOIMEditable<TComputedSlot>).rootSlots = sourceTracker.getTrackedRootSlots().slice();
             sourceTracker.commitTrackedSources();
         }
         return (computedSlot as unknown as OIMComputedSlot<TValue>).content;
@@ -41,27 +41,27 @@ export class OIMSourceTrackingComputedValueService<
     private readonly deriveTrackingSources = (computedSlot: TComputedSlot): TValue => {
         const sourceTracker = computedSlot.sourceTracker;
         sourceTracker.openSourceTracking();
-        const outerSourceTracker = oimSwapActiveSourceTracker(sourceTracker);
+        const outerSourceTracker = swapOIMActiveSourceTracker(sourceTracker);
         let value: TValue;
         try {
             value = this.sourceTrackingDerive(computedSlot);
         } finally {
-            oimSwapActiveSourceTracker(outerSourceTracker);
+            swapOIMActiveSourceTracker(outerSourceTracker);
         }
-        if (sourceTracker.closeSourceTracking() && !oimIsSlotReleased(computedSlot)) this.replaceSources(computedSlot, sourceTracker);
+        if (sourceTracker.closeSourceTracking() && !isOIMSlotReleased(computedSlot)) this.replaceSources(computedSlot, sourceTracker);
         return value;
     };
 
     private replaceSources(computedSlot: TComputedSlot, sourceTracker: OIMSourceTracker): void {
         const trackedSourceSlots = sourceTracker.getTrackedSourceSlots().slice();
         const trackedSourceComputeds = sourceTracker.getTrackedSourceComputeds().slice();
-        oimHoldSlots(trackedSourceSlots);
-        oimHoldSlots(trackedSourceComputeds);
+        holdOIMSlots(trackedSourceSlots);
+        holdOIMSlots(trackedSourceComputeds);
         OIMComputedSourcesService.INSTANCE.unholdSources(computedSlot);
         const editableComputedSlot = computedSlot as TOIMEditable<TComputedSlot>;
         editableComputedSlot.sourceSlots = trackedSourceSlots;
         editableComputedSlot.sourceComputeds = trackedSourceComputeds;
-        editableComputedSlot.allRootSlots = sourceTracker.getTrackedAllRootSlots().slice();
+        editableComputedSlot.rootSlots = sourceTracker.getTrackedRootSlots().slice();
         sourceTracker.commitTrackedSources();
     }
 }

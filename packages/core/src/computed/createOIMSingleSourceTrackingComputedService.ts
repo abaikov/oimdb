@@ -2,7 +2,7 @@ import type { TOIMSourceTrackingComputedContentSlot } from './types/TOIMSourceTr
 import type { TOIMSourceTrackingComputedDerive } from './types/TOIMSourceTrackingComputedDerive';
 import { OIMSingleSourceTrackingComputedService } from './OIMSingleSourceTrackingComputedService';
 import type { TOIMComputedServiceFactoryOptions } from './types/TOIMComputedServiceFactoryOptions';
-import { oimResolveComputedDerivationOptions } from './utils/oimResolveComputedDerivationOptions';
+import { resolveOIMComputedDerivationOptions } from './utils/resolveOIMComputedDerivationOptions';
 
 export function createOIMSingleSourceTrackingComputedService<TValue>(
     options: TOIMComputedServiceFactoryOptions<TValue> & {
@@ -10,7 +10,7 @@ export function createOIMSingleSourceTrackingComputedService<TValue>(
     },
 ): OIMSingleSourceTrackingComputedService<TValue> {
     return new OIMSingleSourceTrackingComputedService<TValue>({
-        ...oimResolveComputedDerivationOptions(options),
+        ...resolveOIMComputedDerivationOptions(options),
         derive: options.derive,
     });
 }

@@ -94,7 +94,7 @@ const relative = (files: Set<string>): string[] => [...files].map(file => file.s
 /** The ordered service and the modules only it reaches. */
 const ORDERED = [
     'bucket/OIMPositionalArrayBucketContentService.ts',
-    'bucket/array/utils/oimAssertWholePosition.ts',
+    'bucket/array/utils/assertOIMWholePosition.ts',
     'bucket/array/OIMBucketMemberSlotsArrayService.ts',
 ];
 
@@ -183,7 +183,7 @@ describe('what an import retains', () => {
      * `packages/bench/measurements/2026-08-21-bundle/ordered-list/`.
      */
     it.each([
-        ['bucket/commands/utils/oimOrderedListCommandsOfTransition.ts', 'the ordered-list diff — +655 B gzipped, 5.3% of the package'],
+        ['bucket/commands/utils/getOIMOrderedListCommands.ts', 'the ordered-list diff — +655 B gzipped, 5.3% of the package'],
     ])('the runtime alone does not retain %s (%s)', module => {
         expect(retains(RUNTIME, module)).toBe(false);
     });
@@ -197,11 +197,11 @@ describe('what an import retains', () => {
             .toEqual([
                 'channel/OIMChannelService.ts',
                 'channel/constants/OIM_REVISIONS_PER_EPOCH.ts',
-                'channel/utils/oimIsRevisionAfter.ts',
+                'channel/utils/isOIMRevisionAfter.ts',
                 'collector/OIMUnusedSlotCollectorService.ts',
                 'schedule/OIMFlushSchedulerService.ts',
                 'slot/constants/OIM_SLOT_FLAG_RELEASED.ts',
-                'slot/utils/oimUnholdSlotIfAlive.ts',
+                'slot/utils/unholdOIMSlotIfAlive.ts',
             ]);
     });
 
@@ -216,7 +216,7 @@ describe('what an import retains', () => {
         'bucket/OIMBucketCommands.ts',
         'bucket/OIMPositionalArrayBucketContentService.ts',
         'bucket/OIMSetBucketContentService.ts',
-        'bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
+        'bucket/commands/utils/getOIMOrderedListCommands.ts',
     ])('the root does not retain %s — a collection or bucket door is a module, not a method', module => {
         expect(retains(ROOT, module)).toBe(false);
     });
@@ -225,30 +225,31 @@ describe('what an import retains', () => {
         expect(relative(retainedBy(ROOT))).toEqual([
             ROOT,
             ...relative(retainedBy(RUNTIME)),
-            'channel/utils/oimIsAnySlotChangedAfter.ts',
+            'channel/utils/isOIMAnySlotChangedAfter.ts',
             'computed/OIMSourceList.ts',
             'computed/OIMSourceTracker.ts',
             'computed/constants/OIM_ACTIVE_SOURCE_TRACKER.ts',
             'computed/constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS.ts',
-            'computed/utils/oimGetAllRootSlots.ts',
-            'computed/utils/oimHasSourceChangedSinceLastRun.ts',
-            'computed/utils/oimMergeRootSlots.ts',
-            'computed/utils/oimRefreshSourceComputeds.ts',
-            'computed/utils/oimSwapActiveSourceTracker.ts',
+            'computed/utils/getOIMRootSlots.ts',
+            'computed/utils/hasOIMSourceChangedSinceLastRun.ts',
+            'computed/utils/mergeOIMRootSlots.ts',
+            'computed/utils/refreshOIMSourceComputeds.ts',
+            'computed/utils/swapOIMActiveSourceTracker.ts',
             'effect/OIMEffectService.ts',
+            'effect/utils/createOIMEffectDisposer.ts',
             'effect/constants/OIM_EFFECT_FLAG_DISPOSED.ts',
             'effect/constants/OIM_EFFECT_FLAG_RUN_SCHEDULED.ts',
             'effect/constants/OIM_EFFECT_FLAG_SOURCE_CHECK_OWED.ts',
-            'effect/utils/oimIsEffectDisposed.ts',
-            'slot/utils/oimIsSlotReleased.ts',
+            'effect/utils/isOIMEffectDisposed.ts',
+            'slot/utils/isOIMSlotReleased.ts',
             'channel/OIMChannelQueue.ts',
             'channel/utils/createOIMChannelSlot.ts',
             'collector/utils/createOIMCollectorSlot.ts',
             'collector/utils/createOIMUnusedSlotCollectorSlot.ts',
             'error/OIMLogAndContinueErrorPolicy.ts',
-            'schedule/constants/OIM_NOTHING_TO_DISPOSE.ts',
+            'schedule/constants/OIM_NOOP_DISPOSER.ts',
             'schedule/constants/OIM_TIMER_ON_TIMEOUT.ts',
-            'schedule/utils/oimTimerOfChannelScheduler.ts',
+            'schedule/utils/createOIMChannelSchedulerTimer.ts',
         ].sort());
     });
 

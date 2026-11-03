@@ -17,10 +17,10 @@ export class OIMDevBridgeStateSource implements IOIMDevStateSource {
             return Promise.reject(new Error(
                 `No browser tab connected to the OIMDB bridge.\n\n`
                 + `Live mode — add to your debug entry point:\n`
-                + `  import { oimDevRegistry } from '@oimdb/devtools';\n`
-                + `  oimDevRegistry.connect(); // connects to ws://localhost:${this.wsPort}\n`
+                + `  import { OIM_DEV_REGISTRY } from '@oimdb/devtools';\n`
+                + `  OIM_DEV_REGISTRY.connect(); // connects to ws://localhost:${this.wsPort}\n`
                 + `Then reload the page.\n\n`
-                + `Offline mode — point at a model module instead (it exports an "oimDevRegistry" with inspect()/dumpString()):\n`
+                + `Offline mode — point at a model module instead (it exports an "OIM_DEV_REGISTRY" with inspect()/dumpString()):\n`
                 + `  oimdb inspect --model ./path/to/model.js\n`
                 + `  OIMDB_MODEL_MODULE=./path/to/model.js npx @oimdb/mcp`,
             ));

@@ -16,7 +16,7 @@ function createFixture() {
     for (const id of ['a', 'b', 'c']) cardsService.writeSlotContentByKey(cards, id, { id, rank: 0, title: 't' });
     db.flush();
     const updateCard = (id: string, patch: Partial<TCard>): void => {
-        const cardSlot = cardsService.findSlotByKey(cards, id);
+        const cardSlot = cardsService.peekSlotByKey(cards, id);
         if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, patch);
     };
     return { db, effectService, cardsService, cards, updateCard };
@@ -40,7 +40,7 @@ const columnsOf = (
     cardsService: ReturnType<typeof createFixture>['cardsService'],
     slot: TOIMEntitySlot<TCard, TOIMStoreKey>,
     names: readonly (keyof TCard & string)[],
-): TOIMSlot[] => names.map((name) => cardsService.columnSlotService.getColumn(slot, name));
+): TOIMSlot[] => names.map((name) => cardsService.columnSlotService.getColumnSlot(slot, name));
 
 describe('one effect over many slots', () => {
     it('wakes once however many of its slots moved', () => {
@@ -119,7 +119,7 @@ describe('which columns moved in the frame being delivered', () => {
         const ran: string[] = [];
         for (const name of ['rank', 'title'] as const) {
             effectService.createEffect(
-                db, () => { ran.push(name); }, [cardsService.columnSlotService.getColumn(slot, name)]);
+                db, () => { ran.push(name); }, [cardsService.columnSlotService.getColumnSlot(slot, name)]);
         }
         updateCard('a', { rank: 1, title: 'x' });
         db.flush();
@@ -142,10 +142,10 @@ describe('which columns moved in the frame being delivered', () => {
         const moving = slotOf(cardsService, cards,'b');
 
         let stillRan = 0;
-        effectService.createEffect(db, () => { stillRan++; }, [cardsService.columnSlotService.getColumn(still, 'rank')]);
+        effectService.createEffect(db, () => { stillRan++; }, [cardsService.columnSlotService.getColumnSlot(still, 'rank')]);
 
         let movingRan = 0;
-        effectService.createEffect(db, () => { movingRan++; }, [cardsService.columnSlotService.getColumn(moving, 'rank')]);
+        effectService.createEffect(db, () => { movingRan++; }, [cardsService.columnSlotService.getColumnSlot(moving, 'rank')]);
 
         updateCard('b', { rank: 1 });
         db.flush();

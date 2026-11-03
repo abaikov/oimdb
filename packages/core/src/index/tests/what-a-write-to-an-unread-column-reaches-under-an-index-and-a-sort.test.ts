@@ -1,5 +1,5 @@
 import { OIMDB, OIMEffectService, OIMSetBucketContentService, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '../../index';
-import type { TOIMBucketSlotsSetStore, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey } from '../../index';
+import type { TOIMBucketSlotsSetStore, TOIMColumnName, TOIMEntitySlot, TOIMStoreKey } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -8,7 +8,7 @@ import { createOIMColumnGroup } from '../../column/utils/createOIMColumnGroup';
 type TRow = { id: string; group: string; rank: number; label: string; note: string };
 type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
 
-const rankAndLabel = createOIMColumnGroup<TOIMEntityColumnName<TRow>>(['rank', 'label']);
+const rankAndLabel = createOIMColumnGroup<TOIMColumnName<TRow>>(['rank', 'label']);
 
 const createFixture = () => {
     const db = new OIMDB();
@@ -33,7 +33,7 @@ const createFixture = () => {
     const order = ordersService.holdSlotByKey(orders, 'g1');
     effectService.createEffect(db, () => undefined, [], [order]);
     const slot = rowsService.getSlotByKey(rows, 'e4');
-    const groupSlot = rowsService.columnSlotService.holdColumnGroup(slot, rankAndLabel);
+    const groupSlot = rowsService.columnSlotService.holdColumnGroupSlot(slot, rankAndLabel);
     effectService.createEffect(db, () => undefined, [groupSlot]);
     db.flush();
     const listenerCalls: string[] = [];

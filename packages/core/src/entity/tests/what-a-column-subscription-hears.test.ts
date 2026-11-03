@@ -4,7 +4,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
@@ -26,7 +26,7 @@ describe('a column subscription is woken by its own field and by no other', () =
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
         let runs = 0;
-        OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [cardsService.columnSlotService.getColumn(slot, 'rank')]);
+        OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [cardsService.columnSlotService.getColumnSlot(slot, 'rank')]);
         db.flush();
         const born = runs;
 
@@ -41,7 +41,7 @@ describe('a column subscription is woken by its own field and by no other', () =
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
         let runs = 0;
-        OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [cardsService.columnSlotService.getColumn(slot, 'rank')]);
+        OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [cardsService.columnSlotService.getColumnSlot(slot, 'rank')]);
         db.flush();
         const born = runs;
 
@@ -63,10 +63,10 @@ describe('the column identity is minted by the subscription and goes with it', (
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        const rank = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'rank')]);
+        const rank = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'rank')]);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(1);
 
-        const title = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+        const title = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(2);
 
         OIMEffectService.INSTANCE.disposeEffect(rank);
@@ -83,8 +83,8 @@ describe('the column identity is minted by the subscription and goes with it', (
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'rank')]);
-        OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'rank')]);
+        OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'rank')]);
+        OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'rank')]);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(1);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('rank')?.effects?.length).toBe(2);
     });
@@ -105,13 +105,13 @@ describe('a column identity is given back only by the thing that is still filed'
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        const first = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+        const first = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         OIMEffectService.INSTANCE.disposeEffect(first);
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(slot.columnSlotStore).toBeUndefined();
 
         let runs = 0;
-        OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+        OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         db.flush();
         const born = runs;
         const live = (slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title');
@@ -140,9 +140,9 @@ describe('a column identity is given back only by the thing that is still filed'
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        const title = cardsService.columnSlotService.holdColumn(slot, 'title');
+        const title = cardsService.columnSlotService.holdColumnSlot(slot, 'title');
 
-        const effect = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumn(slot, 'title')]);
+        const effect = OIMEffectService.INSTANCE.createEffect(db, () => { /* nothing */ }, [cardsService.columnSlotService.getColumnSlot(slot, 'title')]);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title')).toBe(title);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
@@ -150,10 +150,10 @@ describe('a column identity is given back only by the thing that is still filed'
 
         expect(title.holdCount).toBe(1);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title')).toBe(title);
-        expect(cardsService.columnSlotService.getColumn(slot, 'title')).toBe(title);
+        expect(cardsService.columnSlotService.getColumnSlot(slot, 'title')).toBe(title);
 
         // The other direction, or the term would be a leak with a nice name.
-        cardsService.columnSlotService.unholdColumn(title);
+        cardsService.columnSlotService.unholdColumnSlot(title);
         expect(slot.columnSlotStore).toBeUndefined();
     });
 
@@ -164,7 +164,7 @@ describe('a column identity is given back only by the thing that is still filed'
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        const title = cardsService.columnSlotService.holdColumn(slot, 'title');
+        const title = cardsService.columnSlotService.holdColumnSlot(slot, 'title');
         // Nobody is listening: the hold is the only reference in this sequence.
         expect(title.effects).toBeUndefined();
 
@@ -172,9 +172,9 @@ describe('a column identity is given back only by the thing that is still filed'
 
         expect(cardsService.getSlotByKey(cards,'a')).toBe(slot);
 
-        cardsService.columnSlotService.unholdColumn(title);
+        cardsService.columnSlotService.unholdColumnSlot(title);
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
-        expect(oimIsSlotReleased(slot)).toBe(true);
+        expect(isOIMSlotReleased(slot)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 });

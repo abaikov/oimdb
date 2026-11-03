@@ -6,7 +6,7 @@ import type { OIMChannelQueue } from '../channel/OIMChannelQueue';
 import type { TOIMBucketContentServiceOptions } from './types/TOIMBucketContentServiceOptions';
 import { OIMBucketContentService } from './OIMBucketContentService';
 import { OIMBucketMemberSlotsSetService } from './set/OIMBucketMemberSlotsSetService';
-import { oimGetBucketSlotsSetStore } from './utils/oimGetBucketSlotsSetStore';
+import { peekOIMBucketSlotsSetStore } from './utils/peekOIMBucketSlotsSetStore';
 
 export class OIMSetBucketContentService<
     TBucketMemberSlot extends TOIMSlot = TOIMSlot, TKey extends NonNullable<unknown> = TOIMStoreKey,
@@ -22,43 +22,43 @@ export class OIMSetBucketContentService<
     }
 
     protected addSlot(bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, bucketMemberSlot: TBucketMemberSlot): boolean {
-        return this.bucketMemberSlotsSetService.addBucketMemberSlot(oimGetBucketSlotsSetStore(bucketSlot), bucketMemberSlot);
+        return this.bucketMemberSlotsSetService.addBucketMemberSlot(peekOIMBucketSlotsSetStore(bucketSlot), bucketMemberSlot);
     }
 
     protected removeSlot(bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, bucketMemberSlot: TBucketMemberSlot): number {
-        return this.bucketMemberSlotsSetService.removeBucketMemberSlot(oimGetBucketSlotsSetStore(bucketSlot), bucketMemberSlot);
+        return this.bucketMemberSlotsSetService.removeBucketMemberSlot(peekOIMBucketSlotsSetStore(bucketSlot), bucketMemberSlot);
     }
 
     protected removeSlots(
         bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, bucketMemberSlots: readonly TBucketMemberSlot[],
         removedChannelQueue: OIMChannelQueue<TOIMSlot>, removedAtChannelQueue: OIMChannelQueue<number>,
     ): void {
-        this.bucketMemberSlotsSetService.removeBucketMemberSlots(oimGetBucketSlotsSetStore(bucketSlot), bucketMemberSlots, removedChannelQueue, removedAtChannelQueue);
+        this.bucketMemberSlotsSetService.removeBucketMemberSlots(peekOIMBucketSlotsSetStore(bucketSlot), bucketMemberSlots, removedChannelQueue, removedAtChannelQueue);
     }
 
     protected reconcileSlots(
         bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, bucketMemberSlots: readonly TBucketMemberSlot[],
         arrivedChannelQueue: OIMChannelQueue<TOIMSlot>, departedChannelQueue: OIMChannelQueue<TOIMSlot>,
     ): void {
-        this.bucketMemberSlotsSetService.reconcileBucketMemberSlots(oimGetBucketSlotsSetStore(bucketSlot), bucketMemberSlots, arrivedChannelQueue, departedChannelQueue);
+        this.bucketMemberSlotsSetService.reconcileBucketMemberSlots(peekOIMBucketSlotsSetStore(bucketSlot), bucketMemberSlots, arrivedChannelQueue, departedChannelQueue);
     }
 
     protected drainSlots(bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, departedChannelQueue: OIMChannelQueue<TOIMSlot>): void {
-        this.bucketMemberSlotsSetService.drainBucketMemberSlots(oimGetBucketSlotsSetStore(bucketSlot), departedChannelQueue);
+        this.bucketMemberSlotsSetService.drainBucketMemberSlots(peekOIMBucketSlotsSetStore(bucketSlot), departedChannelQueue);
     }
 
     /** @deprecated Use `slot.hasBucketMemberSlot(…)`; removed in 5.0. */
     public hasBucketMemberSlot(bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>, bucketMemberSlot: TBucketMemberSlot): boolean {
-        return this.bucketMemberSlotsSetService.hasBucketMemberSlot(oimGetBucketSlotsSetStore(bucketSlot), bucketMemberSlot);
+        return this.bucketMemberSlotsSetService.hasBucketMemberSlot(peekOIMBucketSlotsSetStore(bucketSlot), bucketMemberSlot);
     }
 
     /** @deprecated Use `slot.getBucketMemberSlotCount(…)`; removed in 5.0. */
     public getBucketMemberSlotCount(bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>): number {
-        return this.bucketMemberSlotsSetService.getBucketMemberSlotCount(oimGetBucketSlotsSetStore(bucketSlot));
+        return this.bucketMemberSlotsSetService.getBucketMemberSlotCount(peekOIMBucketSlotsSetStore(bucketSlot));
     }
 
     /** @deprecated Use `slot.getBucketMemberSlots(…)`; removed in 5.0. */
     public getBucketMemberSlots(bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>): Iterable<TBucketMemberSlot> {
-        return this.bucketMemberSlotsSetService.getBucketMemberSlots(oimGetBucketSlotsSetStore(bucketSlot));
+        return this.bucketMemberSlotsSetService.getBucketMemberSlots(peekOIMBucketSlotsSetStore(bucketSlot));
     }
 }

@@ -9,8 +9,9 @@ import type { TOIMUnusedSlotCollectorSlot } from '../collector/types/TOIMUnusedS
 import { OIMUnusedSlotCollectorService } from '../collector/OIMUnusedSlotCollectorService';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
 import { OIM_ANY_COLUMN_KEY } from './constants/OIM_ANY_COLUMN_KEY';
-import { oimMarkSlotReleased } from '../slot/utils/oimMarkSlotReleased';
-import { oimColumnSlotStoreServiceOfColumnSlotOwnerOptions } from './utils/oimColumnSlotStoreServiceOfColumnSlotOwnerOptions';
+import { markOIMSlotReleased } from '../slot/utils/markOIMSlotReleased';
+import { getOIMColumnSlotStoreService } from './utils/getOIMColumnSlotStoreService';
+import { peekOIMSlotContentService } from '../slot/utils/peekOIMSlotContentService';
 
 export abstract class OIMColumnSlotOwner<
     TCarrierSlot extends TOIMSlot, TColumnSlot extends TOIMKeyedSlot<string>,
@@ -21,7 +22,7 @@ export abstract class OIMColumnSlotOwner<
 
     protected constructor(columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TColumnSlot>, slotSubscriptionListener: IOIMSlotSubscriptionListener | undefined) {
         super(slotSubscriptionListener);
-        this.columnSlotStoreService = oimColumnSlotStoreServiceOfColumnSlotOwnerOptions(columnSlotOwnerOptions);
+        this.columnSlotStoreService = getOIMColumnSlotStoreService(columnSlotOwnerOptions);
         const columnGroupsByKey = new Map<string, TOIMColumnGroup>();
         const columnGroups = columnSlotOwnerOptions.columnGroups ?? [];
         for (let i = 0; i < columnGroups.length; i++) columnGroupsByKey.set(columnGroups[i].key, columnGroups[i]);
@@ -32,38 +33,51 @@ export abstract class OIMColumnSlotOwner<
 
     protected abstract carrierSlotOf(columnSlot: TColumnSlot): TCarrierSlot;
 
+    public abstract trackSourceColumnSlot(columnSlot: TColumnSlot): void;
+
+    protected peekCarrierColumnValue(columnSlot: TColumnSlot): unknown {
+        const carrierSlot = this.carrierSlotOf(columnSlot);
+        const carrierContentService = peekOIMSlotContentService(carrierSlot);
+        const columnKey = columnSlot.key;
+        if (columnKey === OIM_ANY_COLUMN_KEY) return carrierContentService.peekAnyColumnValue(carrierSlot);
+        const columnGroup = this.columnGroupsByKey.get(columnKey);
+        return columnGroup === undefined
+            ? carrierContentService.peekColumnValue(carrierSlot, columnKey)
+            : carrierContentService.peekColumnGroupValue(carrierSlot, columnGroup.columnNames);
+    }
+
     public getColumnGroupSlot(
         carrierSlot: TCarrierSlot, columnGroup: TOIMColumnGroup, unusedSlotCollectorSlot: TOIMUnusedSlotCollectorSlot,
     ): TColumnSlot {
         this.assertColumnGroupDeclared(columnGroup);
-        return this.getColumn(carrierSlot, columnGroup.key, unusedSlotCollectorSlot);
+        return this.getColumnSlot(carrierSlot, columnGroup.key, unusedSlotCollectorSlot);
     }
 
-    public holdColumnGroup(carrierSlot: TCarrierSlot, columnGroup: TOIMColumnGroup): TColumnSlot {
+    public holdColumnGroupSlot(carrierSlot: TCarrierSlot, columnGroup: TOIMColumnGroup): TColumnSlot {
         this.assertColumnGroupDeclared(columnGroup);
-        return this.holdColumn(carrierSlot, columnGroup.key);
+        return this.holdColumnSlot(carrierSlot, columnGroup.key);
     }
 
-    public getAnyColumn(carrierSlot: TCarrierSlot, unusedSlotCollectorSlot: TOIMUnusedSlotCollectorSlot): TColumnSlot {
-        return this.getColumn(carrierSlot, OIM_ANY_COLUMN_KEY, unusedSlotCollectorSlot);
+    public getAnyColumnSlot(carrierSlot: TCarrierSlot, unusedSlotCollectorSlot: TOIMUnusedSlotCollectorSlot): TColumnSlot {
+        return this.getColumnSlot(carrierSlot, OIM_ANY_COLUMN_KEY, unusedSlotCollectorSlot);
     }
 
-    public holdAnyColumn(carrierSlot: TCarrierSlot): TColumnSlot {
-        return this.holdColumn(carrierSlot, OIM_ANY_COLUMN_KEY);
+    public holdAnyColumnSlot(carrierSlot: TCarrierSlot): TColumnSlot {
+        return this.holdColumnSlot(carrierSlot, OIM_ANY_COLUMN_KEY);
     }
 
-    public getColumn(
+    public getColumnSlot(
         carrierSlot: TCarrierSlot, key: string, unusedSlotCollectorSlot: TOIMUnusedSlotCollectorSlot,
     ): TColumnSlot {
-        const storedColumnSlot = this.getColumnIfFiled(carrierSlot, key);
+        const storedColumnSlot = this.peekFiledColumnSlot(carrierSlot, key);
         if (storedColumnSlot !== undefined) return storedColumnSlot;
         const columnSlot = this.mintColumnSlot(carrierSlot, key);
         OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(unusedSlotCollectorSlot, columnSlot);
         return columnSlot;
     }
 
-    public holdColumn(carrierSlot: TCarrierSlot, key: string): TColumnSlot {
-        const columnSlot = this.getColumnIfFiled(carrierSlot, key) ?? this.mintColumnSlot(carrierSlot, key);
+    public holdColumnSlot(carrierSlot: TCarrierSlot, key: string): TColumnSlot {
+        const columnSlot = this.peekFiledColumnSlot(carrierSlot, key) ?? this.mintColumnSlot(carrierSlot, key);
         this.holdSlot(columnSlot);
         return columnSlot;
     }
@@ -80,7 +94,7 @@ export abstract class OIMColumnSlotOwner<
         if (columnSlotStoreService.getSlotCount(columnSlotStore) === 0) {
             (carrierSlot as TOIMEditable<TOIMSlot>).columnSlotStore = undefined;
         }
-        oimMarkSlotReleased(columnSlot);
+        markOIMSlotReleased(columnSlot);
         carrierSlot.owner.releaseSlotIfUnheld(carrierSlot);
     }
 
@@ -92,7 +106,7 @@ export abstract class OIMColumnSlotOwner<
         );
     }
 
-    private getColumnIfFiled(carrierSlot: TCarrierSlot, key: string): TColumnSlot | undefined {
+    private peekFiledColumnSlot(carrierSlot: TCarrierSlot, key: string): TColumnSlot | undefined {
         const columnSlotStore = carrierSlot.columnSlotStore;
         return columnSlotStore === undefined ? undefined : this.columnSlotStoreService.get(columnSlotStore, key);
     }

@@ -98,7 +98,7 @@ describe('a hydrated entity holding a NaN column', () => {
         db.flush();
         await tick();
 
-        expect(Number.isNaN(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity?.score)).toBe(true);
+        expect(Number.isNaN(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity?.score)).toBe(true);
         expect(testPersistBackend.readWrittenDeltaUpsertAndDeletedKeys()).toEqual([]);
         expect(testPersistBackend.writtenPersistRecordsList).toEqual([]);
         expect(testPersistBackend.commitCount).toBe(0);
@@ -119,14 +119,14 @@ describe('an entity deleted in the batch the hydrate restored it in', () => {
 
         await persistor.hydrate();
         persistor.start();
-        const deletedEntitySlot = entityService.findSlotByKey(entityStoreSlot, 'u3');
+        const deletedEntitySlot = entityService.peekSlotByKey(entityStoreSlot, 'u3');
         if (deletedEntitySlot !== undefined) entityService.slotContentService.clearSlotContent(deletedEntitySlot);
         refileWholePopulation();
         db.flush();
         await tick();
 
         expect(testPersistBackend.readWrittenDeltaUpsertAndDeletedKeys()).toEqual([{ upserts: [], deletedKeys: ['u3'] }]);
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity?.name).toBe('Ada');
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity?.name).toBe('Ada');
     });
 });
 
@@ -143,7 +143,7 @@ describe('an entity edited in the batch the hydrate restored it in', () => {
         await tick();
 
         expect(testPersistBackend.readWrittenDeltaUpsertAndDeletedKeys()).toEqual([{ upserts: ['u1'], deletedKeys: [] }]);
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity?.name).toBe('Ada Lovelace');
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity?.name).toBe('Ada Lovelace');
     });
 
     it('and a restore that lands ON TOP of an edit is still not written back', async () => {
@@ -160,7 +160,7 @@ describe('an entity edited in the batch the hydrate restored it in', () => {
 
         expect(testPersistBackend.readWrittenDeltaUpsertAndDeletedKeys()).toEqual([]);
         expect(testPersistBackend.writtenPersistRecordsList).toEqual([]);
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity?.name).toBe('Ada');
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity?.name).toBe('Ada');
     });
 
     it('is persisted when the edit is separated from the mount by a flush', async () => {
@@ -220,7 +220,7 @@ describe('a deletion the unload restored', () => {
         db.flush();
         await tick();
 
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
         expect(testPersistBackend.readStoredEntities()).toEqual([
             ['u1', { id: 'u1', name: 'Ada' }],
             ['u2', { id: 'u2', name: 'Grace' }],
@@ -230,7 +230,7 @@ describe('a deletion the unload restored', () => {
         refileWholePopulation();
         db.flush();
         await tick();
-        const deletedEntitySlot = entityService.findSlotByKey(entityStoreSlot, 'u1');
+        const deletedEntitySlot = entityService.peekSlotByKey(entityStoreSlot, 'u1');
         if (deletedEntitySlot !== undefined) entityService.slotContentService.clearSlotContent(deletedEntitySlot);
         refileWholePopulation();
         db.flush();
@@ -256,7 +256,7 @@ describe('a deletion the unload restored', () => {
         await persistor.unload(persistRecordsResource, ['u3']);
         db.flush();
         await tick();
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u3')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u3')?.entity).toBeUndefined();
 
         entityService.writeSlotContentByKey(entityStoreSlot, 'u3', { id: 'u3', name: 'Hedy Lamarr' });
         refileWholePopulation();
@@ -267,7 +267,7 @@ describe('a deletion the unload restored', () => {
             ['u3', { id: 'u3', name: 'Hedy Lamarr' }],
         ]);
 
-        const deletedEntitySlot = entityService.findSlotByKey(entityStoreSlot, 'u3');
+        const deletedEntitySlot = entityService.peekSlotByKey(entityStoreSlot, 'u3');
         if (deletedEntitySlot !== undefined) entityService.slotContentService.clearSlotContent(deletedEntitySlot);
         refileWholePopulation();
         db.flush();
@@ -301,7 +301,7 @@ describe('an edit of a key the unload is writing', () => {
         testPersistBackend.openGate();
         await unloaded;
 
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
         expect(testPersistBackend.readStoredEntities()).toEqual([
             ['u1', { id: 'u1', name: 'Ada Lovelace' }],
             ['u2', { id: 'u2', name: 'Grace' }],
@@ -339,7 +339,7 @@ describe('a bucket member the load brought back', () => {
         refileWholePopulation();
         db.flush();
         await tick();
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
         const writtenDeltaCountBefore = testPersistBackend.writtenPersistRecordsDeltas.length;
         const commitCountBefore = testPersistBackend.commitCount;
 
@@ -347,7 +347,7 @@ describe('a bucket member the load brought back', () => {
         db.flush();
         await tick();
 
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity).toEqual({ id: 'u1', name: 'Ada' });
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity).toEqual({ id: 'u1', name: 'Ada' });
         expect(Array.from(
             bucketService.slotContentService.getBucketMemberSlots(bucketSlot),
             entitySlot => entitySlot.key,
@@ -377,12 +377,12 @@ describe('a bucket member the load brought back', () => {
         refileWholePopulation();
         db.flush();
         await tick();
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
 
         entityService.writeSlotContentByKey(entityStoreSlot, 'u1', { id: 'u1', name: 'Ada Lovelace' });
         await persistor.load(persistRecordsResource, ['u1']);
 
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity).toEqual({ id: 'u1', name: 'Ada Lovelace' });
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity).toEqual({ id: 'u1', name: 'Ada Lovelace' });
         expect(testPersistBackend.readStoredEntities()).toEqual([
             ['u1', { id: 'u1', name: 'Ada' }],
             ['u2', { id: 'u2', name: 'Grace' }],
@@ -408,14 +408,14 @@ describe('a bucket member the load brought back', () => {
         await persistor.unload(persistRecordsResource, ['u1']);
         db.flush();
         await tick();
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
         expect(bucketServiceArrayDriven.slotContentService.getBucketMemberSlotCount(bucketSlot)).toBe(2);
 
         await persistor.load(persistRecordsResource, ['u1']);
         db.flush();
         await tick();
 
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity).toEqual({ id: 'u1', name: 'Ada' });
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity).toEqual({ id: 'u1', name: 'Ada' });
         expect(bucketServiceArrayDriven.slotContentService.getBucketMemberSlotCount(bucketSlot)).toBe(2);
         expect(Array.from(
             bucketServiceArrayDriven.slotContentService.getBucketMemberSlots(bucketSlot),
@@ -448,7 +448,7 @@ describe('an unload on a stopped persistor', () => {
         db.flush();
         await tick();
 
-        expect(entityService.findSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
+        expect(entityService.peekSlotByKey(entityStoreSlot, 'u1')?.entity).toBeUndefined();
         expect(testPersistBackend.readWrittenDeltaUpsertAndDeletedKeys().flatMap(persistRecordsDelta => persistRecordsDelta.deletedKeys))
             .toEqual([]);
         expect(testPersistBackend.readStoredEntities()).toEqual([

@@ -1,7 +1,7 @@
 import type { TOIMCompositeKeyNode } from '../types/TOIMCompositeKeyNode';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimSameSlotSequence } from '../../bucket/utils/oimSameSlotSequence';
+import { isOIMSameSlotSequence } from '../../bucket/utils/isOIMSameSlotSequence';
 import { OIMDB } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -19,9 +19,9 @@ export function aKeyIsNotASegment(): void {
     // @ts-expect-error the descent files by identity: a number is not a segment
     node.childNodes?.get(Number.NaN);
     // @ts-expect-error and the comparison beside it compares the same thing
-    oimSameSlotSequence([Number.NaN], [Number.NaN]);
+    isOIMSameSlotSequence([Number.NaN], [Number.NaN]);
     // @ts-expect-error a string is not one either — the point is `object`, not `number`
-    oimSameSlotSequence(['spades'], ['spades']);
+    isOIMSameSlotSequence(['spades'], ['spades']);
 }
 
 /**
@@ -42,7 +42,7 @@ export function anIdentityIsASegment(): void {
     heldSlot.owner.unholdSlot(heldSlot);
     const node: TOIMCompositeKeyNode = { childNodes: new Map(), atThisKey: undefined };
     node.childNodes?.get(segment);
-    oimSameSlotSequence([segment], [segment]);
+    isOIMSameSlotSequence([segment], [segment]);
 }
 
 /**
@@ -55,7 +55,7 @@ export function anIdentityIsASegment(): void {
  * comparison beside it — with the segment type spelled out.
  *
  * If the two arms are ever collapsed, this file is where it shows: widening
- * `oimSameSlotSequence` to admit `TOIMStoreKey` makes the `@ts-expect-error`s above suppress
+ * `isOIMSameSlotSequence` to admit `TOIMStoreKey` makes the `@ts-expect-error`s above suppress
  * nothing.
  */
 export function aKeyIsASegmentOfTheOtherArm(): void {

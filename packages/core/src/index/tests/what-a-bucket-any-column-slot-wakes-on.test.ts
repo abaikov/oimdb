@@ -3,10 +3,10 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
+import type { TOIMColumnName } from '../../column/types/TOIMColumnName';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { isOIMSlotReleased } from '../../slot/utils/isOIMSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
@@ -24,7 +24,7 @@ function setUp() {
         { id: 'c3', deck: 'hearts', title: 'Queen' },
     ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     const byDeckService = createOIMSlotCollectionIndexService<
-        TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
+        TCard, TOIMStoreKey, readonly TOIMColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
         OIMSetBucketContentService<TCardSlot, string>
     >({
@@ -34,7 +34,7 @@ function setUp() {
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const updateTitleOf = (key: string, patch: Partial<TCard>): void => {
-        const slot = cardsService.findSlotByKey(cards, key);
+        const slot = cardsService.peekSlotByKey(cards, key);
         if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
     };
     return { db, effectService, cardsService, cards, byDeckService, byDeck, updateTitleOf };
@@ -44,7 +44,7 @@ describe('the any-column slot of an index bucket', () => {
     it('wakes on a write to a member that stays in its bucket, where the bucket does not', () => {
         const { db, effectService, byDeckService, byDeck, updateTitleOf } = setUp();
         const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
-        const spadesAnyColumn = byDeckService.holdAnyBucketColumnByKey(byDeck, 'spades');
+        const spadesAnyColumn = byDeckService.holdAnyBucketColumnSlotByKey(byDeck, 'spades');
         let bucketRuns = 0;
         let anyColumnRuns = 0;
         effectService.createEffect(db, () => { bucketRuns++; }, [spades]);
@@ -57,10 +57,10 @@ describe('the any-column slot of an index bucket', () => {
         expect(anyColumnRuns).toBe(1);
     });
 
-    it('leaves a member joining or leaving to the bucket slot', () => {
+    it('wakes on a member joining or leaving too, since its value lists the members', () => {
         const { db, effectService, byDeckService, byDeck, updateTitleOf } = setUp();
         const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
-        const spadesAnyColumn = byDeckService.holdAnyBucketColumnByKey(byDeck, 'spades');
+        const spadesAnyColumn = byDeckService.holdAnyBucketColumnSlotByKey(byDeck, 'spades');
         let bucketRuns = 0;
         let anyColumnRuns = 0;
         effectService.createEffect(db, () => { bucketRuns++; }, [spades]);
@@ -72,13 +72,13 @@ describe('the any-column slot of an index bucket', () => {
         db.flush();
 
         expect(bucketRuns).toBe(2);
-        expect(anyColumnRuns).toBe(0);
+        expect(anyColumnRuns).toBe(2);
         expect(byDeckService.getEntitiesByKey(byDeck, 'spades').map(card => card?.id).sort()).toEqual(['c2', 'c3']);
     });
 
     it('stays silent for a write to a member of another bucket', () => {
         const { db, effectService, byDeckService, byDeck, updateTitleOf } = setUp();
-        const spadesAnyColumn = byDeckService.holdAnyBucketColumnByKey(byDeck, 'spades');
+        const spadesAnyColumn = byDeckService.holdAnyBucketColumnSlotByKey(byDeck, 'spades');
         let anyColumnRuns = 0;
         effectService.createEffect(db, () => { anyColumnRuns++; }, [spadesAnyColumn]);
 
@@ -90,7 +90,7 @@ describe('the any-column slot of an index bucket', () => {
 
     it('wakes once for many in-place writes in one batch', () => {
         const { db, effectService, cardsService, cards, byDeckService, byDeck } = setUp();
-        const spadesAnyColumn = byDeckService.holdAnyBucketColumnByKey(byDeck, 'spades');
+        const spadesAnyColumn = byDeckService.holdAnyBucketColumnSlotByKey(byDeck, 'spades');
         let anyColumnRuns = 0;
         effectService.createEffect(db, () => { anyColumnRuns++; }, [spadesAnyColumn]);
 
@@ -105,31 +105,31 @@ describe('the any-column slot of an index bucket', () => {
 
     it('keeps its bucket while it stands and is gone once nothing holds it', () => {
         const { db, byDeckService, byDeck } = setUp();
-        const spadesAnyColumn = byDeckService.holdAnyBucketColumnByKey(byDeck, 'spades');
+        const spadesAnyColumn = byDeckService.holdAnyBucketColumnSlotByKey(byDeck, 'spades');
         const spades = byDeckService.getSlotByKey(byDeck, 'spades');
         db.flush();
-        expect(oimIsSlotReleased(spades)).toBe(false);
+        expect(isOIMSlotReleased(spades)).toBe(false);
 
-        byDeckService.columnSlotService.unholdColumn(spadesAnyColumn);
+        byDeckService.columnSlotService.unholdColumnSlot(spadesAnyColumn);
         db.flush();
 
-        expect(oimIsSlotReleased(spadesAnyColumn)).toBe(true);
+        expect(isOIMSlotReleased(spadesAnyColumn)).toBe(true);
     });
 
     it('lives only as long as a read that nobody kept', () => {
         const { db, byDeckService, byDeck } = setUp();
-        const spadesAnyColumn = byDeckService.getAnyBucketColumnByKey(byDeck, 'spades');
+        const spadesAnyColumn = byDeckService.getAnyBucketColumnSlotByKey(byDeck, 'spades');
 
         db.flush();
 
-        expect(oimIsSlotReleased(spadesAnyColumn)).toBe(true);
+        expect(isOIMSlotReleased(spadesAnyColumn)).toBe(true);
     });
 
     it('hangs on its own bucket', () => {
         const { byDeckService, byDeck } = setUp();
-        const spadesAnyColumn = byDeckService.holdAnyBucketColumnByKey(byDeck, 'spades');
+        const spadesAnyColumn = byDeckService.holdAnyBucketColumnSlotByKey(byDeck, 'spades');
 
         expect(spadesAnyColumn.carrierSlot).toBe(byDeckService.getSlotByKey(byDeck, 'spades'));
-        byDeckService.columnSlotService.unholdColumn(spadesAnyColumn);
+        byDeckService.columnSlotService.unholdColumnSlot(spadesAnyColumn);
     });
 });

@@ -82,7 +82,7 @@ frame runs when you flush, and every effect whose sources moved runs once in it,
 however many writes landed before it. A test flushes where it wants to assert. An
 application hands the flush to its orchestrator: with cnstra that is one line,
 and every synchronous turn of a stimulation becomes one frame. See
-[delivery with cnstra](/docs/guides/with-cnstra).
+[OIMDB with cnstra](/docs/guides/with-cnstra).
 
 To have the channel decide when to deliver, give it a scheduler:
 
@@ -113,7 +113,7 @@ console.log(cardService.hasSlotContentByKey(cards, 'c1'));   // false: nothing i
 
 An entity collection files entities by the key you write them under. The collection service holds no data: you make it once per entity type, and
 each `createStoreSlot(db)` is one collection of that type, a store slot carrying its own
-store. The collection service has the reads (`getSlotByKey`, `holdSlotByKey`, `findSlotByKey`,
+store. The collection service has the reads (`getSlotByKey`, `holdSlotByKey`, `peekSlotByKey`,
 `getSlots`, the column doors); its `slotContentService` has the writes. A door that works on the
 store takes the store slot first; a door that works on a slot it is handed takes only the slot.
 `createOIMSlotCollectionService` is a convenience wrapper over the base layer (section 9). It also accepts
@@ -181,7 +181,7 @@ Now `c1` has the title `ALPHA!`.
 ## 5. Watch one column
 
 ```typescript
-const titleColumn = first.holdColumn('title');
+const titleColumn = first.holdColumnSlot('title');
 const titleEffect = effectService.createEffect(db, () => {
     console.log('title is now', first.entity?.title);
 }, [titleColumn]);
@@ -199,8 +199,8 @@ titleColumn.unholdSlot();
 Every column of an entity can have a slot of its own. Use it when a consumer
 renders a single field of an entity whose other fields change often.
 The root of the column form is the **column slot**.
-Getting it is a separate call on the collection service: `holdColumn(slot, name)` creates it and
-holds it, `unholdColumn(column)` gives the hold back, and the column slot is
+Getting it is a separate call on the collection service: `holdColumnSlot(slot, name)` creates it and
+holds it, `unholdColumnSlot(column)` gives the hold back, and the column slot is
 released once its last effect is disposed and nothing holds it. See
 [Subscribing to one column](/docs/core/reading-subscribing#subscribing-to-one-column).
 
@@ -412,8 +412,8 @@ for every strategy picked at construction.
   Existing subscribers stay subscribed, and a manual bucket that holds the slot
   still holds it. Taking it out is your job.
 - The stored object is the one you passed in. The default insert strategy
-  (`oimInsertEntityWithoutCopy`) keeps it, and the in-place writer patches that same
-  object afterwards. Pass `entityInserter: oimInsertEntityWithCopy` if you must
+  (`insertOIMEntityWithoutCopy`) keeps it, and the in-place writer patches that same
+  object afterwards. Pass `entityInserter: insertOIMEntityWithCopy` if you must
   keep your object untouched.
 
 ## Where to next

@@ -1,4 +1,4 @@
-import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel } from '../../index';
+import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, mintOIMAfterIdleSlotReleaseWheel } from '../../index';
 import type { TOIMDisposer } from '../../index';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -20,7 +20,7 @@ const watchedWorld = () => {
     return {
         db, cardsService, cards,
         flushAfterIdle: (): void => {
-            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
+            mintOIMAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
         },
         at: (value: number): void => { ms = value; },
         fire: (): void => { const run = armed; armed = undefined; run?.(); },

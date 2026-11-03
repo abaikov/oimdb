@@ -38,7 +38,7 @@ describe('what a derivation answers on its first read', () => {
             () => ({ sourceSlots: [card] }),
         );
         expect(doubledService.getSingleValue(doubled)).toBe(2);
-        cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { n: 2 });
+        cardsService.slotContentService.updateEntity(cardsService.peekSlotByKey(cards, 'a')!, { n: 2 });
 
         expect(() => doubledService.getSingleValue(doubled)).toThrow('the comparison threw');
         refuse = false;

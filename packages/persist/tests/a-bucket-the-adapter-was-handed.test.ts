@@ -1,5 +1,5 @@
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, OIMThrowAtOnceErrorPolicy, OIMSetBucketContentService, oimIsSlotReleased } from '@oimdb/core';
+import { OIMDB, OIMThrowAtOnceErrorPolicy, OIMSetBucketContentService, isOIMSlotReleased } from '@oimdb/core';
 import {
     OIMPersistBucketRecordSource,
     OIMPersistRecordsResource,
@@ -69,7 +69,7 @@ describe('a member that leaves the bucket after its entity was deleted and saved
         db.flush();
         await persistor.whenIdle();
 
-        const deletedCardSlot = entityService.findSlotByKey(entityStoreSlot, 'c1');
+        const deletedCardSlot = entityService.peekSlotByKey(entityStoreSlot, 'c1');
         if (deletedCardSlot !== undefined) entityService.slotContentService.clearSlotContent(deletedCardSlot);
         db.flush();
         await persistor.whenIdle();
@@ -78,7 +78,7 @@ describe('a member that leaves the bucket after its entity was deleted and saved
         bucketService.slotContentService.writeSlotContent(bucketSlot, []);
         expect(() => { db.flush(); }).not.toThrow();
         await persistor.whenIdle();
-        expect(oimIsSlotReleased(cardSlot)).toBe(true);
+        expect(isOIMSlotReleased(cardSlot)).toBe(true);
 
         persistor.destroy();
     });
@@ -94,7 +94,7 @@ describe('a bucket the source was handed, and a mirror that is torn down', () =>
 
         disposer();
         expect(bucketSlot.holdCount).toBe(1);
-        expect(bucketService.findSlotByKey(bucketStoreSlot, 'inbox')).toBe(bucketSlot);
+        expect(bucketService.peekSlotByKey(bucketStoreSlot, 'inbox')).toBe(bucketSlot);
     });
 
     it('keeps an empty bucket filed after the caller lets go, while the mirror runs', () => {
@@ -103,8 +103,8 @@ describe('a bucket the source was handed, and a mirror that is torn down', () =>
         const disposer = persistBucketRecordSource.subscribeEntitySlotChanged(ignoreChange);
         bucketSlot.owner.unholdSlot(bucketSlot);
 
-        expect(bucketService.findSlotByKey(bucketStoreSlot, 'inbox')).toBe(bucketSlot);
-        expect(oimIsSlotReleased(bucketSlot)).toBe(false);
+        expect(bucketService.peekSlotByKey(bucketStoreSlot, 'inbox')).toBe(bucketSlot);
+        expect(isOIMSlotReleased(bucketSlot)).toBe(false);
         disposer();
     });
 
@@ -154,11 +154,11 @@ describe('a bucket the source was handed, and a mirror that is torn down', () =>
     it('refuses a bucket that was already unfiled before the mirror existed', () => {
         const { bucketSlot, persistBucketRecordSource } = build();
         bucketSlot.owner.unholdSlot(bucketSlot);
-        expect(oimIsSlotReleased(bucketSlot)).toBe(true);
+        expect(isOIMSlotReleased(bucketSlot)).toBe(true);
 
         expect(() => persistBucketRecordSource.subscribeEntitySlotChanged(ignoreChange)).toThrow(/released/);
 
-        expect(oimIsSlotReleased(bucketSlot)).toBe(true);
+        expect(isOIMSlotReleased(bucketSlot)).toBe(true);
         expect(bucketSlot.holdCount).toBe(0);
     });
 });
@@ -176,8 +176,8 @@ describe('the single entity source, which is not in that position', () => {
 
         persistSingleEntitySnapshotSource.subscribeSnapshotChanged(ignoreChange)();
         expect(singleEntitySlot.holdCount).toBe(0);
-        expect(oimIsSlotReleased(singleEntitySlot)).toBe(false);
-        expect(singleEntityService.findSingleSlot(singleEntityStoreSlot)).toBe(singleEntitySlot);
+        expect(isOIMSlotReleased(singleEntitySlot)).toBe(false);
+        expect(singleEntityService.peekSingleSlot(singleEntityStoreSlot)).toBe(singleEntitySlot);
 
         let wakeCount = 0;
         persistSingleEntitySnapshotSource.subscribeSnapshotChanged(() => { wakeCount++; });
