@@ -6,11 +6,10 @@ export abstract class OIMKeyTreeWalk<TCompositeKeyPart> implements IOIMKeyTreeWa
 
     protected abstract unholdCompositeKeyPart(compositeKeyPart: TCompositeKeyPart): void;
 
-    public mintNodeAt<TAtKey>(
-        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>,
-        compositeKey: readonly TCompositeKeyPart[],
-    ): TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart> {
-        if (compositeKey.length === 0) throw new Error('OIMKeyTreeWalk: an empty key is not a key.');
+    public mintNodeAt<TAtKey, TStoreCompositeKeyPart extends TCompositeKeyPart>(
+        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>,
+        compositeKey: readonly TStoreCompositeKeyPart[],
+    ): TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart> {
         let compositeKeyNode = rootCompositeKeyNode;
         let firstMintedDepth = -1;
         let parentOfFirstMintedCompositeKeyNode = rootCompositeKeyNode;
@@ -39,11 +38,11 @@ export abstract class OIMKeyTreeWalk<TCompositeKeyPart> implements IOIMKeyTreeWa
         return compositeKeyNode;
     }
 
-    public nodeAt<TAtKey>(
-        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>,
-        compositeKey: readonly TCompositeKeyPart[],
-    ): TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart> | undefined {
-        let compositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart> | undefined = rootCompositeKeyNode;
+    public nodeAt<TAtKey, TStoreCompositeKeyPart extends TCompositeKeyPart>(
+        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>,
+        compositeKey: readonly TStoreCompositeKeyPart[],
+    ): TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart> | undefined {
+        let compositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart> | undefined = rootCompositeKeyNode;
         for (let i = 0; i < compositeKey.length; i++) {
             compositeKeyNode = compositeKeyNode.childNodes?.get(compositeKey[i]);
             if (compositeKeyNode === undefined) return undefined;
@@ -51,12 +50,16 @@ export abstract class OIMKeyTreeWalk<TCompositeKeyPart> implements IOIMKeyTreeWa
         return compositeKeyNode;
     }
 
-    public deleteKey<TAtKey>(
-        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>,
-        compositeKey: readonly TCompositeKeyPart[],
+    public deleteKey<TAtKey, TStoreCompositeKeyPart extends TCompositeKeyPart>(
+        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>,
+        compositeKey: readonly TStoreCompositeKeyPart[],
     ): TAtKey | undefined {
         const lastDepth = compositeKey.length - 1;
-        if (lastDepth < 0) return undefined;
+        if (lastDepth < 0) {
+            const rootAtKey = rootCompositeKeyNode.atThisKey;
+            rootCompositeKeyNode.atThisKey = undefined;
+            return rootAtKey;
+        }
         let compositeKeyNode = rootCompositeKeyNode;
         let keptCompositeKeyNode = rootCompositeKeyNode;
         let firstUnlinkedDepth = 0;

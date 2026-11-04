@@ -3,6 +3,18 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.12.0
+
+### Added
+
+- `TOIMSlotCollectionServiceFactoryOptions`: the options of `createOIMSlotCollectionService` and `createOIMSlotCollectionStoreAggregate`.
+
+### Changed
+
+- `createOIMSlotCollectionService` and `createOIMSlotCollectionStoreAggregate` take `TKey`, `TSlot` and `TContent` read off the content service's `createSlot` and `writeSlotContent`; generic callers need no cast.
+- `OIMScalarKeyTreeWalk` accepts `null` and `undefined` key parts; `IOIMKeyTreeWalk` methods are generic over the store's key part.
+- `OIMKeyTreeWalk` accepts the empty key `[]`, filed at the root node (was a throw).
+
 ## 4.11.0
 
 ### Changed

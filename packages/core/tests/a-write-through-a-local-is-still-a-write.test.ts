@@ -398,7 +398,7 @@ const PINNED: readonly string[] = [
     'rootSlots computed/utils/getOIMRootSlots.ts write×1',
     'rootSlots effect/OIMEffectService.ts write×2',
     'arrivedBucketMemberSlotChannelQueues bucket/OIMBucketContentService.ts write×1',
-    'atThisKey key/OIMKeyTreeWalk.ts write×1',
+    'atThisKey key/OIMKeyTreeWalk.ts write×2',
     'atThisKey store/OIMSlotTreeStoreService.ts write×1',
     'batchChangedColumnsChannelQueue slot/OIMSlotContentChangeDeliveryService.ts write×3',
     'batchDepth slot/OIMSlotContentChangeDeliveryService.ts write×1',

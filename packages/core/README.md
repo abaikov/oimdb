@@ -125,10 +125,10 @@ What each consumer ships, bundled with esbuild (minified, tree-shaken, ESM).
 <!-- bundle-size:begin -->
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 123499 B | 28389 B |
+| Everything `@oimdb/core` exports | 123461 B | 28370 B |
 | One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 53865 B | 13405 B |
-| The same, plus one effect and `db.flush()` | 53895 B | 13419 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 77126 B | 18618 B |
+| The same, plus one effect and `db.flush()` | 53895 B | 13420 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 77126 B | 18619 B |
 | An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 68428 B | 16609 B |
 <!-- bundle-size:end -->
 
@@ -882,7 +882,7 @@ argument, not a subclass.
 // A scalar key: string | number.
 new OIMSlotMapStoreService<TOIMEntitySlot<Card, TOIMStoreKey>>()
 
-// A composite key of VALUES, descended one composite key part at a time.
+// A composite key of VALUES, descended one composite key part at a time; a part may be null or undefined.
 new OIMSlotTreeStoreService<TOIMStoreKey, TOIMKeyedSlot<readonly TOIMStoreKey[]>>(OIMScalarKeyTreeWalk.INSTANCE)
 
 // A composite key of IDENTITIES, descended the same way — and holding each.
@@ -955,7 +955,7 @@ whose `unholdCompositeKeyPart` runs `entitySlot.unholdSlot()` (unless `isOIMSlot
 `deleteKey(rootCompositeKeyNode, compositeKey)` takes the value filed at the key in one
 descent (one `Map.get` per key part, no array of the path) and unlinks the nodes that the
 delete left empty. A node that still leads to a longer key stays.
-Both walks throw `an empty key is not a key` on `[]`.
+Under both walks `[]` is a key, and its slot is filed at the root node.
 
 **A scalar is not a composite key part of a composite-walk key.** It is a compile
 error, and past a cast it throws inside the mint (`Cannot create property
@@ -2174,7 +2174,7 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 
 ## Export reference
 
-**273 names. This list is `src/index.ts`; nothing else is exported.**
+**274 names. This list is `src/index.ts`; nothing else is exported.**
 
 **Deprecated, removed in 5.0** — `OIMSlotContentEntityService` → `OIMEntityContentService`, `createOIMSlotContentEntityService` → `createOIMEntityContentService`, `TOIMSlotContentEntityServiceOptions` → `TOIMEntityContentServiceOptions`, `OIMSlotContentBucketService` → `OIMBucketContentService`, `TOIMSlotContentBucketServiceOptions` → `TOIMBucketContentServiceOptions`, `OIMSlotContentSetBucketService` → `OIMSetBucketContentService`, `OIMSlotContentArrayBucketService` → `OIMArrayBucketContentService`, `TOIMSlotContentArrayBucketServiceOptions` → `TOIMArrayBucketContentServiceOptions`, `OIMSlotContentPositionalArrayBucketService` → `OIMPositionalArrayBucketContentService`, `OIMSlotContentSortedArrayBucketService` → `OIMSortedArrayBucketContentService`, `TOIMSlotContentSortedArrayBucketServiceOptions` → `TOIMSortedArrayBucketContentServiceOptions`, `OIMSlotContentComputedService` → `OIMComputedContentService`, `TOIMSlotContentComputedServiceOptions` → `TOIMComputedContentServiceOptions`, `OIMSlotContentSourceTrackingComputedService` → `OIMSourceTrackingComputedContentService`.
 
@@ -2199,7 +2199,7 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 `IOIMSlotReleaseListener`,
 `getOIMSliceOfMs`, `OIM_SLICE_LENGTH_MS`.
 
-**Slot services** — `OIMSlotCollectionService`, `OIMWritableSlotCollectionService`, `TOIMSlotCollectionServiceOptions`, `createOIMSlotCollectionService`,
+**Slot services** — `OIMSlotCollectionService`, `OIMWritableSlotCollectionService`, `TOIMSlotCollectionServiceOptions`, `TOIMSlotCollectionServiceFactoryOptions`, `createOIMSlotCollectionService`,
 `OIMSingleSlotService`, `OIMWritableSingleSlotService`, `TOIMSingleSlotServiceOptions`, `createOIMSingleSlotService`,
 `OIMColumnSlotService` (the column doors, `service.columnSlotService`), `OIMSlotOwnerService` (**type only**),
 `TOIMSlotOwnerServiceOptions`, `IOIMSlotContentService`, `IOIMSlotContentWriter`, `IOIMKeyedSlotCreator`, `IOIMSingleSlotCreator`,

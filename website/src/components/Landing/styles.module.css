@@ -669,6 +669,12 @@
   border: 1px solid var(--oim-hairline);
 }
 
+.pairingNext {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--oim-hairline);
+}
+
 .pairingLink {
   display: block;
   font-weight: 600;

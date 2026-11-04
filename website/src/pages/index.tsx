@@ -140,6 +140,19 @@ function ClosingSection(): ReactNode {
                         <Link className={landingStyles.pairingLink} to="/docs/guides/with-cnstra">
                             Using OIMDB with cnstra →
                         </Link>
+                        <div className={landingStyles.pairingNext}>
+                            <a className={landingStyles.pairingName} href="https://exodra.org/" target="_blank" rel="noopener noreferrer">
+                                Exodra
+                            </a>
+                            <p className={landingStyles.pairingText}>
+                                Exodra renders the slots. Views only read them, each binding is a tracked effect, and a
+                                bucket list keeps its nodes when entities leave it.
+                            </p>
+                            <code className={landingStyles.pairingCode}>npm install @oimdb/exodra</code>
+                            <Link className={landingStyles.pairingLink} to="/docs/packages/exodra">
+                                The Exodra plugin →
+                            </Link>
+                        </div>
                     </div>
                     <div className={styles.buttons} style={{ justifyContent: 'center' }}>
                         <Link className="button button--primary button--lg" to="/docs/getting-started/quick-start">

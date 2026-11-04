@@ -1,18 +1,18 @@
 import type { TOIMCompositeKeyNode } from '../types/TOIMCompositeKeyNode';
 
 export interface IOIMKeyTreeWalk<TCompositeKeyPart> {
-    mintNodeAt<TAtKey>(
-        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>,
-        compositeKey: readonly TCompositeKeyPart[],
-    ): TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>;
+    mintNodeAt<TAtKey, TStoreCompositeKeyPart extends TCompositeKeyPart>(
+        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>,
+        compositeKey: readonly TStoreCompositeKeyPart[],
+    ): TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>;
 
-    nodeAt<TAtKey>(
-        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>,
-        compositeKey: readonly TCompositeKeyPart[],
-    ): TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart> | undefined;
+    nodeAt<TAtKey, TStoreCompositeKeyPart extends TCompositeKeyPart>(
+        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>,
+        compositeKey: readonly TStoreCompositeKeyPart[],
+    ): TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart> | undefined;
 
-    deleteKey<TAtKey>(
-        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>,
-        compositeKey: readonly TCompositeKeyPart[],
+    deleteKey<TAtKey, TStoreCompositeKeyPart extends TCompositeKeyPart>(
+        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>,
+        compositeKey: readonly TStoreCompositeKeyPart[],
     ): TAtKey | undefined;
 }

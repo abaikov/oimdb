@@ -105,6 +105,7 @@ export { OIMColumnSlotService } from './column/OIMColumnSlotService';
 export { OIMSlotCollectionService } from './slot/OIMSlotCollectionService';
 export { OIMWritableSlotCollectionService } from './slot/OIMWritableSlotCollectionService';
 export type { TOIMSlotCollectionServiceOptions } from './slot/types/TOIMSlotCollectionServiceOptions';
+export type { TOIMSlotCollectionServiceFactoryOptions } from './slot/types/TOIMSlotCollectionServiceFactoryOptions';
 export { OIMSingleSlotService } from './slot/OIMSingleSlotService';
 export { OIMWritableSingleSlotService } from './slot/OIMWritableSingleSlotService';
 export type { TOIMSingleSlotServiceOptions } from './slot/types/TOIMSingleSlotServiceOptions';

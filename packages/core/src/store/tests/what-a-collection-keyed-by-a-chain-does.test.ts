@@ -215,10 +215,21 @@ describe('a collection keyed by a combination of identities', () => {
         expect(chain[0].holdCount).toBe(segmentHoldsWhileTheChainIsFiled - 1);
     });
 
-    it('an empty key is refused', () => {
-        const { progressService, progress } = createFixture();
+    it('an empty key is one slot at the root, apart from every longer key', () => {
+        const { db, progressService, progress, at } = createFixture();
+        const rootSlot = progressService.holdSlotByKey(progress, []);
+        const chainSlot = progressService.holdSlotByKey(progress, at('u1', 'c1'));
 
-        expect(() => progressService.holdSlotByKey(progress, [])).toThrow(/empty key/);
+        expect(progressService.peekSlotByKey(progress, [])).toBe(rootSlot);
+        expect(chainSlot).not.toBe(rootSlot);
+
+        rootSlot.owner.unholdSlot(rootSlot);
+        db.flush();
+
+        expect(isOIMSlotReleased(rootSlot)).toBe(true);
+        expect(progressService.peekSlotByKey(progress, [])).toBeUndefined();
+        expect(progressService.peekSlotByKey(progress, at('u1', 'c1'))).toBe(chainSlot);
+        chainSlot.owner.unholdSlot(chainSlot);
     });
 
     it('a caller may reuse one array across calls: releasing one key leaves the other alone', () => {

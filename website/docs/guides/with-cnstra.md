@@ -19,7 +19,7 @@ a frame is delivered.
 
 </InShort>
 
-This page needs a release of `@cnstra/core` after 3.0.0, the one that exports `withCNSGlobal` and `cnsCollateral`.
+This page needs a release of `@cnstra/core` after 3.0.0, the one that exports `withCNSGlobal` and `collateral`.
 cnstra is not installed in this repository, so the setup block below is a hand-written stand-in for the three cnstra
 names the example uses; it lets the OIMDB side of the example be type-checked, and it is not checked against cnstra.
 
@@ -29,7 +29,7 @@ import type { TOIMEntitySlot, TOIMSlot } from '@oimdb/core';
 
 type TCNSSignal = { readonly collateral: unknown };
 type TCNSCollateral<TPayload> = { createSignal(): TCNSSignal; createSignal(payload: TPayload): TCNSSignal };
-declare function cnsCollateral<TPayload = undefined>(): TCNSCollateral<TPayload>;
+declare function collateral<TPayload = undefined>(): TCNSCollateral<TPayload>;
 declare function withCNSGlobal<TGlobal>(): {
     neuron(axon: Record<string, TCNSCollateral<never>>): {
         bind<TFollowAxon extends Record<string, TCNSCollateral<never>>>(
@@ -84,11 +84,11 @@ const createTodoDb = () => new OIMDB({ createSchemas: (db) => ({ default: create
 type TTodoDb = ReturnType<typeof createTodoDb>;
 
 const TodoUiAxon = {
-    newTodoEntered: cnsCollateral<{ title: string }>(),
-    toggleClicked: cnsCollateral<{ id: string; done: boolean }>(),
-    destroyClicked: cnsCollateral<{ id: string }>(),
-    clearCompletedClicked: cnsCollateral(),
-    todosRequested: cnsCollateral(),
+    newTodoEntered: collateral<{ title: string }>(),
+    toggleClicked: collateral<{ id: string; done: boolean }>(),
+    destroyClicked: collateral<{ id: string }>(),
+    clearCompletedClicked: collateral(),
+    todosRequested: collateral(),
 };
 
 const { neuron } = withCNSGlobal<TTodoDb>();

@@ -261,6 +261,11 @@ const todo = pageService.holdSlotByKey(page, 'todo');
 const done = pageService.holdSlotByKey(page, 'done');
 ```
 
+`createOIMSlotCollectionService` and `createOIMSlotCollectionStoreAggregate` read the key, the slot and the content off the
+content service's `createSlot` and `writeSlotContent` (options type `TOIMSlotCollectionServiceFactoryOptions`), so a function
+generic over its entity or key (`createOIMEntityContentService<TData, TKey>()`) calls them with no cast. While the key type is a type parameter, pass `slotStoreService`
+(a Map store for a scalar key, a tree store for a chain): TypeScript cannot tell then whether the key is a chain.
+
 ---
 
 ## The domains
@@ -3040,7 +3045,7 @@ are holding; neither is something you build by hand.
 | Store | Key type |
 |---|---|
 | `OIMSlotMapStoreService<TSlot>` | `TOIMStoreKey` = `string \| number` |
-| `OIMSlotTreeStoreService<TOIMStoreKey, TSlot>` built with `OIMScalarKeyTreeWalk.INSTANCE` | `readonly TOIMStoreKey[]` — **a chain of VALUES** |
+| `OIMSlotTreeStoreService<TOIMStoreKey, TSlot>` built with `OIMScalarKeyTreeWalk.INSTANCE` | `readonly TOIMStoreKey[]` — **a chain of VALUES**; a part may also be `null` or `undefined` |
 | `OIMSlotTreeStoreService<TOIMEntitySlot, TSlot>` built with `OIMCompositeKeyTreeWalk.INSTANCE` | `readonly TOIMEntitySlot[]` — **a chain of entity SLOTS** |
 | `OIMSingleSlotStoreService.INSTANCE` | `void` — one slot per store slot, its store a `TOIMSingleSlotStore` (`{ slot }`); what every single is built on |
 
@@ -3058,17 +3063,17 @@ and two walks.
 
 ```ts signature
 interface IOIMKeyTreeWalk<TCompositeKeyPart> {
-    mintNodeAt<TAtKey>(
-        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>,
-        compositeKey: readonly TCompositeKeyPart[],
-    ): TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>;
-    nodeAt<TAtKey>(
-        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>,
-        compositeKey: readonly TCompositeKeyPart[],
-    ): TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart> | undefined;
-    deleteKey<TAtKey>(
-        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TCompositeKeyPart>,
-        compositeKey: readonly TCompositeKeyPart[],
+    mintNodeAt<TAtKey, TStoreCompositeKeyPart extends TCompositeKeyPart>(
+        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>,
+        compositeKey: readonly TStoreCompositeKeyPart[],
+    ): TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>;
+    nodeAt<TAtKey, TStoreCompositeKeyPart extends TCompositeKeyPart>(
+        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>,
+        compositeKey: readonly TStoreCompositeKeyPart[],
+    ): TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart> | undefined;
+    deleteKey<TAtKey, TStoreCompositeKeyPart extends TCompositeKeyPart>(
+        rootCompositeKeyNode: TOIMCompositeKeyNode<TAtKey, TStoreCompositeKeyPart>,
+        compositeKey: readonly TStoreCompositeKeyPart[],
     ): TAtKey | undefined;
 }
 ```
@@ -3082,7 +3087,7 @@ deletes nothing and returns `undefined`.
 
 | Walk | Class | Shared instance | What a composite key part is | Holds? |
 |---|---|---|---|---|
-| scalar | `OIMScalarKeyTreeWalk` | `OIMScalarKeyTreeWalk.INSTANCE` | `TOIMStoreKey` | no |
+| scalar | `OIMScalarKeyTreeWalk` | `OIMScalarKeyTreeWalk.INSTANCE` | `TOIMStoreKey`, `null` or `undefined` | no |
 | composite | `OIMCompositeKeyTreeWalk` | `OIMCompositeKeyTreeWalk.INSTANCE` | `TOIMEntitySlot` | **yes — one hold per edge** |
 
 **The hold is the whole difference.** `OIMCompositeKeyTreeWalk.mintNodeAt` calls
@@ -3092,7 +3097,7 @@ exactly the edges it unlinked, deepest first and only after every unlink is done
 `isOIMSlotReleased(entitySlot)` — so an entity slot stays addressable for
 as long as its composite key parts are, and a composite key part nothing else refers to goes the
 moment the last entity keyed on it does. The scalar walk holds nothing: a value has
-no identity to keep alive. Both throw `an empty key is not a key` on `[]`.
+no identity to keep alive. Under both, `[]` is a key: its slot is filed at the root node.
 
 Construct the classes yourself only if you want your own instance; both walks are
 stateless, and the shared one on `OIMDefaults` is what you normally pass.
@@ -3454,7 +3459,7 @@ that matches what you are comparing; they are not interchangeable.
 
 ## Full export list
 
-**273 names, every export of `packages/core/src/index.ts`, grouped by topic.**
+**274 names, every export of `packages/core/src/index.ts`, grouped by topic.**
 
 *Deprecated, removed in 5.0* — `OIMSlotContentEntityService` → `OIMEntityContentService`, `createOIMSlotContentEntityService` → `createOIMEntityContentService`, `TOIMSlotContentEntityServiceOptions` → `TOIMEntityContentServiceOptions`, `OIMSlotContentBucketService` → `OIMBucketContentService`, `TOIMSlotContentBucketServiceOptions` → `TOIMBucketContentServiceOptions`, `OIMSlotContentSetBucketService` → `OIMSetBucketContentService`, `OIMSlotContentArrayBucketService` → `OIMArrayBucketContentService`, `TOIMSlotContentArrayBucketServiceOptions` → `TOIMArrayBucketContentServiceOptions`, `OIMSlotContentPositionalArrayBucketService` → `OIMPositionalArrayBucketContentService`, `OIMSlotContentSortedArrayBucketService` → `OIMSortedArrayBucketContentService`, `TOIMSlotContentSortedArrayBucketServiceOptions` → `TOIMSortedArrayBucketContentServiceOptions`, `OIMSlotContentComputedService` → `OIMComputedContentService`, `TOIMSlotContentComputedServiceOptions` → `TOIMComputedContentServiceOptions`, `OIMSlotContentSourceTrackingComputedService` → `OIMSourceTrackingComputedContentService`.
 
@@ -3472,7 +3477,7 @@ that matches what you are comparing; they are not interchangeable.
 `OIMSlotRefetchWheel` · `TOIMSlotRefetchWheelOptions` · `IOIMSlotRefetchListener` ·
 `IOIMSlotReleaseListener`
 
-*Slot services* — `OIMSlotCollectionService` · `OIMWritableSlotCollectionService` · `TOIMSlotCollectionServiceOptions` ·
+*Slot services* — `OIMSlotCollectionService` · `OIMWritableSlotCollectionService` · `TOIMSlotCollectionServiceOptions` · `TOIMSlotCollectionServiceFactoryOptions` ·
 `createOIMSlotCollectionService` · `OIMSingleSlotService` · `OIMWritableSingleSlotService` · `TOIMSingleSlotServiceOptions` ·
 `createOIMSingleSlotService` · `OIMColumnSlotService` (the column doors, `service.columnSlotService`) ·
 `OIMSlotOwnerService` (**type only**) · `TOIMSlotOwnerServiceOptions` · `IOIMSlotContentService` · `IOIMSlotContentWriter` ·

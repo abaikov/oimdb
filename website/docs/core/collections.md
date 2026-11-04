@@ -59,6 +59,12 @@ same key always resolves to the same object for as long as anything refers to it
 `slotReleasePolicy`, `slotSubscriptionListener`, `defaults`, and `columnSlotStoreService` or `columnNames`. Each
 optional one falls back to `defaults`, then to the built-in default.
 
+The key, the slot and the content are read off the content service's `createSlot` and `writeSlotContent`, so a
+function generic over its entity or key type (`createOIMEntityContentService<TData, TKey>()`) calls it with no cast. While
+the key type is a type parameter, TypeScript cannot tell whether it is a chain, so such a caller passes `slotStoreService`
+(`new OIMSlotMapStoreService<TOIMEntitySlot<TData, TKey>>()` for a scalar key).
+The options type is `TOIMSlotCollectionServiceFactoryOptions`; `createOIMSlotCollectionStoreAggregate` takes the same.
+
 ```typescript
 const archiveService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>(), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
 const archive = archiveService.createStoreSlot(db);
@@ -272,8 +278,7 @@ Both keep order significant and prefixes apart: `[a]` and `[a, b]` are different
 keys. Both keep each composite key part's own type, so `1` and `'1'` are two composite key parts.
 Under both, the store files a **copy** of the array (`slot.key` is a slice), so
 refilling the array you resolved a key from moves nothing, and a rebuilt array of
-the same parts resolves to the same slot. An empty array is refused at the mint:
-`OIMKeyTreeWalk: an empty key is not a key.`
+the same parts resolves to the same slot. An empty array is a key too: its slot is filed at the root node.
 
 ### A chain of values
 
