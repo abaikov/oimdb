@@ -112,7 +112,7 @@ See [Writing](/docs/core/writing).
 | Package | What it is |
 |---|---|
 | [`@oimdb/core`](/docs/core/model) | The engine. |
-| [`@oimdb/react`](/docs/packages/react) | React bindings: `OIMDBProvider` and thirteen hooks (`useOIMDB`, `useOIMValue`, `useOIMComputedValue`, `useOIMComputedValueByKey`, `useOIMSingleComputedValue`, `useOIMComputedCollection`, `useOIMEntity`, `useOIMSingleEntity`, `useOIMField`, `useOIMBucketSlots`, `useOIMBucketSlotsByKey`, `useOIMSingleBucketSlots`, `useOIMSlotsByKeys`). |
+| [`@oimdb/react`](/docs/packages/react) | React bindings: `OIMDBProvider`, `useOIMDB`, one read hook, `useOIMSelector(db => …)`, which re-renders on what it read, and shorthands over it (`useOIMEntityByKey`, `useOIMSingleEntity`, …). |
 | [`@oimdb/persist`](/docs/packages/persist) | Storage-agnostic persistence, with five backends: `persist-idb`, `persist-localstorage`, `persist-async-kv`, `persist-json`, `persist-memory`. |
 | [`@oimdb/redux-adapter`](/docs/packages/redux-adapter) | Mirrors entity and bucket store slots into Redux. |
 | `@oimdb/devtools` | A debug registry: name store slots and indexes, inspect runtime state. |

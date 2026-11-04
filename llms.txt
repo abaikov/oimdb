@@ -20,7 +20,7 @@
 > act is a slot method: `slot.entity`, `slot.updateEntity(patch)`, `slot.writeSlotContent(entity)`,
 > `slot.clearSlotContent()`, a bucket slot's `getBucketMemberSlotCount()`, a computed slot's `value`. Effects are
 > `db.createEffect(body, sourceSlots?, { lazy? })`, which returns the disposer. In React:
-> `<OIMDBProvider db={db}>` and `useOIMSourceTrackingValue(() => cards.getSlotByKey(id).entity, [id])`; a handler
+> `<OIMDBProvider db={db}>` and `useOIMSelector(() => cards.getSlotByKey(id).entity)`; a handler
 > that writes calls `db.flush()` when it is done, and the components re-render at that flush. A list of every
 > entity needs no index: `cards.getEntities()` (no strict order; a sorted computed for one) and
 > `cards.getEntityCount()`, both tracked.
@@ -155,7 +155,7 @@ without a list. An entity's column slot has a `value` but is not a computed, and
 `value`; a bucket: the bucket slot) and on every change of that slot, and returns the disposer. `OIMEffectService.INSTANCE`
 is the layer under `db.createEffect`.
 
-In React: `useOIMSourceTrackingValue(() => cards.getSlotByKey(key).entity, [key])` re-renders on what the function
+In React: `useOIMSelector(() => cards.getSlotByKey(key).entity)` re-renders on what the function
 read, under `<OIMDBProvider db={db}>`, at the next `db.flush()`.
 
 ### Dependency injection
@@ -847,8 +847,8 @@ derivation survives a settle, is the SAME instance on the next read (built once)
 is rebuilt only after the arena is flushed, and `open`/`close` nest so an inner
 scope ending drops nothing an outer one stands on.
 
-`@oimdb/react`'s `useOIMSlotsByKeys(storeSlot, keys)` does not use an arena: it takes a
-plain `holdSlotByKey` per key on commit and gives the same holds back on unmount or when the key list moves.
+`@oimdb/react`'s `useOIMSelector` does not use an arena: its subscription holds the slots its function read, from
+commit until unmount or until the next commit moves them.
 
 ```ts signature
 type TOIMTimer = (run: () => void, inMs: number) => TOIMDisposer;
@@ -3502,12 +3502,25 @@ written after that clock reading — `channelSlot.clock` read earlier.
 
 *Derivations* — `OIMEffectService` · `IOIMEffectService` · `TOIMEffect` (**type only** —
 `OIMEffectService.createEffect` is the constructor) · `TOIMEffectBody` · `TOIMSourceTrackingEffectBody` ·
-`OIMSourceTracker` (**type only** — the service builds it) · `IOIMSourceTracker` · `TOIMComputedSlot` · `TOIMComputedSources` · `TOIMComputedValueReleaser` · `OIMSourceTrackingComputedService` · `OIMSingleSourceTrackingComputedService` · `createOIMSourceTrackingComputedService` · `createOIMSingleSourceTrackingComputedService` · `TOIMSourceTrackingComputedSlot` · `TOIMSourceTrackingComputedContentSlot` · `TOIMSourceTrackingComputedDerive` · `OIMSourceTrackingComputedContentService` (**type only**) · `TOIMSourceTrackingComputedDerivationOptions` · `TOIMComputedServiceFactoryOptions` ·
+`OIMSourceTracker` · `IOIMSourceTracker` · `TOIMComputedSlot` · `TOIMComputedSources` · `TOIMComputedValueReleaser` · `OIMSourceTrackingComputedService` · `OIMSingleSourceTrackingComputedService` · `createOIMSourceTrackingComputedService` · `createOIMSingleSourceTrackingComputedService` · `TOIMSourceTrackingComputedSlot` · `TOIMSourceTrackingComputedContentSlot` · `TOIMSourceTrackingComputedDerive` · `OIMSourceTrackingComputedContentService` (**type only**) · `TOIMSourceTrackingComputedDerivationOptions` · `TOIMComputedServiceFactoryOptions` ·
 `OIMComputedValueService` · `IOIMComputedValueService` · `TOIMComputedValueServiceOptions` · `refreshOIMSourceComputeds` · `TOIMComputedDerivation`
 
-`refreshOIMSourceComputeds(sourceComputeds)` brings every computed in the list current. A binding
-read outside an effect (`useOIMValue` in `@oimdb/react`) calls it
-on its `sourceComputeds` before `derive`, so the derive never reads a stale computed.
+`refreshOIMSourceComputeds(sourceComputeds)` brings every computed in the list current. Code that reads computeds
+outside an effect calls it on its `sourceComputeds` before `derive`, so the derive never reads a stale computed.
+
+`OIMSourceTracker` is also the door for reading in one place and subscribing in another, which is what
+`@oimdb/react` does:
+- `sourceTracker.runSourceTracking(read)` runs `read` with the tracker active and returns what `read` returned;
+  every tracked read inside it (`slot.entity`, `slot.getEntity(group)`, `computed.value`, a bucket's members)
+  is recorded, and nothing is subscribed.
+- `OIMEffectService.INSTANCE.createEffectOverSourceTracker(db, new OIMSourceTracker(), body)` makes an effect whose
+  body reads nothing and tracks nothing.
+- `OIMEffectService.INSTANCE.subscribeEffectToTrackedSources(effect, sourceTracker): boolean` subscribes that
+  effect to what `sourceTracker` recorded, keeping each column group, and gives back the sources it no longer
+  names. It returns `true` when the sources moved. It throws for an effect not made by
+  `createEffectOverSourceTracker`.
+
+So a read runs once: where it happened, the effect only learns which sources to wake on.
 
 *Slots and their owners* — `TOIMSlot` · `TOIMStoreSlot` · `TOIMSingleSlotStoreSlot` ·`IOIMStoreSlotListener` · `OIMNoStoreSlotListener` · `IOIMSlotSubscriptionListener` · `OIMNoSlotSubscriptionListener` ·`isOIMSlotEmpty` · `isOIMSlotReleased` · `TOIMEditable` · `TOIMKeyedSlot` · `TOIMIndexableSlot` ·
 `TOIMEntitySlot` · `TOIMColumnSlot` · `TOIMComputedColumnSlot` · `TOIMColumnGroup` · `createOIMColumnGroup` · `OIMColumnSlotOwner` ·
@@ -3599,7 +3612,7 @@ So `src/index.ts` registers its copy under `Symbol.for('@oimdb/core')` on
 `@oimdb/core is loaded twice in this process`. The same throw fires for two
 installed copies of the package.
 
-`@oimdb/react` loaded twice fails loudly instead: every hook throws
+`@oimdb/react` loaded twice fails loudly instead: `useOIMSelector` and `useOIMDB` throw
 `useOIMDB: no <OIMDBProvider db={...}> above this component.` with the provider plainly above it, because a React
 context's identity is its lookup key.
 
@@ -3615,46 +3628,36 @@ on the current core — persist and browser have sections of their own below. Ev
 remaining package imports only names the core exports. Read a package's own
 source before generating code against it.
 
-`@oimdb/react` — `<OIMDBProvider db={db}>` carries the `OIMDB` (`useOIMDB()`) and nothing else. `useOIMDB()` is typed
-`OIMDB`; an app makes its typed hook once, `const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();`,
-and a component reads `useAppDB().schemas.default.todos` without a cast (at run time it is `useOIMDB` itself). The effect
-service is stateless (`OIMEffectService.INSTANCE`) and every hook subscribes with
-`OIMEffectService.INSTANCE.subscribeEffect(db, …)`. A hook that resolves or takes a slot filed on another `OIMDB`
-throws, since nothing below would wake. Every hook that reads a collection by key takes the store slot alone and
-calls the service it carries, `storeSlot.slotService`, typed as a `Pick` of `OIMSlotCollectionService` with only
-the members it calls (a store aggregate passes its `storeSlot`):
-`useOIMEntity(entityStoreSlot, key)` and
-`useOIMBucketSlotsByKey(bucketStoreSlot, key)` (reads `bucketStoreSlot.slotService.slotContentService.getBucketMemberSlots`;
-an index store slot fits too). The hooks over a slot you already hold take the service and the slot:
-`useOIMField(entityCollectionService, slot, name)` (calls `getColumnSlot(slot, name)`),
-`useOIMBucketSlots(bucketCollectionService, bucketSlot)`, and
-`useOIMValue(binding)`, where a binding is `{ sourceSlots?, sourceComputeds?, derive }` (a missing list means none)
-and must keep its identity across renders.
-`useOIMSourceTrackingValue(read, deps)` takes no source list: everything `read` reads (`slot.entity`, `slot.getEntity(group)`,
-`computed.value`, a bucket slot's membership) becomes a source, and the component re-renders when one changes;
-`deps` lists what `read` closes over, as for `useMemo`.
-`useOIMComputedValue(computedSlot: TOIMComputedSlot<TValue>): TValue` is the one-computed case: it subscribes to
-the slot, settles it and reads `computedSlot.value`, with no binding to memoise.
-`useOIMComputedValueByKey(computedStoreSlot, key)` reads one key of a
-computed store slot (plain, sorted, bucket memo) with the same by-key body as `useOIMEntity` /
-`useOIMBucketSlotsByKey`: resolve on commit with `holdSlotByKey`, effect over that slot, resolve-hold given back,
-a key built inline settled by meaning.
-The computed SERVICE is the caller's, built once at module scope with `createOIMComputedService(options)` (no db).
-`useOIMComputedCollection(computedService, derive, createSources, deps): TOIMComputedStoreSlot` builds only a store
-slot per mount — `computedService.createStoreSlot(db, derive, createSources)` in a `useMemo` on `deps`;
-`derive` / `createSources` may be `undefined` when the service has them.
-`useOIMSingleComputedValue(computedService, derive, createSources, deps): TValue` is the same for a void-keyed
-service built with `createOIMSingleComputedService`, its slot read through the store slot's single slot service,
-so a flush between render and subscribe is safe.
-`useOIMSlotsByKeys(storeSlot, keys)` holds the identities its keys name for as long as the
-component is mounted (a `holdSlotByKey` per key on commit, the same holds given back on unmount or when the list
-moves) and subscribes to nothing; it needs no provider.
-Singles are not keyed collections: `createOIMSingleSlotService({ slotContentService })` returns an
-`OIMWritableSingleSlotService` (`getSingleSlot(storeSlot)`, `holdSingleSlot(storeSlot)`), read by
-`useOIMSingleEntity(singleSlotStoreSlot): TEntity | undefined` and
-`useOIMSingleBucketSlots(singleSlotStoreSlot): readonly TOIMEntitySlot<TEntity>[]` — the by-key
-mechanics without a key (getSingleSlot on render, holdSingleSlot on commit, resolve-hold given back once the
-effect exists; the bucket members are copied per render). See `packages/react/README.md`.
+`@oimdb/react` — `<OIMDBProvider db={db}>` carries the `OIMDB` and nothing else; `useOIMDB()` returns it, and
+`useOIMDB.withTypes<typeof db>()` is the same hook typed with the app's schemas. The one read hook is
+`useOIMSelector(select: (db) => TValue): TValue`, and `useOIMSelector.withTypes<typeof db>()` types its `db`:
+- `select` runs during render with the provider's database, and everything it reads with tracking (`slot.entity`,
+  `slot.getEntity(group)`, `columnSlot.value`, `computed.value`, `getBucketMemberSlots()` and `getBucketMemberSlotCount()`, `getEntities()`,
+  `getEntityCount()`) becomes a source. `peekSlotByKey`, `hasSlotContentByKey`, `getSlots` and `getSlotCount` do
+  not track.
+- At commit the hook hands those sources to its effect (`subscribeEffectToTrackedSources`). A flush only bumps a
+  version and tells React, so `select` runs once per change. Results are never compared, because an in-place write
+  keeps the entity's reference.
+- A key from props is closure. The commit moves the subscription to the slots it now names. When the sources moved,
+  or one was written after the render, the commit asks React for one more render. The first subscription always
+  does.
+- An error in `select` reaches the error boundary. A slot filed on another `OIMDB` than the provider's throws, naming
+  `useOIMSelector`.
+- A list selects member keys (`Array.from(bucket.getBucketMemberSlots(), member => member.key)`), and each row
+  selects its own entity by key. One field of a wide entity is `slot.getEntity(createOIMColumnGroup(['title']))`,
+  with the group made once at module scope. A component-owned computed is `useMemo(() => service.createStoreSlot(db, …), deps)`,
+  read through `.value` in the selector. Writes need no hook.
+- StrictMode in development subscribes twice, so a slot subscription listener hears `onSlotFirstSubscribed` twice.
+- Shorthands, each one `useOIMSelector` call over the aggregate it is given:
+  - `useOIMEntityByKey(slotCollectionStoreAggregate, key)`, which is `getSlotByKey(key).entity`;
+  - `useOIMEntities(entitySlotCollectionStoreAggregate)`, which is `getEntities()`;
+  - `useOIMEntitiesByKey(slotCollectionIndexStoreAggregate, key)`, which is `getEntitiesByKey(key)`;
+  - `useOIMBucketMemberKeysByKey(slotCollectionIndexStoreAggregate, key)`, the member keys;
+  - `useOIMComputedValueByKey(slotCollectionStoreAggregate, key)`, which is `getSlotByKey(key).value`;
+  - `useOIMSingleEntity(singleSlotStoreAggregate)`, which is `getSingleSlot().entity`;
+  - `useOIMSingleComputedValue(singleSlotStoreAggregate)`, which is `getSingleSlot().value`.
+  Each parameter is typed by the one method the hook calls.
+See `packages/react/README.md`.
 
 `@oimdb/exodra` — the Exodra plugin; it only reads. `new OIMExodraPlugin({ db })` claims a `slot.data` cell
 (`db.claimSlotDataCell()`) and adds a release listener (`dispose()` removes it); compose it into the backend as
@@ -4307,7 +4310,7 @@ createOIMBrowserLocationSingleSlotService(options?): TOIMBrowserSingleSlotServic
 ```
 
 Read it like any single: `const onlineSlot = onlineService.getSingleSlot(onlineService.createStoreSlot(db))`, then
-an effect over `[onlineSlot]`, or `useOIMSingleEntity(online)` in React. `isOnline` is
+an effect over `[onlineSlot]`, or `useOIMSelector(() => onlineService.getSingleSlot(online).entity)` in React. `isOnline` is
 `navigator.onLine` (a network interface exists, not a reachable internet); the location follows the
 Navigation API's `currententrychange` where it exists and `popstate` + `hashchange` otherwise, so without it a
 `history.pushState` is not seen until the next of those events. Without the API a sensor needs, the slot holds

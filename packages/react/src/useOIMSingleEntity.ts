@@ -1,11 +1,7 @@
-import type { OIMSingleSlotService, TOIMEntityContentSlot, TOIMSingleSlotStore, TOIMStoreSlot } from '@oimdb/core';
-import { useOIMSingleSlot } from './useOIMSingleSlot';
+import { useOIMSelector } from './useOIMSelector';
 
 export function useOIMSingleEntity<TEntity extends object>(
-    singleSlotStoreSlot: TOIMStoreSlot<
-        TOIMSingleSlotStore<TOIMEntityContentSlot<TEntity>>, TOIMEntityContentSlot<TEntity>, unknown,
-        Pick<OIMSingleSlotService<TOIMEntityContentSlot<TEntity>, unknown>, 'getSingleSlot' | 'holdSingleSlot'>
-    >,
+    singleSlotStoreAggregate: { getSingleSlot(): { readonly entity: TEntity | undefined } },
 ): TEntity | undefined {
-    return useOIMSingleSlot('useOIMSingleEntity', singleSlotStoreSlot).entity;
+    return useOIMSelector(() => singleSlotStoreAggregate.getSingleSlot().entity);
 }

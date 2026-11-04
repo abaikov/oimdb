@@ -1,622 +1,139 @@
 ---
 sidebar_position: 2
-description: How to provide the database to React and which hook to call for an entity, one field, a bucket's slots or a derivation, starting from useOIMValue.
+description: How to provide the database to React and read it with one hook, useOIMSelector, which re-renders a component when what it read changes.
 ---
 
 # React
 
-`@oimdb/react` binds `@oimdb/core` to React. The whole binding is one hook,
-`useOIMValue`, plus wrappers built on the same mechanism. There is one wrapper
-per core participant: an entity or field, a bucket, a computed slot or a key of a
-computed store slot, and a computed store slot the component owns. Another hook holds
-slots for a component without subscribing to them, and the provider hands every hook the database.
-
-<InShort>
-
-- The whole binding is one hook, `useOIMValue`, plus wrappers built on the same mechanism.
-- A subscription is an effect from the core's stateless `OIMEffectService.INSTANCE`, and the value is read off the slots.
-- The provider hands the hooks the `OIMDB`, and nothing else.
-- There is a wrapper for each core participant: entity, field, bucket and computed.
-- A hook that reads a collection by key takes the store slot; the service comes from `storeSlot.slotService`.
-
-</InShort>
+React bindings for `@oimdb/core`: one hook, plus shorthands over it. `useOIMSelector(db => …)` hands your function the database the
+provider holds. It renders what the function returns, and it re-renders the component when something the function
+read changes: an entity, one column of it, a computed value, a bucket's members. Nothing else wakes it.
 
 ```bash
 npm install @oimdb/react @oimdb/core
 ```
 
-There is no observable wrapper. A subscription is an effect,
-`OIMEffectService.INSTANCE.subscribeEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`, and the value is read
-off the slots afterwards.
-
-## Minimal usage
-
-```tsx file=minimal.tsx
-import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
-import { OIMDBProvider, useOIMDB, useOIMSourceTrackingValue } from '@oimdb/react';
-
-type TTodo = { id: string; title: string; done: boolean };
-
-const createTodoSchema = (db: OIMDB) => ({ todos: createOIMEntitySlotCollectionStoreAggregate<TTodo>(db) });
-const createAppDB = () => new OIMDB({ createSchemas: (db) => ({ default: createTodoSchema(db) }) });
-const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();
-
-const db = createAppDB();
-
-db.schemas.default.todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', done: false });
-db.schemas.default.todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', done: false });
-
-function Todo({ id }: { id: string }) {
-    const db = useAppDB();
-    const { todos } = db.schemas.default;
-    const todo = useOIMSourceTrackingValue(() => todos.getSlotByKey(id).entity, [todos, id]);
-    if (todo === undefined) return null;
-    const toggle = () => {
-        todos.getSlotByKey(id).updateEntity({ done: !todo.done });
-        db.flush();
-    };
-    return <li onClick={toggle}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
-}
-
-export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
-```
-
-Clicking a todo re-renders that one `Todo` and nothing else, at the `db.flush()` the handler calls: a
-database delivers only when it is flushed, every write since the last flush at once. `todos` is a
-collection of the database's schema ([A database with schemas](../getting-started/oimdb.md)); `useOIMSourceTrackingValue` re-renders on
-whatever its function read, here the one entity.
-
-## Which hook to take
-
-| You have | You want | Take |
-|---|---|---|
-| an entity store slot and a key | the entity, re-rendered when it is written | `useOIMEntity(entityStoreSlot, key)` |
-| an entity slot | one column of it, re-rendered only when that column is written | `useOIMField(entityCollectionService, slot, name)` |
-| a bucket somebody else resolved and holds | its member slots as an array | `useOIMBucketSlots(bucketCollectionService, bucketSlot)` |
-| a bucket (or index) store slot and a key | that bucket, owned by the component | `useOIMBucketSlotsByKey(bucketStoreSlot, key)` |
-| a store slot (computed, entity, bucket or index) and keys | the slots held while mounted, with no re-render | `useOIMSlotsByKeys(storeSlot, keys)` |
-| one computed slot | its value, re-rendered when it changes | `useOIMComputedValue(computedSlot)` |
-| a computed store slot and a key | that key's value, owned by the component | `useOIMComputedValueByKey(computedStoreSlot, key)` |
-| a module-scope computed service and a derive | a keyed computed store slot the component owns, rebuilt when `deps` change | `useOIMComputedCollection(computedService, derive, createSources, deps)` |
-| a module-scope void-keyed computed service and a derive | the value of a single computed the component owns | `useOIMSingleComputedValue(computedService, derive, createSources, deps)` |
-| a single entity store slot | its entity, re-rendered when it is written | `useOIMSingleEntity(singleSlotStoreSlot)` |
-| a single bucket store slot | its member slots as an array | `useOIMSingleBucketSlots(singleSlotStoreSlot)` |
-| any slots and derivations | any value read off them | `useOIMValue(binding)` |
-| whatever a function reads | the function's result, with its reads as the sources | `useOIMSourceTrackingValue(read, deps)` |
-| nothing | the `OIMDB` the provider was given | `useOIMDB()` |
-
-Every hook that reads a collection by key takes the store slot alone and calls the service the store slot
-carries, `storeSlot.slotService`, typed as a `Pick` of `OIMSlotCollectionService` with only the members it
-calls. A store aggregate passes its `storeSlot`. `useOIMBucketSlotsByKey` resolves through
-`holdSlotByKey(bucketStoreSlot, key)` and reads members through
-`bucketSlot.getBucketMemberSlots()`, so an index store slot fits
-it as well as a bucket collection's. The hold is given back through the slot's own owner,
-`slot.unholdSlot()`. `useOIMBucketSlots` takes a bucket collection service and a bucket somebody else holds.
-
-## Why one binding is enough
-
-Every hook here is built on one primitive, `useOIMValue`, because the core has one
-way to subscribe: `subscribeEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`.
-The other hooks write the `useMemo` for common shapes. A binding has three parts:
-the roots a write can reach, the derivations to ask before reading, and the derive
-function.
-
-```typescript signature
-export type TOIMBinding<TValue> = {
-    readonly sourceSlots?: readonly TOIMSlot[] | undefined;
-    readonly sourceComputeds?: readonly TOIMComputedSlot[] | undefined;
-    readonly derive: () => TValue;
-};
-```
-
-- `sourceSlots` and `sourceComputeds` are both optional and default to none. Everything a
-  binding subscribes to stays filed while the component is subscribed. A slot you read but do
-  not want to wake on is kept alive outside the binding, with `useOIMSlotsByKeys` or a hold
-  your module owns.
-- `derive` is called on every render, after the derivations are settled.
-
-Unsubscribing gives the component's holds back, and an identity nothing else holds may then
-be released by its policy. A slot your code resolved and still uses has to be held by your
-code, not by the component that happens to subscribe to it.
-
-The snapshot `useSyncExternalStore` compares is a counter, not the value, because the value's
-reference may not change: the in-place writer keeps the entity object, and a bucket returns
-the same live container. The counter is also bumped on subscribing, so a write that landed
-between the render and the subscription is still shown. The price is one extra render per
-mount, and per change of the memo key.
-
-## Setup
-
-The examples below share these definitions.
-
-```tsx setup
-import { useMemo } from 'react';
-import type { ReactNode } from 'react';
-import { OIMDB, OIMSingleSlotStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, isOIMSameValueZero, createOIMSingleComputedService, createOIMSingleSlotService } from '@oimdb/core';
-import type {
-  TOIMBucketSlotsArrayStore, TOIMBucketSlot, TOIMComputedSlot, TOIMEntitySlot, TOIMSingleSlotStore,
-} from '@oimdb/core';
-import {
-  OIMDBProvider, useOIMBucketSlots, useOIMBucketSlotsByKey, useOIMDB, useOIMEntity,
-  useOIMComputedCollection, useOIMComputedValue, useOIMComputedValueByKey, useOIMField,
-  useOIMSingleBucketSlots, useOIMSingleComputedValue, useOIMSingleEntity, useOIMSlotsByKeys, useOIMValue,
-} from '@oimdb/react';
-
-type Card = { id: string; title: string; deckId: string; rank: number };
-type User = { id: string; avatarUrl: string };
-
-const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
-const cards = cardService.createStoreSlot(db);
-const userService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<User>() });
-const users = userService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
-const byDeck = byDeckService.createStoreSlot(db);
-const deckIndexService = createOIMSlotCollectionIndexService({
-  entityService: cardService,
-  selectKey: (card: Card) => card.deckId,
-});
-const deckIndex = deckIndexService.createIndexStoreSlot(cards);
-const byRankService = createOIMSortedComputedService({
-  indexService: deckIndexService,
-  sortColumns: [{ columnName: 'rank', direction: 'asc' }],
-});
-const byRank = byRankService.createSortedStoreSlot(deckIndex);
-```
-
-## `OIMDBProvider` and its context
+## In one minute
 
 ```tsx
-function App({ children }: { children: ReactNode }) {
-  return <OIMDBProvider db={db}>{children}</OIMDBProvider>;
-}
-```
+import { OIMDB, createOIMEntitySlotCollectionStoreAggregate, createOIMSlotCollectionIndexStoreAggregate } from '@oimdb/core';
+import { OIMDBProvider, useOIMSelector } from '@oimdb/react';
 
-`OIMDBProvider` puts one value in context: the `OIMDB` (`OIMDBContext`, read with `useOIMDB()`). The effect
-service is stateless (`OIMEffectService.INSTANCE`) and takes the database as its channel map, so there is
-nothing else to provide. You pass store slots to each hook as arguments, and you keep them in a module.
-
-A slot filed on another `OIMDB` than the provider's would never wake the component, and the screen would stay as
-first painted with no sign why. So the hooks that resolve or take a slot check that its store slot runs on
-`db.defaultChannelSlot`, and throw, naming the hook, when it does not. `useOIMSlotsByKeys` needs no provider: it
-takes no subscription and never reads the context.
-
-The context is exported, for tests or for wiring a provider by hand. Its default value is `undefined`, which is
-why `useOIMDB` throws outside a provider.
-
-## `useOIMValue` — the primitive
-
-```tsx
-function DeckSize({ bucket }: { bucket: TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>> }) {
-  const deckCards = useOIMValue(useMemo(() => ({
-    sourceSlots: [bucket],
-    derive: () => Array.from(bucket.getBucketMemberSlots()),
-  }), [bucket]));
-  return <span>{deckCards.length}</span>;
-}
-```
-
-**What for:** anything the wrappers do not cover, such as a value over several roots, a
-derivation, an index bucket or a count. **When not:** a single entity, column or
-bucket. The wrappers below already write the memo.
-
-It subscribes one effect over `binding.sourceSlots` and `binding.sourceComputeds` per subscription, and the
-effect body only bumps the counter and tells React. The notification never carries the value; `derive`
-produces it during the render.
-
-It settles the binding's derivations before every read, by calling
-`slot.value` on each entry of `sourceComputeds`, because a
-derivation is asked and never woken: nothing in a frame walks to a computed slot,
-so a `derive` that reaches a derivation's result any way other than `slot.value`
-would show whatever the last produce left there.
-
-### The binding must keep its identity across renders
-
-This is required. Getting it wrong does not cost you an allocation; it hangs the
-screen.
-
-```tsx
-function BrokenDeckSize({ bucket }: { bucket: TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>> }) {
-  // DO NOT. A new binding every render, and this never stops rendering.
-  const slots = useOIMValue({ sourceSlots: [bucket],
-                              derive: () => Array.from(bucket.getBucketMemberSlots()) });
-  return <span>{slots.length}</span>;
-}
-```
-
-A fresh binding misses the hook's memo on every render. That gives `subscribe` a
-new identity, and React resubscribes on every commit. The counter
-bump then makes React's post-commit check differ (every fresh store starts at
-`0` and every fresh `subscribe` takes it to `1`), so React forces another render,
-which builds another binding. Nothing converges. React logs
-`Maximum update depth exceeded`, which is a `console.error` and not a throw, so
-the symptom is a frozen screen and a growing console, not an error you can
-catch. React cannot notice, because the snapshot is a counter and not a value.
-
-Writing that `useMemo` once, so no call site has to, is the whole job of
-`useOIMField` and `useOIMBucketSlots`.
-
-## `useOIMEntity` — one entity, by key
-
-```tsx
-function CardTitle({ cardId }: { cardId: string }) {
-  const card = useOIMEntity(cards, cardId);
-  return <h1>{card?.title}</h1>;
-}
-```
-
-**What for:** a component addressed by a primary key, such as a route param or a prop from
-a list. It returns `TEntity | undefined`: `undefined` until something writes the
-key, and it re-renders when the entity slot is written. **When not:** the
-component renders one column of an entity it already has a slot for. Take
-`useOIMField`, which does not re-render on writes to other columns.
-
-First paint reads the current entity. The key is held only once the subscription commits, so a
-render React throws away leaves nothing behind past the next `flush()`, and StrictMode's
-mount–unmount–mount is safe. Unmount or a key change gives the hold back. The other by-key hooks
-(`useOIMBucketSlotsByKey`, `useOIMComputedValueByKey`, `useOIMSingleComputedValue`) work the same way.
-
-## `useOIMField` — one field of one identity
-
-```tsx
-function AvatarBadge({ user }: { user: TOIMEntitySlot<User> }) {
-  const avatarUrl = useOIMField(userService, user, 'avatarUrl');
-  return <img src={avatarUrl} />;
-}
-```
-
-**What for:** a component that shows one column of a wide entity, where a write
-to the other columns should not re-render it. **When not:** the component reads
-several columns. One `useOIMEntity` is one subscription, and several `useOIMField`
-calls are several.
-
-The first argument is the collection service, which owns the column slots; anything with
-`getColumnSlot(slot, columnName)` fits. `name` is a column of that slot's entity, so a typo is a
-compile error and the value comes back with that column's type, or `undefined`. The hook holds
-the entity slot while subscribed.
-
-For a single entity, pass `settingsService.getSingleSlot(settings)` at each render: a released
-single slot is replaced by a fresh one, so a slot captured once may go stale.
-
-## `useOIMBucketSlots` — a bucket's contents, as an array
-
-```tsx
-function DeckList({ bucket }: { bucket: TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>> }) {
-  const deckCards = useOIMBucketSlots(byDeckService, bucket);
-  return (
-    <ul>
-      {deckCards.map((slot) => (
-        <li key={String(slot.key)}>{slot.entity?.title}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
-**What for:** a list whose bucket is resolved and held outside the component, such as in a
-store module or a parent. **When not:** the component itself decides which bucket
-by key. Take `useOIMBucketSlotsByKey`, which owns the lifetime.
-
-Whoever resolved the bucket with `holdSlotByKey(bucketStoreSlot, key)` gives that hold back;
-this hook never does. Resolve in a module, keep the hold for as long as the slot is in use, and
-pass the slot down.
-
-The hook copies the members into a readonly array, only when the bucket changed, so a render
-the bucket did not cause gets the same array back and a `memo` child below skips.
-`useOIMBucketSlotsByKey` copies on every render.
-
-## `useOIMBucketSlotsByKey` — one bucket, by key
-
-```tsx
-function Deck({ deckId }: { deckId: string }) {
-  const deckCards = useOIMBucketSlotsByKey(byDeck, deckId);
-  return <ul>{deckCards.map((slot) => <li key={String(slot.key)}>{slot.entity?.title}</li>)}</ul>;
-}
-
-function IndexedDeck({ deckId }: { deckId: string }) {
-  const deckCards = useOIMBucketSlotsByKey(deckIndex, deckId);
-  return <ul>{deckCards.map((slot) => <li key={String(slot.key)}>{slot.entity?.title}</li>)}</ul>;
-}
-```
-
-It takes a bucket collection's store slot; an index store slot fits too.
-
-**What for:** a bucket chosen by a prop, such as a search box, a route param or a
-virtualised cell. The component owns the bucket's lifetime, and nobody else has to.
-
-Like `useOIMEntity`, it holds the bucket from commit to unmount or the next key change, with no
-teardown of yours, and first paint is the current list.
-
-### The key may be built inline
-
-Including the array a tree-driven bucket store is keyed by. This setup adds a
-composite-keyed bucket collection to the definitions above:
-
-```tsx setup
-import {
-  OIMCompositeKeyTreeWalk, OIMSetBucketContentService, OIMSlotTreeStoreService, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands,
-} from '@oimdb/core';
-import type { TOIMBucketSlotsSetStore, TOIMSlotStoreTree } from '@oimdb/core';
-
-type Deck = { id: string };
-type Day = { id: string };
-type TDeckAndDayBucketSlot = TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>, readonly TOIMEntitySlot[]>;
-
-const deckService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Deck>() });
-const decks = deckService.createStoreSlot(db);
-const dayService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Day>() });
-const days = dayService.createStoreSlot(db);
-const byDeckAndDayService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<Card>, readonly TOIMEntitySlot[]>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TDeckAndDayBucketSlot>(
-    new OIMCompositeKeyTreeWalk(),
-  ) });
-const byDeckAndDay = byDeckAndDayService.createStoreSlot(db);
-```
-
-```tsx
-function Slot({ deckId, day }: { deckId: string; day: string }) {
-  const slotCards = useOIMBucketSlotsByKey(byDeckAndDay, [
-    deckService.getSlotByKey(decks, deckId), dayService.getSlotByKey(days, day),
-  ]);
-  return <ul>{slotCards.map((s) => <li key={String(s.key)}>{s.entity?.title}</li>)}</ul>;
-}
-```
-
-The hook compares keys by what they name, not by array identity, so an inline array does not
-resubscribe on every render.
-
-## `useOIMComputedValue` — one computed value
-
-```tsx
-const spadesInOrder = byRankService.holdSlotByKey(byRank, 'spades');
-
-function SpadesInOrder() {
-  const ranked = useOIMComputedValue(spadesInOrder);
-  return <ul>{ranked.map((s) => <li key={String(s.key)}>{s.entity?.title}</li>)}</ul>;
-}
-```
-
-**What for:** a component that shows the value of one computed slot and must
-re-render when it changes. It subscribes to the slot through `useOIMValue`
-(`sourceComputeds: [computedSlot]`), which settles the slot before the read, and
-reads `computedSlot.value`. The binding is memoised on the
-slot, so there is nothing to keep stable. **When not:** a value that also needs
-root slots or post-processing of the derivation's result. Use `useOIMValue` for that.
-
-## `useOIMComputedValueByKey` — one key of a computed store slot
-
-```tsx
-function TopOfDeck({ deckId }: { deckId: string }) {
-  const ranked = useOIMComputedValueByKey(byRank, deckId);
-  return <span>{ranked[0]?.entity?.title}</span>;
-}
-```
-
-**What for:** a computed store slot (of `createOIMComputedService`, a sorted computed, a bucket memo) read by a
-key the component chooses. It holds the key
-the way `useOIMEntity` does, and a key built inline is compared by meaning, as for a bucket.
-
-## `useOIMComputedCollection` — a keyed computed store slot the component owns
-
-```tsx
-const doubledRankService = createOIMComputedService<string, number>({});
-
-function DoubledRank({ cardId }: { cardId: string }) {
-  const doubledRanks = useOIMComputedCollection(
-    doubledRankService,
-    (computedSlot) => (cardService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) * 2,
-    ({ key }) => ({ sourceSlots: [cardService.getSlotByKey(cards, key)] }),
-    [],
-  );
-  return <span>{useOIMComputedValueByKey(doubledRanks, cardId)}</span>;
-}
-```
-
-**What for:** a keyed derivation scoped to one component, read by key with
-`useOIMComputedValueByKey`. The computed SERVICE is yours, built once at module scope with
-`createOIMComputedService(options)`, which takes no db; the hook only calls
-`computedService.createStoreSlot(db, derive, createSources)` with the `OIMDB` from the provider, in a
-`useMemo` keyed on `deps`, and returns that store slot. `derive` and `createSources` may be `undefined` when the
-service already has them. The store slot is rebuilt when `deps` change, and React may also rebuild it. Slots of
-the old store slot go back when their effects are disposed, so nothing is kept. Each key's computed slot lives as
-long as something subscribes to or holds it, as in any computed store slot.
-
-## `useOIMSingleComputedValue` — a single computed the component owns
-
-```tsx
-const deckCardCountService = createOIMSingleComputedService<number>();
-
-function DeckCardCount({ deckId }: { deckId: string }) {
-  const size = useOIMSingleComputedValue(
-    deckCardCountService,
-    () => deckIndexService.getSlotByKey(deckIndex, deckId).getBucketMemberSlotCount(),
-    () => ({ sourceSlots: [deckIndexService.getSlotByKey(deckIndex, deckId)] }),
-    [deckId],
-  );
-  return <span>{size}</span>;
-}
-```
-
-**What for:** a derivation only this component needs. The service is a void-keyed `createOIMComputedService`
-over `OIMSingleSlotStoreService.INSTANCE`, built once at module scope. Add both hooks to the additionalHooks option of `react-hooks/exhaustive-deps` in your own
-config, so a prop that `derive` reads and `deps` omit is a lint error instead of a screen that silently shows the
-old value. **When not:** several components read the same derivation. Build its store slot once in a module and
-take `useOIMComputedValue`.
-
-## `useOIMSingleEntity` and `useOIMSingleBucketSlots` — a single
-
-A single is not a keyed collection: `createOIMSingleSlotService()` and `createOIMSingleSlotService()` return
-an `OIMSingleSlotService`, whose doors are `getSingleSlot(storeSlot)` and `holdSingleSlot(storeSlot)`. Its two hooks
-are the by-key mechanics without a key: `getSingleSlot` on render, `holdSingleSlot` on commit, the resolve-hold
-given back once the effect exists.
-
-```tsx
-type Settings = { theme: string };
-
-const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>() });
-const settings = settingsService.createStoreSlot(db);
-settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
-
-function Theme() {
-  return <span>{useOIMSingleEntity(settings)?.theme}</span>;
-}
-```
-
-**What for:** a record with no key, whose store slot mints nothing until the first `writeSlotContentByKey`, an
-ordinary announced write. `useOIMSingleEntity(singleSlotStoreSlot)` returns
-`TEntity | undefined`; on each subscribe it resolves the slot, minting a fresh one if it was released, holds it
-while subscribed, and re-renders when the entity is written.
-
-```tsx
-const pickedService = createOIMSingleSlotService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
-const picked = pickedService.createStoreSlot(db);
-
-function Picked() {
-  return <ul>{useOIMSingleBucketSlots(picked).map((s) => <li key={String(s.key)}>{s.entity?.title}</li>)}</ul>;
-}
-```
-
-**What for:** a bucket with no key. `useOIMSingleBucketSlots(singleSlotStoreSlot)` subscribes
-over the single bucket slot and copies the members into a readonly array on every render, as
-`useOIMBucketSlotsByKey` does.
-
-## `useOIMSlotsByKeys` — slots held for a component
-
-```tsx
-function DeckTopCard({ deckId }: { deckId: string }) {
-  const [ranked] = useOIMSlotsByKeys(byRank, [deckId]);
-  const top = useOIMValue(useMemo(() => ({
-    sourceComputeds: [ranked],
-    derive: () => ranked.value[0]?.entity?.title,
-  }), [ranked]));
-  return <span>{top}</span>;
-}
-```
-
-**What for:** a component that reads derivations it should own. A computed slot is released at its last unhold
-unless its service was given another `slotReleasePolicy`. A bare `getSlotByKey(computedStoreSlot, key)` mints one
-into the unused-slot collector, and the next `flush()` takes it straight back, so each frame would rebuild it.
-**When not:** the derivation must outlive every component that reads it. Hold it in a module.
-
-It takes a store slot and a list of keys. The store slot's `slotService` is anything with
-`getSlotByKey(storeSlot, key)` and `holdSlotByKey(storeSlot, key)`: a computed collection service, an entity
-collection, a bucket collection or an index. It returns the slots.
-
-- It holds one slot per key from commit to unmount, or until the key list changes. A render React
-  throws away leaks nothing.
-- The key list may be built inline: it is compared by contents.
-- It owns a lifetime, not a subscription. Nothing here re-renders when a
-  derivation's value moves; `useOIMValue` with the slot in `sourceComputeds` does
-  that, as in the example. Hold with this hook, wake with that one.
-- It needs no provider: it subscribes to nothing.
-
-## Binding a derivation
-
-A computed is a `TOIMComputedSlot`, read as `slot.value`, which settles it before answering.
-Bind a computed by putting its slot in `sourceComputeds` and reading `slot.value` in `derive`.
-For one computed slot, hand it to `useOIMComputedValue`, which does exactly that:
-
-```tsx
-const spadesCountService = createOIMSingleComputedService<number>({
-  sameValueGuard: isOIMSameValueZero,
-});
-const spadesCount = spadesCountService.createStoreSlot(
-  db,
-  () => deckIndexService.getSlotByKey(deckIndex, 'spades').getBucketMemberSlotCount(),
-  () => ({ sourceSlots: [deckIndexService.getSlotByKey(deckIndex, 'spades')] }),
-);
-const spadesCountSlot = spadesCountService.holdSingleSlot(spadesCount);
-
-function SpadesCount() {
-  const count = useOIMComputedValue(spadesCountSlot);
-  return <span>{count}</span>;
-}
-```
-
-A derivation filters renders. Each frame the effect first refreshes its
-`sourceComputeds`, then runs only when one of them, or one of its
-`sourceSlots`, was stamped after its last run. A computed whose
-`sameValueGuard` says the new value equals the old one keeps its stamp, so a write
-under it that leaves the count unchanged renders nothing.
-
-A sorted index bucket is a derivation too (`createOIMSortedComputedService`
-over an index service, with `createSortedStoreSlot(indexStoreSlot)`), and a component can own a key of it
-with `useOIMSlotsByKeys` (the `DeckTopCard` example above). Each derivation holds
-its own sources: the index bucket for its key and one bucket column slot per sort
-column. It re-sorts only when membership changes or a write changes one of its
-columns on a member. Without `sortColumns` and `comparator` it compares nothing,
-so the array keeps the members it already had in place and appends the ones that arrived.
-
-An unsorted index bucket by key is `useOIMBucketSlotsByKey(deckIndex, key)`. One held outside
-React binds as a root:
-
-```tsx
-const spades = deckIndexService.holdSlotByKey(deckIndex, 'spades');
-
-function Spades() {
-  const slots = useOIMValue(useMemo(() => ({
-    sourceSlots: [spades], derive: () => Array.from(spades.getBucketMemberSlots()),
-  }), []));
-  return <ul>{slots.map((s) => <li key={String(s.key)}>{s.entity?.title}</li>)}</ul>;
-}
-```
-
-A subscription is not woken for anything that happened before it. A write that landed between
-the render and the subscription is still shown, because the hooks re-render once on subscribing.
-
-## `useOIMDB`
-
-```tsx
-function FlushButton() {
-  const providedDb = useOIMDB();
-  return <button onClick={() => providedDb.flush()}>flush</button>;
-}
-```
-
-The `OIMDB` from context, for a component that flushes or builds a store slot. It throws when there is no
-`<OIMDBProvider>` above: `useOIMDB: no <OIMDBProvider db={...}> above this component.` The same throw has one
-other cause: `@oimdb/react` loaded twice, once through `import` and once through `require`. A context is identified
-by its object, so the provider of one copy is invisible to the hooks of the other.
-
-`useOIMDB()` is typed `OIMDB`, so it does not know the application's schemas. `useOIMDB.withTypes<TDB>()` returns
-the same hook typed as `() => TDB`, the pattern react-redux uses for its typed hooks. Make it once, next to the
-function that builds the database, and a component reads its schemas without a cast:
-
-```tsx file=typed-db-hook.tsx
-import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
-import { useOIMDB, useOIMSourceTrackingValue } from '@oimdb/react';
+type TTodo = { id: string; title: string; status: 'open' | 'done' };
 
 const createAppDB = () => new OIMDB({
-  createSchemas: (db) => ({ default: { todos: createOIMEntitySlotCollectionStoreAggregate<{ id: string; title: string }>(db) } }),
+    channelScheduler: flush => { void Promise.resolve().then(flush); },
+    createSchemas: db => {
+        const todos = createOIMEntitySlotCollectionStoreAggregate<TTodo>(db);
+        const todosByStatus = createOIMSlotCollectionIndexStoreAggregate(todos, { selectKey: (todo: TTodo) => todo.status });
+        return { default: { todos, todosByStatus } };
+    },
 });
-export const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();
+const db = createAppDB();
+const useAppSelector = useOIMSelector.withTypes<typeof db>();
 
-export function TodoCount() {
-  const { todos } = useAppDB().schemas.default;
-  return <span>{useOIMSourceTrackingValue(() => todos.getEntityCount(), [todos])}</span>;
+db.schemas.default.todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', status: 'open' });
+db.schemas.default.todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', status: 'open' });
+
+function Todo({ id }: { id: string }) {
+    const todo = useAppSelector(appDb => appDb.schemas.default.todos.getSlotByKey(id).entity);
+    if (todo === undefined) return null;
+    const finish = () => { db.schemas.default.todos.getSlotByKey(id).updateEntity({ status: 'done' }); };
+    return <li onClick={finish}>{todo.title}</li>;
 }
+
+function OpenTodos() {
+    const ids = useAppSelector(appDb =>
+        Array.from(appDb.schemas.default.todosByStatus.getSlotByKey('open').getBucketMemberSlots(), member => String(member.key)));
+    return <ul>{ids.map(id => <Todo key={id} id={id} />)}</ul>;
+}
+
+export const App = () => <OIMDBProvider db={db}><OpenTodos /></OIMDBProvider>;
 ```
 
-At run time `useAppDB` is `useOIMDB`; only the type differs.
+When you click a todo, the write is delivered at the next microtask, the flush the `channelScheduler` asks for.
+`OpenTodos` re-renders because the bucket's membership changed, and no `Todo` re-renders: each `Todo` read only its
+own entity.
 
-## Notes
+## The hook
 
-- Unmounting the last component watching a never-written key releases that
-  identity under the default release policy (`OIMSlotAtEmptyReleasePolicy`, which
-  releases an empty slot at its last unhold), so nothing leaks from watching a key
-  that never arrives. A collection built with `OIMSlotNeverReleasePolicy` keeps it.
-- Every hook memoises its store on the inputs you pass: the store slot, the settled key
-  (or key list), the slot and the column name. Each input is either a scalar or an identity the
-  collection interned. The inputs that could not be stable are a by-key hook's key
-  and `useOIMSlotsByKeys`'s key list, which is why those hooks settle them. The one you have to keep stable is the
-  binding handed to `useOIMValue`, and an unstable one hangs the screen.
-- Your application writes a bucket's slots. A component that renders
-  "the cards in deck X" is reading a list that something else keeps current. The hook
-  subscribes to the bucket, and what puts entity slots in it is your write,
-  typically from the same place that received the server response, never from a
-  render. Or use an index (`createOIMSlotCollectionIndexService`), which files entity slots automatically from its `selectKey`.
-- A bucket never sorts. Its order is what your application wrote. A list
-  sorted by a column is `createOIMSortedComputedService({ indexService, sortColumns })`
-  over an index service. See [Binding a derivation](#binding-a-derivation).
-- Construct services and their store slots in a module, not in a component. A second
-  `createStoreSlot(db)` on a bucket collection is a second set of buckets whose
-  slots nobody writes.
+```ts signature
+function useOIMSelector<TValue, TDB extends OIMDB = OIMDB>(select: (db: TDB) => TValue): TValue;
+useOIMSelector.withTypes<TDB extends OIMDB>(): <TValue>(select: (db: TDB) => TValue) => TValue;
+```
+
+- **`select` is called with the provider's database.** `useOIMSelector.withTypes<typeof db>()` types that
+  database once, so `db.schemas` needs no cast. It is the same hook, the way `useOIMDB.withTypes` is.
+- **The component re-renders when a tracked source changes.** Results are never compared. Under the default in-place
+  entity writer, a written entity keeps its object reference, so a comparison would freeze the component.
+- **`select` runs once per change.** The render runs it while tracking what it reads. The commit hands those sources
+  to the subscription (`OIMEffectService.subscribeEffectToTrackedSources`). A flush only tells React to render.
+- **Props are just closure.** When a key from props moves, the commit moves the subscription to the slot that key
+  names, and the slot it left stops waking the component.
+- **A write between render and commit is still shown.** The first subscription costs one extra render. When the
+  sources move, or one of them was written after the render, the commit asks for one more render.
+- **An error in `select` goes to the error boundary**, because `select` only runs during render.
+- **One selector reads one database**: the provider's. A slot filed on another `OIMDB` is refused with an error that
+  names `useOIMSelector`. Without that refusal a write to it would never wake the component.
+
+## Shorthand hooks
+
+Each one is a single `useOIMSelector` call. It takes the aggregate you hold and is named for what it returns:
+
+| Hook | Is |
+|---|---|
+| `useOIMEntityByKey(cards, id)` | `useOIMSelector(() => cards.getSlotByKey(id).entity)` |
+| `useOIMEntities(cards)` | `useOIMSelector(() => cards.getEntities())` |
+| `useOIMEntitiesByKey(cardsByDeck, deck)` | `useOIMSelector(() => cardsByDeck.getEntitiesByKey(deck))` |
+| `useOIMBucketMemberKeysByKey(cardsByDeck, deck)` | the member keys of that bucket, for a list of rows |
+| `useOIMComputedValueByKey(scores, id)` | `useOIMSelector(() => scores.getSlotByKey(id).value)` |
+| `useOIMSingleEntity(viewer)` | `useOIMSelector(() => viewer.getSingleSlot().entity)` |
+| `useOIMSingleComputedValue(total)` | `useOIMSelector(() => total.getSingleSlot().value)` |
+
+Each parameter is typed by the one method the hook calls (`getSlotByKey`, `getEntities`, `getEntitiesByKey`,
+`getSingleSlot`). So any aggregate that has that method fits, a computed one included
+(`computedService.createStoreAggregate(storeSlot)`). `useOIMEntities` and `useOIMEntitiesByKey` read every
+member's entity, so they wake on any member write. For a long list, select keys and let each row read its own.
+
+## What wakes it
+
+| Read inside `select` | Wakes on |
+|---|---|
+| `slot.entity` | any write to that entity |
+| `slot.getEntity(createOIMColumnGroup(['title']))` | a write to `title` only |
+| `columnSlot.value` | that column |
+| `computedSlot.value` | the computed's value moving (a `sameValueGuard` that calls it equal renders nothing) |
+| `bucketSlot.getBucketMemberSlots()`, `getBucketMemberSlotCount()`, `hasBucketMemberSlot()` | membership |
+| `collection.getEntities()`, `getEntityCount()` | the whole population |
+
+`peekSlotByKey`, `hasSlotContentByKey`, `getSlots` and `getSlotCount` do not track. A selector that reads only
+them renders once and never again.
+
+## Lists
+
+A list selects keys, and each row selects its own entity by key, the way Redux lists are written. The list then
+re-renders on membership only, and a row on its own entity only. A `React.memo` row gets a primitive `id` prop, so
+it stays put when the list re-renders.
+
+## A derivation
+
+A derivation used by one component is the selector itself: `useOIMSelector(db => db.schemas.default.todos.getEntityCount())`.
+A derivation shared by several components is a computed service built next to the database, read through
+`computedSlot.value`. A component that wants a computed of its own builds it in `useMemo` and reads it with the
+same selector.
+
+## Things worth knowing
+
+- **Writes need no hook.** Write straight on the aggregate: `todos.getSlotByKey(id).updateEntity(patch)`,
+  `todos.writeSlotContentByKey(id, entity)`.
+- **A database without a `channelScheduler` delivers only on `db.flush()`.** Pass a microtask or
+  `requestAnimationFrame` scheduler, or call `flush()` yourself.
+- **The subscription holds what it read, and gives it back on unmount**, so an empty slot a component is waiting on
+  stays filed until its value arrives.
+- **StrictMode in development subscribes, unsubscribes and subscribes again**, so a slot subscription listener
+  hears `onSlotFirstSubscribed` twice for the same slot.
+
+## Reference
+
+[Reading and subscribing](/docs/core/reading-subscribing) covers what a tracked read is.
+[Recipes: React](/docs/recipes/react) has one recipe per task.

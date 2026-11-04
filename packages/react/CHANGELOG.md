@@ -1,5 +1,22 @@
 # Changelog
 
+## 4.0.0
+
+### Added
+
+- `useOIMSelector(select)` and `useOIMSelector.withTypes<TDB>()`.
+- `useOIMEntityByKey`, `useOIMEntities`, `useOIMEntitiesByKey`, `useOIMBucketMemberKeysByKey`.
+
+### Changed
+
+- Requires `@oimdb/core` 4.13.0.
+- `useOIMSingleEntity`, `useOIMSingleComputedValue` and `useOIMComputedValueByKey` take aggregates.
+
+### Removed
+
+- `useOIMValue`, `TOIMBinding`, `useOIMSourceTrackingValue` → `useOIMSelector`.
+- `useOIMEntity`, `useOIMField`, `useOIMBucketSlots`, `useOIMBucketSlotsByKey`, `useOIMSingleBucketSlots`, `useOIMSlotsByKeys`, `useOIMComputedCollection` → `useOIMSelector` or the shorthands above.
+
 ## 3.5.0
 
 ### Changed

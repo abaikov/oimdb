@@ -47,8 +47,8 @@ OIMEffectService.INSTANCE.createEffect(db, () => {
 | `createOIMBrowserVisibilitySingleSlotService` | `{ isVisible }` | `visibilitychange` |
 | `createOIMBrowserLocationSingleSlotService` | `{ href, pathname, search, hash }` | `currententrychange` of the Navigation API, else `popstate` and `hashchange` |
 
-In React, `useOIMSingleEntity(online)` from [`@oimdb/react`](/docs/packages/react) reads the
-entity. `isOnline` means a network interface exists, not that the internet answers; without the Navigation API
+In React, `useOIMSelector(() => onlineService.getSingleSlot(online).entity)` from [`@oimdb/react`](/docs/packages/react)
+reads the entity. `isOnline` means a network interface exists, not that the internet answers; without the Navigation API
 a `history.pushState` is seen only at the next `popstate` or `hashchange`. The package's
 [README](https://github.com/abaikov/oimdb/blob/master/packages/browser/README.md) has the details.
 

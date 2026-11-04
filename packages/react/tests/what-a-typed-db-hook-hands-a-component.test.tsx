@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { act, render, screen } from '@testing-library/react';
 import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
-import { OIMDBProvider, useOIMDB, useOIMEntity } from '../src/index';
+import { OIMDBProvider, useOIMDB, useOIMSelector } from '../src/index';
 
 type TTodo = { id: string; title: string };
 
@@ -21,7 +21,7 @@ describe('what a typed db hook hands a component', () => {
 
         function Todo({ id }: { id: string }): React.ReactElement {
             const todos = useAppDB().schemas.default.todos;
-            return <span data-testid={`todo-${id}`}>{useOIMEntity(todos.storeSlot, id)?.title}</span>;
+            return <span data-testid={`todo-${id}`}>{useOIMSelector(() => todos.getSlotByKey(id).entity?.title)}</span>;
         }
         render(<OIMDBProvider db={db}><Todo id="t1" /></OIMDBProvider>);
         expect(screen.getByTestId('todo-t1').textContent).toBe('Buy milk');

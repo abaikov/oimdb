@@ -5,6 +5,7 @@ import type { TOIMComputedContentSlot } from './types/TOIMComputedContentSlot';
 import { OIMSourceList } from './OIMSourceList';
 import { OIM_FROZEN_EMPTY_COMPUTED_SLOTS } from './constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS';
 import { getOIMRootSlots } from './utils/getOIMRootSlots';
+import { swapOIMActiveSourceTracker } from './utils/swapOIMActiveSourceTracker';
 
 export class OIMSourceTracker implements IOIMSourceTracker {
 
@@ -32,6 +33,17 @@ export class OIMSourceTracker implements IOIMSourceTracker {
 
     public trackSourceComputed(computedSlot: TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>): void {
         (this.computedSourceList ??= new OIMSourceList<TOIMComputedContentSlot<unknown, OIMSourceTracker | undefined>>()).trackSource(computedSlot);
+    }
+
+    public runSourceTracking<TValue>(read: () => TValue): TValue {
+        this.openSourceTracking();
+        const outerSourceTracker = swapOIMActiveSourceTracker(this);
+        try {
+            return read();
+        } finally {
+            swapOIMActiveSourceTracker(outerSourceTracker);
+            this.closeSourceTracking();
+        }
     }
 
     public openSourceTracking(): void {
@@ -69,7 +81,11 @@ export class OIMSourceTracker implements IOIMSourceTracker {
         return this.slotSourceList.getTrackedSources();
     }
 
-    public getTrackedRootColumnGroups(): readonly (TOIMColumnGroup | undefined)[] {
+    public getTrackedSourceColumnGroups(): readonly (TOIMColumnGroup | undefined)[] {
+        return this.slotSourceList.getTrackedColumnGroups();
+    }
+
+    public getTrackedRootColumnGroups():readonly (TOIMColumnGroup | undefined)[] {
         return this.isTrackedRootSlotsChanged ? this.trackedRootColumnGroups : this.committedRootColumnGroups;
     }
 

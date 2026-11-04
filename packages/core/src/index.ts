@@ -65,7 +65,7 @@ export type { IOIMEffectService } from './effect/interfaces/IOIMEffectService';
 export type { TOIMEffect } from './effect/types/TOIMEffect';
 export type { TOIMEffectBody } from './effect/types/TOIMEffectBody';
 export type { TOIMSourceTrackingEffectBody } from './effect/types/TOIMSourceTrackingEffectBody';
-export type { OIMSourceTracker } from './computed/OIMSourceTracker';
+export { OIMSourceTracker } from './computed/OIMSourceTracker';
 export type { IOIMSourceTracker } from './computed/interfaces/IOIMSourceTracker';
 export type { TOIMComputedSlot } from './computed/types/TOIMComputedSlot';
 export type { TOIMComputedContentSlot } from './computed/types/TOIMComputedContentSlot';

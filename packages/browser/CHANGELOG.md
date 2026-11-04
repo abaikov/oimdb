@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+### Changed
+
+- README: React line uses `@oimdb/react` 4.0.
+
 ## 1.3.0
 
 ### Added

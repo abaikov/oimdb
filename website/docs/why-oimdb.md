@@ -355,12 +355,7 @@ and is never told.
 
 ```tsx
 import { OIMDB, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMEntityContentService, createOIMSlotCollectionService } from '@oimdb/core';
-import {
-    OIMDBProvider,
-    useOIMComputedValue,
-    useOIMEntity,
-    useOIMSlotsByKeys,
-} from '@oimdb/react';
+import { OIMDBProvider, useOIMSelector } from '@oimdb/react';
 
 type Card = { id: string; deck: string; title: string; rank: number };
 
@@ -380,14 +375,12 @@ const cardsByRankService = createOIMSortedComputedService({
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsByDeck);
 
 function Deck({ deck }: { deck: string }) {
-    const [sorted] = useOIMSlotsByKeys(cardsByRank, [deck]);
-    const slots = useOIMComputedValue(sorted);
-    const ids = slots.flatMap((slot) => (slot.entity === undefined ? [] : [slot.entity.id]));
+    const ids = useOIMSelector(() => cardsByRankService.getSlotByKey(cardsByRank, deck).value.map((slot) => String(slot.key)));
     return <>{ids.map((id) => <CardTitle key={id} id={id} />)}</>;
 }
 
 function CardTitle({ id }: { id: string }) {
-    const card = useOIMEntity(cards, id);
+    const card = useOIMSelector(() => cardService.getSlotByKey(cards, id).entity);
     return <div>{card?.title}</div>;
 }
 
@@ -418,8 +411,8 @@ db.flush();
 ```
 
 The components sit under `<OIMDBProvider>` because every subscription is an effect on that db's
-channel slot. `useOIMSlotsByKeys` holds the sorted derivation for `deck` while `Deck` is mounted,
-and `useOIMComputedValue` subscribes to it and reads it as `computedSlot.value`. Taking the six steps in turn:
+channel slot. `Deck`'s `useOIMSelector` reads the sorted derivation for `deck` as `computedSlot.value`, which
+subscribes to it and holds it while `Deck` is mounted. Taking the six steps in turn:
 
 1. The load is a loop of `writeSlotContentByKey` in one `writeInBatch`: every entity lands, and then the **frame**
    (the delivery of every write since the previous one, see the
@@ -430,8 +423,8 @@ and `useOIMComputedValue` subscribes to it and reads it as `computedSlot.value`.
    re-sort starts from a copy of the previous order, drops the members that left
    and appends the arrivals before sorting.
 3. The title edit wakes only the `CardTitle` of `c1`. Neither the bucket nor the
-   `rank` column moved, so `Deck` is not woken, nothing is sorted, and no selector
-   runs anywhere.
+   `rank` column moved, so `Deck` is not woken, nothing is sorted, and `Deck`'s
+   selector does not run.
 4. The move is a write to the card. The index files `c2` out of the red bucket and
    into the black one, and the red `Deck` and the `CardTitle` of `c2` wake.
 5. The removal takes the value away, the index drops `c3` from the red bucket,
@@ -569,11 +562,11 @@ tree-shaken:
 {/* bundle-size:begin */}
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 123461 B | 28370 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 53865 B | 13405 B |
-| The same, plus one effect and `db.flush()` | 53895 B | 13420 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 77126 B | 18619 B |
-| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 68428 B | 16609 B |
+| Everything `@oimdb/core` exports | 124268 B | 28522 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 54648 B | 13562 B |
+| The same, plus one effect and `db.flush()` | 54678 B | 13582 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 77907 B | 18793 B |
+| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 69209 B | 16768 B |
 {/* bundle-size:end */}
 
 ## Next steps

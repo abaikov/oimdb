@@ -1,19 +1,8 @@
-import { OIM_FROZEN_EMPTY_SLOTS } from '@oimdb/core';
-import type {
-    OIMSlotCollectionService, TOIMComputedContentSlot, TOIMComputedSlot, TOIMSlot, TOIMStoreKey, TOIMStoreSlot,
-} from '@oimdb/core';
-import { useOIMSlotByKey } from './useOIMSlotByKey';
+import { useOIMSelector } from './useOIMSelector';
 
-const sourcesOfComputedSlot = (computedSlot: TOIMComputedContentSlot): readonly [readonly TOIMSlot[], readonly TOIMComputedContentSlot[]] =>
-    [OIM_FROZEN_EMPTY_SLOTS, [computedSlot]];
-
-export function useOIMComputedValueByKey<TValue, TKey extends NonNullable<unknown> = TOIMStoreKey, TStore = unknown>(
-    computedStoreSlot: TOIMStoreSlot<
-        TStore, TOIMComputedSlot<TValue, TKey>, unknown,
-        Pick<OIMSlotCollectionService<TKey, TOIMComputedSlot<TValue, TKey>, TStore, unknown>, 'getSlotByKey' | 'holdSlotByKey'>
-    >,
-    key: TKey,
+export function useOIMComputedValueByKey<TValue, TKey>(
+    slotCollectionStoreAggregate: { getSlotByKey(key: TKey): { readonly value: TValue } },
+    key: NoInfer<TKey>,
 ): TValue {
-    const computedSlot = useOIMSlotByKey('useOIMComputedValueByKey', computedStoreSlot, key, sourcesOfComputedSlot);
-    return computedSlot.value;
+    return useOIMSelector(() => slotCollectionStoreAggregate.getSlotByKey(key).value);
 }

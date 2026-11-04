@@ -63,12 +63,8 @@ module.exports = {
         // editing blocks hit exactly the gap — several scenarios ran a stale shadowed version.
         'no-dupe-keys': 'error',
 
-        // A component-owned computed whose options close over a prop missing from `deps` keeps
-        // showing the old value with no error anywhere; only the call site can see that.
         'react-hooks/rules-of-hooks': 'error',
-        'react-hooks/exhaustive-deps': ['error', {
-            additionalHooks: '^(useOIMSingleComputedValue|useOIMComputedCollection|useOIMSourceTrackingValue)$',
-        }],
+        'react-hooks/exhaustive-deps': 'error',
 
         // A private field or method nobody reads is dead weight that still reads
         // as live — and `@typescript-eslint/no-unused-vars` does not look inside

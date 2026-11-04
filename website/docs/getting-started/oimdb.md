@@ -290,14 +290,14 @@ release wheels are cancelled, so a test builds one and disposes it after.
 
 ## With React
 
-`useOIMSourceTrackingValue` from `@oimdb/react` re-renders on whatever its function read, the way a tracking
+`useOIMSelector` from `@oimdb/react` re-renders on whatever its function read, the way a tracking
 effect does, and `<OIMDBProvider>` takes the database. `useOIMDB()` returns it typed `OIMDB`;
 `useOIMDB.withTypes<ReturnType<typeof createAppDB>>()` makes the application's own hook, typed with its schemas, once. A write re-renders at the next `db.flush()`, so a handler
 that writes flushes when it is done:
 
 ```tsx file=oimdb-todos.tsx
 import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
-import { OIMDBProvider, useOIMDB, useOIMSourceTrackingValue } from '@oimdb/react';
+import { OIMDBProvider, useOIMDB, useOIMSelector } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
@@ -311,7 +311,7 @@ db.schemas.default.todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy mil
 function Todo({ id }: { id: string }) {
     const db = useAppDB();
     const { todos } = db.schemas.default;
-    const todo = useOIMSourceTrackingValue(() => todos.getSlotByKey(id).entity, [todos, id]);
+    const todo = useOIMSelector(() => todos.getSlotByKey(id).entity);
     if (todo === undefined) return null;
     const toggle = () => {
         todos.getSlotByKey(id).updateEntity({ done: !todo.done });

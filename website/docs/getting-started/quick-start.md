@@ -19,7 +19,7 @@ With React and [a database with schemas](./oimdb.md), a collection and a compone
 
 ```tsx file=todos.tsx
 import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
-import { OIMDBProvider, useOIMDB, useOIMSourceTrackingValue } from '@oimdb/react';
+import { OIMDBProvider, useOIMDB, useOIMSelector } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
@@ -35,7 +35,7 @@ db.schemas.default.todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mu
 function Todo({ id }: { id: string }) {
     const db = useAppDB();
     const { todos } = db.schemas.default;
-    const todo = useOIMSourceTrackingValue(() => todos.getSlotByKey(id).entity, [todos, id]);
+    const todo = useOIMSelector(() => todos.getSlotByKey(id).entity);
     if (todo === undefined) return null;
     const toggle = () => {
         todos.getSlotByKey(id).updateEntity({ done: !todo.done });

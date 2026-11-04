@@ -6,8 +6,8 @@ export function useOIMDB(): OIMDB {
     const db = useContext(OIMDBContext);
     if (db === undefined) {
         throw new Error(
-            'useOIMDB: no <OIMDBProvider db={...}> above this component. The hooks that build a computed ' +
-                'for the component take the database from it.',
+            'useOIMDB: no <OIMDBProvider db={...}> above this component. useOIMSelector hands its select the ' +
+                'database the provider holds, and subscribes on it.',
         );
     }
     return db;

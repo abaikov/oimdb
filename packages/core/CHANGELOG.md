@@ -3,6 +3,18 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.13.0
+
+### Added
+
+- `OIMEffectService.subscribeEffectToTrackedSources(effect, sourceTracker)`.
+- `OIMSourceTracker.runSourceTracking(read)` and `getTrackedSourceColumnGroups()`.
+
+### Changed
+
+- `OIMEffectService.createEffectOverSourceTracker` is public.
+- `OIMSourceTracker` is exported as a value (was type-only).
+
 ## 4.12.0
 
 ### Added

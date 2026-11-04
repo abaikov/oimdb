@@ -149,7 +149,29 @@ export class OIMEffectService implements IOIMEffectService {
         return effect;
     }
 
-    private createEffectOverSourceTracker(
+    public subscribeEffectToTrackedSources(effect: TOIMEffect, sourceTracker: OIMSourceTracker): boolean {
+        const effectSourceTracker = effect.sourceTracker;
+        if (effectSourceTracker === undefined) {
+            throw new Error('subscribeEffectToTrackedSources: this effect was not created over a source tracker (createEffectOverSourceTracker).');
+        }
+        if (isOIMEffectDisposed(effect)) return false;
+        effectSourceTracker.openSourceTracking();
+        const sourceSlots = sourceTracker.getTrackedSourceSlots();
+        const sourceColumnGroups = sourceTracker.getTrackedSourceColumnGroups();
+        for (let i = 0; i < sourceSlots.length; i++) effectSourceTracker.trackSourceSlot(sourceSlots[i], sourceColumnGroups[i]);
+        const sourceComputeds = sourceTracker.getTrackedSourceComputeds();
+        for (let i = 0; i < sourceComputeds.length; i++) effectSourceTracker.trackSourceComputed(sourceComputeds[i]);
+        try {
+            if (!effectSourceTracker.closeSourceTracking()) return false;
+            this.resubscribeToTrackedSources(effect, effectSourceTracker);
+            return true;
+        } catch (failure) {
+            this.disposeEffect(effect);
+            throw failure;
+        }
+    }
+
+    public createEffectOverSourceTracker(
         channelMap: IOIMChannelMap, sourceTracker: OIMSourceTracker, body: TOIMEffectBody,
     ): TOIMEffect {
         const channelSlot = channelMap.defaultChannelSlot;

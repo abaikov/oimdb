@@ -125,11 +125,11 @@ What each consumer ships, bundled with esbuild (minified, tree-shaken, ESM).
 <!-- bundle-size:begin -->
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 123461 B | 28370 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 53865 B | 13405 B |
-| The same, plus one effect and `db.flush()` | 53895 B | 13420 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 77126 B | 18619 B |
-| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 68428 B | 16609 B |
+| Everything `@oimdb/core` exports | 124268 B | 28522 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 54648 B | 13562 B |
+| The same, plus one effect and `db.flush()` | 54678 B | 13582 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 77907 B | 18793 B |
+| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 69209 B | 16768 B |
 <!-- bundle-size:end -->
 
 ---
@@ -2243,9 +2243,9 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 `OIMReclaimingIndexKeysService`.
 
 **The graph** — `OIMEffectService`, `IOIMEffectService`, `TOIMEffect`, `TOIMEffectBody`, `TOIMSourceTrackingEffectBody`,
-`OIMSourceTracker` (**type only**), `IOIMSourceTracker`, `TOIMComputedSlot`, `TOIMComputedSources`, `TOIMComputedValueReleaser`, `OIMSourceTrackingComputedService`, `OIMSingleSourceTrackingComputedService`, `createOIMSourceTrackingComputedService`, `createOIMSingleSourceTrackingComputedService`, `TOIMSourceTrackingComputedSlot`, `TOIMSourceTrackingComputedContentSlot`, `TOIMSourceTrackingComputedDerive`, `OIMSourceTrackingComputedContentService` (**type only**), `TOIMSourceTrackingComputedDerivationOptions`, `TOIMComputedServiceFactoryOptions`, `TOIMComputedDerivation`, `TOIMComputedStoreSlot`,
+`OIMSourceTracker`, `IOIMSourceTracker`, `TOIMComputedSlot`, `TOIMComputedSources`, `TOIMComputedValueReleaser`, `OIMSourceTrackingComputedService`, `OIMSingleSourceTrackingComputedService`, `createOIMSourceTrackingComputedService`, `createOIMSingleSourceTrackingComputedService`, `TOIMSourceTrackingComputedSlot`, `TOIMSourceTrackingComputedContentSlot`, `TOIMSourceTrackingComputedDerive`, `OIMSourceTrackingComputedContentService` (**type only**), `TOIMSourceTrackingComputedDerivationOptions`, `TOIMComputedServiceFactoryOptions`, `TOIMComputedDerivation`, `TOIMComputedStoreSlot`,
 `OIMComputedValueService`, `IOIMComputedValueService`, `TOIMComputedValueServiceOptions`, `TOIMComputedContentSlot`, `TOIMComputedCarrierSlot`,
-`OIMComputedContentService` (**type only**), `TOIMComputedContentServiceOptions`, `OIMExplicitSourceComputedContentService`, `TOIMExplicitSourceComputedContentServiceOptions`, `refreshOIMSourceComputeds` (brings every computed in a `sourceComputeds` list current; call it before a `derive` that runs outside an effect, as `useOIMValue` does).
+`OIMComputedContentService` (**type only**), `TOIMComputedContentServiceOptions`, `OIMExplicitSourceComputedContentService`, `TOIMExplicitSourceComputedContentServiceOptions`, `refreshOIMSourceComputeds` (brings every computed in a `sourceComputeds` list current; call it before a `derive` that runs outside an effect).
 
 **Computed** — `OIMComputedService`, `TOIMComputedServiceOptions`, `createOIMComputedService`,
 `OIMSortedComputedService`, `TOIMSortedComputedServiceOptions`, `createOIMSortedComputedService`, `createOIMSortedCollectionSingleSlotStoreAggregate`, `TOIMSortedComputedSlot`,
