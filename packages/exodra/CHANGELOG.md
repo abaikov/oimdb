@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.2
+
+### Changed
+
+- Exodra peers: `@exodra/core` and `@exodra/dom` ^0.4.0.
+
 ## 2.0.1
 
 ### Changed
