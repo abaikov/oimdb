@@ -17,7 +17,7 @@ import { createOIMEffectDisposer } from '../effect/utils/createOIMEffectDisposer
 import type { IOIMSlotReleaseListener } from '../collector/interfaces/IOIMSlotReleaseListener';
 
 export class OIMDB<TSchemas = unknown> implements IOIMChannelMap {
-    public readonly clock: TOIMChannelClock = { revision: 0, epoch: 0 };
+    public readonly clock: TOIMChannelClock = { revision: 0, epoch: 0, unheldSlotWriteCount: 0 };
     public readonly collectorSlot: TOIMCollectorSlot;
     public readonly defaultChannelSlot: TOIMChannelSlot;
     public readonly schemas: TSchemas;

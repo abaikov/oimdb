@@ -146,7 +146,7 @@ function ClosingSection(): ReactNode {
                             </a>
                             <p className={landingStyles.pairingText}>
                                 Exodra renders the slots. Views only read them, each binding is a tracked effect, and a
-                                bucket list keeps its nodes when entities leave it.
+                                bucket's children keep their nodes when entities leave it.
                             </p>
                             <code className={landingStyles.pairingCode}>npm install @oimdb/exodra</code>
                             <Link className={landingStyles.pairingLink} to="/docs/packages/exodra">

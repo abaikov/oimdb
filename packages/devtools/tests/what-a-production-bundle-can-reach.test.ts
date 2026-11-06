@@ -338,6 +338,6 @@ describe('what a production bundle can reach', () => {
             .filter(file => importsOf(file)
                 .some(named => named.specifier === '@oimdb/core' && !named.isTypeOnly))
             .map(file => file.slice(file.lastIndexOf('/') + 1));
-        expect(reachingForAValue).toEqual(['OIMSelectorSubscription.ts', 'useOIMSelector.ts']);
+        expect(reachingForAValue).toEqual(['OIMSelectorSubscription.ts']);
     });
 });

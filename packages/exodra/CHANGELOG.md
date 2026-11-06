@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.0.0
+
+### Added
+
+- `OIMExodraPlugin.destroyParkedNode(parkedSlots, slot)`.
+
+### Changed
+
+- Exodra peers: `@exodra/core` and `@exodra/dom` ^0.4.1.
+- `withOIMBucketList` → `withOIMBucketChildren`, `TOIMBucketListOptions` → `TOIMBucketChildrenOptions`.
+- `selectChildList` → `childrenPort`.
+- `selectBucketSlot(c, db)` → `selectBucketSlot(params)`; the bucket is switched by `wireExoNode`.
+- A parked node is ended with `destroyExoNode` instead of `unmount`.
+- Parked member nodes are kept across a bucket switch and destroyed when the slot is released or the node's effects stop.
+
 ## 2.0.2
 
 ### Changed

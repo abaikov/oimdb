@@ -3,6 +3,13 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.14.0
+
+### Added
+
+- `OIMSourceTracker.isTrackedSourcesChanged()`.
+- `TOIMChannelClock.unheldSlotWriteCount`, bumped by a write to a slot nobody holds.
+
 ## 4.13.0
 
 ### Added

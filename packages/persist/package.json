@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/persist",
-  "version": "4.3.1",
+  "version": "4.3.2",
   "description": "Storage-agnostic persistence engine for @oimdb/core.",
   "type": "module",
   "main": "./dist/index.cjs",

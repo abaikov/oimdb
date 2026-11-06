@@ -1,19 +1,19 @@
 import { EXO_PORT_CHILDREN, EXO_PORT_TEXT, composeExoPlugins, createExoMachine, createExoSchema, exoPorts } from '@exodra/core';
-import { ExoDomBackend, withExoChildList, withExoCompiler } from '@exodra/dom';
-import type { TExoChildList, TExoDomNode } from '@exodra/dom';
+import { ExoDomBackend, withExoCompiler } from '@exodra/dom';
+import type { TExoDomNode } from '@exodra/dom';
 import {
     OIMBucketCommands, OIMDB, OIMPositionalArrayBucketContentService,
     createOIMEntitySlotCollectionStoreAggregate, createOIMSlotCollectionIndexStoreAggregate,
 } from '@oimdb/core';
 import type { TOIMEntitySlot } from '@oimdb/core';
 import { OIMExodraPlugin } from '../src/OIMExodraPlugin';
-import { withOIMBucketList } from '../src/withOIMBucketList';
+import { withOIMBucketChildren } from '../src/withOIMBucketChildren';
 import { withOIMEffects } from '../src/withOIMEffects';
 
 type TProject = { id: string; archived: boolean };
 type TTask = { id: string; projectId: string; title: string };
 
-describe('what a nested bucket list keeps', () => {
+describe('what nested bucket children keep', () => {
     it('shows the inner members once when the outer member leaves and comes back', () => {
         const db = new OIMDB();
         const projects = createOIMEntitySlotCollectionStoreAggregate<TProject>(db);
@@ -37,20 +37,20 @@ describe('what a nested bucket list keeps', () => {
             (effect) => { effect((c) => { c.text(TaskPorts.TITLE, c.state.slot.entity?.title ?? ''); }); },
         );
         const ProjectPorts = exoPorts({ TASKS: EXO_PORT_CHILDREN });
-        const projectMachine = withOIMBucketList(
-            createExoMachine<TExoDomNode, TOIMEntitySlot<TProject, string>, { slot: TOIMEntitySlot<TProject, string>; tasks: TExoChildList }>(
+        const projectMachine = withOIMBucketChildren(
+            createExoMachine<TExoDomNode, TOIMEntitySlot<TProject, string>, Record<string, never>>(
                 createExoSchema(ProjectPorts, (b) => { b.el('ol', null, (ol) => { ol.childrenPort(ProjectPorts.TASKS); }); }),
-                { createInitialState: (c, slot) => ({ slot, tasks: c.childList(ProjectPorts.TASKS) }) },
+                {},
             ),
-            { selectChildList: (c) => c.state.tasks, memberMachine: taskMachine, selectBucketSlot: (c) => tasksByProject.getSlotByKey(c.state.slot.key) },
+            { childrenPort: ProjectPorts.TASKS, memberMachine: taskMachine, selectBucketSlot: (projectSlot) => tasksByProject.getSlotByKey(projectSlot.key) },
         );
         const BoardPorts = exoPorts({ PROJECTS: EXO_PORT_CHILDREN });
-        const boardMachine = withOIMBucketList(
-            createExoMachine<TExoDomNode, unknown, { projects: TExoChildList }>(
+        const boardMachine = withOIMBucketChildren(
+            createExoMachine<TExoDomNode, unknown, Record<string, never>>(
                 createExoSchema(BoardPorts, (b) => { b.el('section', null, (section) => { section.childrenPort(BoardPorts.PROJECTS); }); }),
-                { createInitialState: (c) => ({ projects: c.childList(BoardPorts.PROJECTS) }) },
+                {},
             ),
-            { selectChildList: (c) => c.state.projects, memberMachine: projectMachine, selectBucketSlot: () => projectsByArchived.getSlotByKey('open') },
+            { childrenPort: BoardPorts.PROJECTS, memberMachine: projectMachine, selectBucketSlot: () => projectsByArchived.getSlotByKey('open') },
         );
 
         projects.writeSlotContentByKey('p', { id: 'p', archived: false });
@@ -59,7 +59,7 @@ describe('what a nested bucket list keeps', () => {
         db.flush();
         const root = document.createElement('div');
         document.body.appendChild(root);
-        composeExoPlugins(withExoChildList(withExoCompiler(new ExoDomBackend())), { exodraPlugin: () => exodraPlugin }).render(boardMachine, root);
+        composeExoPlugins(withExoCompiler(new ExoDomBackend()), { exodraPlugin: () => exodraPlugin }).render(boardMachine, root);
         expect(root.querySelectorAll('li')).toHaveLength(2);
 
         projects.slotContentService.updateEntity(projects.getSlotByKey('p'), { archived: true });

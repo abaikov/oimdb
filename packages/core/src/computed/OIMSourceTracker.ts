@@ -60,6 +60,10 @@ export class OIMSourceTracker implements IOIMSourceTracker {
         return true;
     }
 
+    public isTrackedSourcesChanged(): boolean {
+        return this.isTrackedRootSlotsChanged;
+    }
+
     public isAnyComputedRootSlotsReplaced(): boolean {
         const computedSourceList = this.computedSourceList;
         if (computedSourceList === undefined) return false;

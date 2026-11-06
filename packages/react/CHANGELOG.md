@@ -1,5 +1,19 @@
 # Changelog
 
+## 4.1.0
+
+### Changed
+
+- Requires `@oimdb/core` 4.14.0.
+- `useOIMSelector(select, deps?)` and `useOIMSelector.withTypes()` take optional `deps`: without them `select` runs every render; with them only on a deps change or a write, including one not yet flushed; `[]` is static.
+- The commit runs in an insertion effect, only when the tracked sources changed.
+- The shorthand hooks pass `[aggregate, key]` as `deps`.
+- Mount and a key move cost one render; one more only if a slot it read was written or released, or any slot nobody held was written, between render and subscribe.
+
+### Fixed
+
+- A selector over a released slot no longer loops, throws or stays unsubscribed.
+
 ## 4.0.0
 
 ### Added

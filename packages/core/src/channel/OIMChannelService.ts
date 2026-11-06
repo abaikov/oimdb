@@ -65,8 +65,11 @@ export class OIMChannelService implements IOIMFlushSchedulerListener<TOIMChannel
     }
 
     public writeWithoutFlushCheck(channelSlot: TOIMChannelSlot, slot: TOIMSlot): void {
-        if (slot.holdCount === 0) return;
         const clock = channelSlot.clock;
+        if (slot.holdCount === 0) {
+            clock.unheldSlotWriteCount = clock.unheldSlotWriteCount >= OIM_REVISIONS_PER_EPOCH - 1 ? 0 : clock.unheldSlotWriteCount + 1;
+            return;
+        }
         if (clock.revision >= OIM_REVISIONS_PER_EPOCH - 1) {
             clock.revision = 0;
             clock.epoch = (clock.epoch + 1) | 0;

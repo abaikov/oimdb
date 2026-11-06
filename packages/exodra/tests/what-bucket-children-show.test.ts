@@ -1,6 +1,6 @@
 import { createTodoFixture } from './support/createTodoFixture';
 
-describe('what a bucket list shows', () => {
+describe('what bucket children show', () => {
     it('shows the members of the selected bucket in order, and follows inserts and removals', () => {
         const { db, todos, render, titles } = createTodoFixture();
         todos.writeSlotContentByKey('1', { id: '1', title: 'Write', done: false });
@@ -63,7 +63,7 @@ describe('what a bucket list shows', () => {
 });
 
 describe('what a parked member node does when its slot goes', () => {
-    it('is unmounted and leaves the claimed cell empty once the engine releases the slot', () => {
+    it('is destroyed and leaves the claimed cell empty once the engine releases the slot', () => {
         const { db, todos, exodraPlugin, render, items } = createTodoFixture();
         todos.writeSlotContentByKey('1', { id: '1', title: 'Write', done: false });
         db.flush();
@@ -81,7 +81,7 @@ describe('what a parked member node does when its slot goes', () => {
     });
 });
 
-describe('what a bucket list does on a move and on teardown', () => {
+describe('what bucket children do on a move and on teardown', () => {
     it('moves the node of a member the bucket moved, keeping the element', () => {
         const { db, todos, todosByDone, todosByDoneContentService, render, items, titles } = createTodoFixture();
         todos.writeSlotContentByKey('1', { id: '1', title: 'Write', done: false });
@@ -97,7 +97,7 @@ describe('what a bucket list does on a move and on teardown', () => {
         expect(items()[1]).toBe(write);
     });
 
-    it('unmounts its parked nodes and stops following the bucket when the list goes', () => {
+    it('destroys its parked nodes and stops following the bucket when their list goes', () => {
         const { db, todos, exodraPlugin, render, root } = createTodoFixture();
         todos.writeSlotContentByKey('1', { id: '1', title: 'Write', done: false });
         db.flush();
@@ -115,21 +115,50 @@ describe('what a bucket list does on a move and on teardown', () => {
     });
 });
 
-describe('what a bucket list does when its selection reruns or another list holds the node', () => {
-    it('keeps its nodes when the selection reruns onto the same bucket', () => {
-        const { db, todos, filter, render, items } = createTodoFixture();
+describe('what bucket children do when their selection reruns or another list holds the node', () => {
+    it('keeps its nodes and its watch when the selection reruns onto the same bucket', () => {
+        const { db, todos, todosByDone, filter, render, items } = createTodoFixture();
         todos.writeSlotContentByKey('1', { id: '1', title: 'Write', done: false });
         db.flush();
         render();
         const first = items()[0];
+        const watch = jest.spyOn(todosByDone.getSlotByKey('active'), 'watch');
 
+        filter.writeSingleSlotContent({ shown: 'active', rev: 1 });
+        db.flush();
+
+        expect(items()[0]).toBe(first);
+        expect(watch).not.toHaveBeenCalled();
+    });
+
+    it('gives the members of a bucket it comes back to the elements they had', () => {
+        const { db, todos, todosByDone, filter, render, items, titles } = createTodoFixture();
+        todos.writeSlotContentByKey('1', { id: '1', title: 'Write', done: false });
+        todos.writeSlotContentByKey('2', { id: '2', title: 'Test', done: true });
+        db.flush();
+        render();
+        const write = items()[0];
+        const doneWatch = jest.spyOn(todosByDone.getSlotByKey('done'), 'watch');
+
+        filter.writeSingleSlotContent({ shown: 'done' });
+        db.flush();
+        const test = items()[0];
+        expect(titles()).toEqual(['Test']);
+        expect(doneWatch).toHaveBeenCalledTimes(1);
+        filter.writeSingleSlotContent({ shown: 'active' });
+        db.flush();
+        filter.writeSingleSlotContent({ shown: 'done' });
+        db.flush();
         filter.writeSingleSlotContent({ shown: 'active' });
         db.flush();
 
-        expect(items()).toEqual([first]);
+        expect(items()[0]).toBe(write);
+        filter.writeSingleSlotContent({ shown: 'done' });
+        db.flush();
+        expect(items()[0]).toBe(test);
     });
 
-    it('unmounts a leaving node whose slot already has a node parked by another list, and keeps the first', () => {
+    it('destroys a leaving node whose slot already has a node parked by another list, and keeps the first', () => {
         const first = createTodoFixture();
         first.todos.writeSlotContentByKey('1', { id: '1', title: 'Write', done: false });
         first.db.flush();

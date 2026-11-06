@@ -562,6 +562,7 @@ const PINNED: readonly string[] = [
     'storeSlotListener slot/OIMSlotCollectionService.ts write×1',
     'timer collector/OIMSlotWheel.ts write×1',
     'timerDisposer schedule/OIMFlushSchedulerService.ts write×3 mutate×1',
+    'unheldSlotWriteCount channel/OIMChannelService.ts write×1',
     'writeDepth bucket/OIMBucketContentService.ts write×6',
 ];
 
@@ -602,7 +603,7 @@ const PINNED_FIELDS: readonly string[] = [
     'slotReleaseDueFramePolicy', 'slotReleasePolicy', 'slotService', 'slotReleaseListeners', 'slotStamp', 'slotStoreService',
     'slotSubscriptionListener', 'slotWheelOptions', 'slots', 'sortColumns', 'sortedCount', 'sourceComputeds',
     'sourceSlotCollectionService', 'sourceSlots', 'sourceStoreSlot', 'sourceTracker', 'store', 'storeSlotListener',
-    'timer', 'timerDisposer', 'uniqueBucketMemberSlots', 'unusedSlotChannelQueue', 'unusedSlotCollectorSlot',
+    'timer', 'timerDisposer', 'unheldSlotWriteCount', 'uniqueBucketMemberSlots', 'unusedSlotChannelQueue', 'unusedSlotCollectorSlot',
     'value', 'writeDepth',
 ];
 

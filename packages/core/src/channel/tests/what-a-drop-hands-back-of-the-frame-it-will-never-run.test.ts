@@ -31,7 +31,7 @@ describe('what a drop hands back of the frame it will never run', () => {
 
     it('gives back the holds on a collector handed in from outside, which outlives the channel', () => {
         const channelSlot = createOIMChannelSlot({
-            clock: { revision: 0, epoch: 0 },
+            clock: { revision: 0, epoch: 0, unheldSlotWriteCount: 0 },
             collectorSlot: createOIMCollectorSlot({
                 getNowMs: Date.now, releaseTimer: OIM_TIMER_ON_TIMEOUT, errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
             }),

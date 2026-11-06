@@ -113,9 +113,10 @@ handler waiting. Otherwise it advances the clock, stamps the slot and returns.
 
 <FrameDemo />
 
-The channel slot keeps a clock, `channelSlot.clock` = `{ revision, epoch }` (the db's `db.clock`). Every
-write moves it by one and stamps the written slot's `changedAtRevision` /
-`changedAtEpoch`. A frame remembers the clock reading at which it opened. "Did this move
+The channel slot keeps a clock, `channelSlot.clock` = `{ revision, epoch, unheldSlotWriteCount }` (the db's
+`db.clock`). Every write to a held slot moves the revision by one and stamps the written slot's `changedAtRevision` /
+`changedAtEpoch`. A write to a slot nobody holds moves only `unheldSlotWriteCount`, which a React selector compares to
+learn whether anything was written between its render and its subscription. A frame remembers the clock reading at which it opened. "Did this move
 since…?" is then a comparison of two numbers, with no per-frame set of changed slots:
 
 - A write schedules the slot's effects only the first time the slot moves in a

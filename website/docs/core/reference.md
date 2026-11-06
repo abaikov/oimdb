@@ -214,7 +214,7 @@ This page indexes every export of `@oimdb/core`: all 243 names that the package 
 | `createOIMChannelSlot` | function | Builds a channel slot over a clock and a collector slot. | [The channel](./channel.md) |
 | `IOIMChannelMap` | interface | `{ defaultChannelSlot }`, what `createStoreSlot` and the effect doors take; `OIMDB` is one. | [Every collection has a channel](./model.md#every-collection-has-a-channel) |
 | `TOIMChannelFrame` | type | The frame of a channel slot: whether it runs, the clock it opened at, the after-frame handlers. | [The clock](./channel.md#the-clock) |
-| `TOIMChannelClock` | type | `{ revision, epoch }`. | [The clock](./channel.md#the-clock) |
+| `TOIMChannelClock` | type | `{ revision, epoch, unheldSlotWriteCount }`. | [The clock](./channel.md#the-clock) |
 | `TOIMChannelScheduler` | type | `(flush) => void`, what defers a flush. | [Schedulers](./channel.md#schedulers) |
 | `OIMChannelQueue` | type only | The reusable queue the channel and the services batch with: `getEntryCount`, `getEntryAt`. | [The content-change hook](./oimindex.md#the-content-change-hook-and-indexkeys) |
 | `isOIMAnySlotChangedAfter` | function | Answers whether any slot of a list changed after a clock reading, given as a revision and an epoch. | [The clock](./channel.md#the-clock) |

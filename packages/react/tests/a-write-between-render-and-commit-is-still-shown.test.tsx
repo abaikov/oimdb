@@ -72,7 +72,7 @@ describe('a write from a sibling layout effect, which lands between render and c
         expect(screen.getByTestId('card').textContent).toBe('Ten');
     });
 
-    it('costs one extra render per subscription commit, and none per write', () => {
+    it('costs one render per mount when nothing was written between render and subscribe, and one per write', () => {
         const { db, cards } = build();
         let renders = 0;
         function Card(): React.ReactElement {
@@ -80,8 +80,8 @@ describe('a write from a sibling layout effect, which lands between render and c
             return <span>{useOIMSelector(() => cards.getSlotByKey('a').entity?.title)}</span>;
         }
         render(<OIMDBProvider db={db}><Card /></OIMDBProvider>);
-        expect(renders).toBe(2);
+        expect(renders).toBe(1);
         act(() => { cards.getSlotByKey('a').updateEntity({ title: 'Ace of spades' }); db.flush(); });
-        expect(renders).toBe(3);
+        expect(renders).toBe(2);
     });
 });

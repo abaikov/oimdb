@@ -1027,8 +1027,8 @@ Every door below is on `OIMChannelService.INSTANCE` and takes the channel slot f
 
 The channel slot's own fields that a caller reads: `frame` (`TOIMChannelFrame`, `{ isRunning, openedAtRevision,
 openedAtEpoch, … }`; a frame carries no number, the clock reading it opened at is its boundary), `clock`
-(`TOIMChannelClock`, the `{revision, epoch}` pair, shared by every channel of one db; an epoch holds
-`OIM_REVISIONS_PER_EPOCH` (2^30) revisions, so the counter stays a V8 small integer under pointer compression; the epoch is an int32 that wraps, compared as `(epoch − sinceEpoch) | 0`),
+(`TOIMChannelClock`, `{revision, epoch, unheldSlotWriteCount}`, shared by every channel of one db; an epoch holds
+`OIM_REVISIONS_PER_EPOCH` (2^30) revisions, so the counter stays a V8 small integer under pointer compression; the epoch is an int32 that wraps, compared as `(epoch − sinceEpoch) | 0`. `unheldSlotWriteCount` counts writes to slots nobody held, which move neither the revision nor a stamp, and wraps to `0` at the same 2^30; a reader compares it for inequality only),
 `collectorSlot`, `errorPolicy`, `isFlushing`. Everything else on it is engine state.
 
 ### A subscription hears only what happens after it
@@ -3512,7 +3512,9 @@ outside an effect calls it on its `sourceComputeds` before `derive`, so the deri
 `@oimdb/react` does:
 - `sourceTracker.runSourceTracking(read)` runs `read` with the tracker active and returns what `read` returned;
   every tracked read inside it (`slot.entity`, `slot.getEntity(group)`, `computed.value`, a bucket's members)
-  is recorded, and nothing is subscribed.
+  is recorded, and nothing is subscribed. The tracker diffs each run against what it last committed:
+  `isTrackedSourcesChanged()` is `true` when this run read other sources, and `commitTrackedSources()` makes them
+  the committed ones.
 - `OIMEffectService.INSTANCE.createEffectOverSourceTracker(db, new OIMSourceTracker(), body)` makes an effect whose
   body reads nothing and tracks nothing.
 - `OIMEffectService.INSTANCE.subscribeEffectToTrackedSources(effect, sourceTracker): boolean` subscribes that
@@ -3630,17 +3632,29 @@ source before generating code against it.
 
 `@oimdb/react` — `<OIMDBProvider db={db}>` carries the `OIMDB` and nothing else; `useOIMDB()` returns it, and
 `useOIMDB.withTypes<typeof db>()` is the same hook typed with the app's schemas. The one read hook is
-`useOIMSelector(select: (db) => TValue): TValue`, and `useOIMSelector.withTypes<typeof db>()` types its `db`:
+`useOIMSelector(select: (db) => TValue, deps?): TValue`, and `useOIMSelector.withTypes<typeof db>()` types its `db`:
 - `select` runs during render with the provider's database, and everything it reads with tracking (`slot.entity`,
   `slot.getEntity(group)`, `columnSlot.value`, `computed.value`, `getBucketMemberSlots()` and `getBucketMemberSlotCount()`, `getEntities()`,
   `getEntityCount()`) becomes a source. `peekSlotByKey`, `hasSlotContentByKey`, `getSlots` and `getSlotCount` do
   not track.
-- At commit the hook hands those sources to its effect (`subscribeEffectToTrackedSources`). A flush only bumps a
-  version and tells React, so `select` runs once per change. Results are never compared, because an in-place write
-  keeps the entity's reference.
-- A key from props is closure. The commit moves the subscription to the slots it now names. When the sources moved,
-  or one was written after the render, the commit asks React for one more render. The first subscription always
-  does.
+- Without `deps`, `select` runs on every render and a key from props is closure. The render tracks into one
+  `OIMSourceTracker` the component keeps; `isTrackedSourcesChanged()` says whether it read other sources than the
+  last committed render, and only then does the commit run (`subscribeEffectToTrackedSources`). When the last tracked
+  render is not the one being committed (React threw one away), the commit runs the committed `select` again and asks
+  one more render. With `deps`, `select` runs only when a dep changes or a source is written (a slot the committed render
+  read stamped since its last run counts, so a render before the flush still shows the write); `[]` is the static case, and a `select` defined outside the
+  component without `deps` is memoised on its identity. A flush only bumps a version and tells React, and `select`
+  runs in that render. Results are never compared, because an in-place write keeps the entity's reference.
+- Mounting, and a render that read other slots than the last committed one, cost one render. The render token keeps
+  the clock reading (`revision`, `epoch`, `unheldSlotWriteCount`) taken before `select`; after the subscription or that
+  commit, one more render is asked only if a slot it read was stamped after it, `unheldSlotWriteCount` moved, or a
+  released slot was recovered. The commit runs in an insertion effect (before any layout effect of the commit) and
+  asks its render from a layout effect once subscribed. On a released slot or computed the commit runs `select` again into its own tracker and
+  subscribes in the same step, so `getSlotByKey` inside `select` mints a fresh slot held before a flush can release
+  it, and one render shows it. If that run still reads a newly released slot (taken outside `select`) or throws, the
+  render's sources minus the released ones are kept (a released computed gives way to its live roots, live computeds stay) and one render
+  is asked; a second failed retry in a row asks nothing, so a flush during every render settles. A re-render over the same slots costs nothing more. `deps` are passed always or never, with the same length.
+- The shorthands pass their aggregate and key as `deps`.
 - An error in `select` reaches the error boundary. A slot filed on another `OIMDB` than the provider's throws, naming
   `useOIMSelector`.
 - A list selects member keys (`Array.from(bucket.getBucketMemberSlots(), member => member.key)`), and each row
@@ -3664,11 +3678,14 @@ See `packages/react/README.md`.
 `{ exodraPlugin: () => plugin }`. `resolveOIMExodraPlugin(c)` = `c.inject(OIM_EXODRA_PLUGIN_CONTEXT_TOKEN) ?? c.exodraPlugin`,
 throws when neither; a second db is a second plugin built once and provided above a subtree.
 `withOIMEffects(machine, effect => { effect((c, db) => …); })`: each body is a tracked `db.createEffect` bound to the node.
-`withOIMBucketList(machine, { selectChildList, memberMachine, selectBucketSlot: (c, db) => bucketSlot })`: applies
-`OIMBucketCommandsCursor` commands to an Exodra child list (give the bucket a `bucketCommands` recorder, or every change
-is a `reset`); a `reset` detaches all and reattaches each member's own node; the bucket is selected in a tracked
-effect; a node that leaves is parked in its slot's claimed cell (its own effects stopped) and unmounted when the slot
-is released or the list goes. See `packages/exodra/README.md`.
+`withOIMBucketChildren(machine, { childrenPort, memberMachine, selectBucketSlot: (params) => bucketSlot })`: an Exodra
+`withExoParamsEffects` effect keyed by `selectBucketSlot(params)` that applies `OIMBucketCommandsCursor` commands to
+`c.portChildList(childrenPort)` (give the bucket a `bucketCommands` recorder, or every change is a `reset`); a
+`wireExoNode` with another bucket restarts it, so whoever wires the node (e.g. a parent's tracked effect) picks the
+bucket; a `reset` detaches all and reattaches each member's own node; a node that leaves is parked in its slot's
+claimed cell (its own effects stopped), kept across bucket switches, and destroyed when the slot is released or the
+node's effects stop.
+Needs `@exodra/core`/`@exodra/dom` ^0.4.1. See `packages/exodra/README.md`.
 
 What each imports from `@oimdb/core`, read out of `src/`. The source moves —
 re-read the imports rather than trusting this table.
@@ -3928,7 +3945,7 @@ when a second persistor attaches, so construct one scheduler per persistor.
   the channel runs anyway.
 
 **The pairing is a rule.** A write to an entity slot that nobody holds causes no frame
-(`OIMChannelService.INSTANCE.writeWithoutFlushCheck` returns at once when `holdCount` is `0`), so a
+(`OIMChannelService.INSTANCE.writeWithoutFlushCheck` only counts it in `clock.unheldSlotWriteCount` when `holdCount` is `0`), so a
 collection source on the frame scheduler can report changes that no frame ever
 drains. Pair `OIMPersistCollectionWriteRecordSource` and
 `OIMPersistCollectionChangeWriteRecordSource` with

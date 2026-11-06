@@ -253,7 +253,7 @@ while started and drains after a frame only when a drain was requested since the
 never asks the channel for a frame: it drains only after a frame the channel runs anyway.
 
 The pairing in the table is a rule. A write to an entity slot that nobody holds causes no frame
-(`OIMChannel.writeWithoutFlushCheck` returns at once when the slot's `holdCount` is `0`), so a
+(`OIMChannelService.INSTANCE.writeWithoutFlushCheck` only counts it in `clock.unheldSlotWriteCount` when the slot's `holdCount` is `0`), so a
 collection source on the frame scheduler can report changes that no frame ever
 drains: pair it with the microtask scheduler. The bucket and single-entity sources report from
 effects, which cause the frames they run in: pair them with the frame scheduler. A persistor has

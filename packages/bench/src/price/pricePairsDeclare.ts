@@ -32,7 +32,7 @@ const handWrittenDatabase = (): object => {
     };
     const errorPolicy: { onError: ((error: unknown) => void) | undefined } = { onError: undefined };
     const pendingEffects: { isPending: boolean }[] = [];
-    const clock = { revision: 0, epoch: 0 };
+    const clock = { revision: 0, epoch: 0, unheldSlotWriteCount: 0 };
     const subframeCloseCallbacks = new Set<() => void>();
     const afterEachFlush = new Set<() => void>();
     const afterEachFrameBuffer: ((() => void) | undefined)[] = [];

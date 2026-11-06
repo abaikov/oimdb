@@ -53,27 +53,56 @@ own entity.
 ## The hook
 
 ```ts signature
-function useOIMSelector<TValue, TDB extends OIMDB = OIMDB>(select: (db: TDB) => TValue): TValue;
-useOIMSelector.withTypes<TDB extends OIMDB>(): <TValue>(select: (db: TDB) => TValue) => TValue;
+function useOIMSelector<TValue, TDB extends OIMDB = OIMDB>(select: (db: TDB) => TValue, deps?: DependencyList): TValue;
+useOIMSelector.withTypes<TDB extends OIMDB>(): <TValue>(select: (db: TDB) => TValue, deps?: DependencyList) => TValue;
 ```
 
 - **`select` is called with the provider's database.** `useOIMSelector.withTypes<typeof db>()` types that
   database once, so `db.schemas` needs no cast. It is the same hook, the way `useOIMDB.withTypes` is.
 - **The component re-renders when a tracked source changes.** Results are never compared. Under the default in-place
   entity writer, a written entity keeps its object reference, so a comparison would freeze the component.
-- **`select` runs once per change.** The render runs it while tracking what it reads. The commit hands those sources
-  to the subscription (`OIMEffectService.subscribeEffectToTrackedSources`). A flush only tells React to render.
-- **Props are just closure.** When a key from props moves, the commit moves the subscription to the slot that key
-  names, and the slot it left stops waking the component.
-- **A write between render and commit is still shown.** The first subscription costs one extra render. When the
-  sources move, or one of them was written after the render, the commit asks for one more render.
-- **An error in `select` goes to the error boundary**, because `select` only runs during render.
+- **Without `deps`, `select` runs on every render**, the way the Redux selector hook does, so props are just closure.
+  The render tracks into one tracker the component keeps, and compares what it read with what the last commit
+  subscribed to. When the sources are the same, the commit does nothing.
+- **With `deps`, `select` runs only when a dep changes or a source it read is written.** A parent re-render with
+  the same deps returns the value from the last run, unless a slot the committed render read was stamped since that
+  run: a render that comes before the flush still shows the write. `[]` is the static case: `select` runs on mount and on writes.
+  A `select` defined outside the component, passed without `deps`, is treated the same way: React sees the same
+  function and does not run it again. Lint `deps` by listing `useOIMSelector` among the
+  additional hooks of the `react-hooks/exhaustive-deps` rule.
+- **A flush only tells React to render.** `select` runs in that render.
+- **When a key moves, the commit moves the subscription** to the slot that key names
+  (`OIMEffectService.subscribeEffectToTrackedSources`), and the slot it left stops waking the component.
+- **Pass `deps` always or never, with the same length**, as with React's own hooks.
+- **A write between render and commit is still shown, and costs a render only when it happened.** The render keeps
+  the clock reading it tracked at (`db.clock.revision`, `epoch`, `unheldSlotWriteCount`). After the subscription, or
+  after a commit that read other slots (a key moved), it asks for one more render only if a slot it read was stamped
+  after that reading, a slot nobody held was written anywhere in the db (`unheldSlotWriteCount` moved), or a released
+  slot was recovered. Otherwise mounting and a key move cost one render each.
+- **The commit runs in an insertion effect**, before every layout effect of the same commit, so a flush in a layout
+  effect cannot release a slot the commit already holds. A render it asks for after the subscription is scheduled from
+  a layout effect; before the subscription it is a version bump that the subscription picks up.
+- **A released slot is retried, and never loops.** When the subscription or a commit finds a slot or computed it
+  read released (a flush ran between render and commit), it runs `select` again at once, into its own tracker, and
+  subscribes to what that read in the same step: `getSlotByKey` inside `select` mints a fresh slot, held before any
+  flush can release it, and one more render shows it. If that run still reads a newly released slot (one taken
+  outside `select`) or throws, the component keeps the sources the render read, minus the released ones (a released
+  computed gives way to its live root slots, live computeds stay), and asks one render, so a component body that took the slot mints a
+  fresh one. A second failed retry in a row asks nothing, so a flush that runs during every render (before its commit) settles
+  instead of looping.
+- **A render React threw away does not leak into the subscription.** If the commit or the subscription finds that the
+  last tracked render is not the committed one, it runs the committed `select` again, outside render, to learn its
+  sources, and asks one more render, since a `select` that read anything besides the db may now return another
+  value. React 19 StrictMode keeps the first of its two memo calls, so in development it happens on every mount and
+  move.
+- **An error in `select` goes to the error boundary**: from the render, or from the commit when it runs `select` again.
 - **One selector reads one database**: the provider's. A slot filed on another `OIMDB` is refused with an error that
   names `useOIMSelector`. Without that refusal a write to it would never wake the component.
 
 ## Shorthand hooks
 
-Each one is a single `useOIMSelector` call. It takes the aggregate you hold and is named for what it returns:
+Each one is a single `useOIMSelector` call that passes the aggregate and the key as `deps`, so a parent re-render
+with the same ones runs nothing. It takes the aggregate you hold and is named for what it returns:
 
 | Hook | Is |
 |---|---|

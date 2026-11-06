@@ -34,7 +34,7 @@ describe('what resolves the exodra plugin', () => {
 });
 
 describe('what disposing the exodra plugin stops', () => {
-    it('leaves a parked node alone once disposed, where before it unmounted it on release', () => {
+    it('leaves a parked node alone once disposed, where before it destroyed it on release', () => {
         const releasedWith = (dispose: boolean): number => {
             const db = new OIMDB();
             const todos = createOIMEntitySlotCollectionStoreAggregate<{ id: string }>(db);
@@ -42,13 +42,13 @@ describe('what disposing the exodra plugin stops', () => {
             db.flush();
             const exodraPlugin = new OIMExodraPlugin({ db });
             const todoSlot = todos.getSlotByKey('1');
-            let unmounts = 0;
+            let destroys = 0;
             todoSlot.data = [];
-            todoSlot.data[exodraPlugin.slotDataCell] = { parkedSlots: new Set([todoSlot]), node: { unmount: () => { unmounts++; } } };
+            todoSlot.data[exodraPlugin.slotDataCell] = { parkedSlots: new Set([todoSlot]), node: { destroyExoSelf: () => { destroys++; } } };
             if (dispose) exodraPlugin.dispose();
             todoSlot.clearSlotContent();
             db.flush();
-            return unmounts;
+            return destroys;
         };
 
         expect(releasedWith(false)).toBe(1);

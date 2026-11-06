@@ -1,4 +1,4 @@
-import { disconnectExoNode } from '@exodra/core';
+import { destroyExoNode, disconnectExoNode } from '@exodra/core';
 import type { IOIMSlotReleaseListener, OIMDB, TOIMDisposer, TOIMSlot } from '@oimdb/core';
 import type { TOIMExodraNode } from './types/TOIMExodraNode';
 import type { TOIMExodraParkedNode } from './types/TOIMExodraParkedNode';
@@ -21,7 +21,7 @@ export class OIMExodraPlugin implements IOIMSlotReleaseListener {
         const data = (slot.data ??= []);
         const parkedNode = data[this.slotDataCell] as TOIMExodraParkedNode | undefined;
         if (parkedNode !== undefined) {
-            node.unmount();
+            destroyExoNode(node);
             return;
         }
         data[this.slotDataCell] = { parkedSlots, node } satisfies TOIMExodraParkedNode;
@@ -39,8 +39,13 @@ export class OIMExodraPlugin implements IOIMSlotReleaseListener {
         return parkedNode.node;
     }
 
+    public destroyParkedNode(parkedSlots: Set<TOIMSlot> | undefined, slot: TOIMSlot): void {
+        const parkedNode = this.unparkNode(parkedSlots, slot);
+        if (parkedNode !== undefined) destroyExoNode(parkedNode);
+    }
+
     public onSlotReleased(slot: TOIMSlot): void {
-        this.unparkNode(undefined, slot)?.unmount();
+        this.destroyParkedNode(undefined, slot);
     }
 
     public dispose(): void {

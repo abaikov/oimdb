@@ -300,8 +300,8 @@ clock and error policy it takes, with no marker on the slot, handing its listene
 `writeWithoutFlushCheck`. The content services call `writeWithoutFlushCheck` directly, after their own
 `assertWritable`. The door:
 
-1. returns at once when `slot.holdCount` is 0, since no effect is filed on, and no
-   computed reads, a slot nobody holds;
+1. when `slot.holdCount` is 0, adds one to `clock.unheldSlotWriteCount` (wrapping to `0` at 2^30) and returns,
+   since no effect is filed on, and no computed reads, a slot nobody holds;
 2. advances `clock.revision`. An epoch holds `OIM_REVISIONS_PER_EPOCH` (2^30)
    revisions, `0` through `2^30 − 1`, so the counter stays a small integer under
    V8 pointer compression; the write after the last one starts the next epoch
