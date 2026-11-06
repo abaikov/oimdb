@@ -3,6 +3,12 @@
 All notable changes to `@oimdb/persist` are recorded here. This file starts at 4.1.0; releases
 before it were not changelogged.
 
+## 4.3.2
+
+### Changed
+
+- README: an unheld entity write is counted in `clock.unheldSlotWriteCount` (`@oimdb/core` 4.14).
+
 ## 4.3.1
 
 ### Changed
